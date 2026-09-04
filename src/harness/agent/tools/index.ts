@@ -17,6 +17,11 @@ export const queryClassLearning: ToolDef = {
   label: '学情查询',
   description: '按班级查询成绩均分、作业完成率、课堂专注度与薄弱知识点',
   roles: ['teacher', 'schoolAdmin'],
+  parameters: {
+    type: 'object',
+    properties: { className: { type: 'string', description: '班级名称，如「高一（3）班」' } },
+    required: ['className'],
+  },
   async run(args) {
     const kw = String(args.className ?? args.keyword ?? '高一（3）班')
     const c = findClassLearning(kw) ?? CLASS_LEARNING[0]
@@ -34,6 +39,7 @@ export const querySchoolStats: ToolDef = {
   label: '校情统计',
   description: '查询学校规模、教学质量预警与教师队伍概况',
   roles: ['schoolAdmin'],
+  parameters: { type: 'object', properties: {} },
   async run() {
     const s = SCHOOLS[0]
     return {
@@ -49,6 +55,7 @@ export const queryRegionData: ToolDef = {
   label: '区域数据',
   description: '查询区域教学质量指数、覆盖率、师资达标率等核心指标',
   roles: ['bureau'],
+  parameters: { type: 'object', properties: {} },
   async run() {
     return {
       summary: `区域综合指数 ${REGION_METRICS[0].value}（环比 +${REGION_METRICS[0].trend}%），AI 分析覆盖率 ${REGION_METRICS[1].value}`,
@@ -63,6 +70,11 @@ export const searchPolicy: ToolDef = {
   label: '政策检索',
   description: '检索教育政策文件标题、发文单位与要点摘要',
   roles: ['bureau', 'schoolAdmin'],
+  parameters: {
+    type: 'object',
+    properties: { keyword: { type: 'string', description: '检索关键词，如「减负」「人工智能」' } },
+    required: ['keyword'],
+  },
   async run(args) {
     const kw = String(args.keyword ?? '')
     const hits = kw
@@ -83,6 +95,11 @@ export const genLessonPlan: ToolDef = {
   label: '生成教案',
   description: '按课题生成教案骨架：目标、重难点、教学过程环节',
   roles: ['teacher'],
+  parameters: {
+    type: 'object',
+    properties: { topic: { type: 'string', description: '课题名称，如「摩擦力」' } },
+    required: ['topic'],
+  },
   async run(args) {
     const topic = String(args.topic ?? '新授课')
     return {
@@ -98,6 +115,14 @@ export const genQuiz: ToolDef = {
   label: '命制试题',
   description: '按知识点与难度生成试题组（选择/填空/解答）',
   roles: ['teacher'],
+  parameters: {
+    type: 'object',
+    properties: {
+      knowledgePoint: { type: 'string', description: '知识点，如「函数单调性判定」' },
+      difficulty: { type: 'string', description: '难度描述，可选' },
+    },
+    required: ['knowledgePoint'],
+  },
   async run(args) {
     const point = String(args.knowledgePoint ?? '综合')
     return {
@@ -113,6 +138,11 @@ export const draftNotice: ToolDef = {
   label: '起草通知',
   description: '按事项起草行政通知/会议纪要文稿',
   roles: ['schoolAdmin', 'bureau'],
+  parameters: {
+    type: 'object',
+    properties: { matter: { type: 'string', description: '通知事项，如「学生体质健康专项督导」' } },
+    required: ['matter'],
+  },
   async run(args) {
     const matter = String(args.matter ?? '工作事项')
     return {
@@ -128,6 +158,10 @@ export const analyzeClass: ToolDef = {
   label: '评课分析',
   description: '对课堂录像分析结果进行五维评课（规范性/互动性/创新性等）',
   roles: ['teacher', 'schoolAdmin'],
+  parameters: {
+    type: 'object',
+    properties: { teacher: { type: 'string', description: '教师姓名，可选，默认最近被评课教师' } },
+  },
   async run(args) {
     const teacher = String(args.teacher ?? '李建国')
     const t = TEACHERS.find((x) => x.name === teacher) ?? TEACHERS[0]

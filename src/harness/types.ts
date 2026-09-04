@@ -8,13 +8,37 @@ export interface ChatMessage {
   role: 'system' | 'user' | 'assistant' | 'tool'
   content: string
   toolCallId?: string
+  /** assistant 消息携带的 tool_calls（OpenAI 兼容透传，Orchestrator 多轮回填用） */
+  toolCalls?: { id: string; name: string; arguments: string }[]
 }
 
 /* ---------- LLM ---------- */
 
+/** 流式原始增量（OpenAI 兼容 delta 归一化结果），供 Orchestrator 消费 tool_calls 分片 */
+export interface LLMDelta {
+  content?: string
+  /** 思考过程（reasoning_content / reasoning），仅展示用 */
+  reasoning?: string
+  /** tool_calls 流式分片：index 对齐累积，arguments 为分片拼接 */
+  toolCalls?: { index: number; id?: string; name?: string; argumentsFragment: string }[]
+  finishReason?: string
+}
+
 export interface LLMProvider {
   /** 流式对话，逐块产出文本 */
   streamChat(messages: ChatMessage[], signal?: AbortSignal): AsyncGenerator<string>
+  /** 流式原始增量（含 tool_calls 分片）；未实现时视为该 provider 不支持 function-calling */
+  streamChatRaw?(messages: ChatMessage[], signal?: AbortSignal): AsyncGenerator<LLMDelta>
+}
+
+/** LLM 调用错误：携带 HTTP 状态码，供回退策略判断 */
+export class LLMError extends Error {
+  status?: number
+  constructor(message: string, status?: number) {
+    super(message)
+    this.name = 'LLMError'
+    this.status = status
+  }
 }
 
 /* ---------- 今日简报卡片 ---------- */
@@ -56,6 +80,7 @@ export type AgentTraceEvent =
   | { kind: 'reflect'; text: string }
   | { kind: 'artifact_meta'; artifactId: string; title: string; docKind: string }
   | { kind: 'artifact_chunk'; artifactId: string; chunk: string }
+  | { kind: 'artifact_done'; artifactId: string; title: string; docKind: string }
   | { kind: 'text'; text: string }
   | { kind: 'done'; text: string }
 
@@ -114,5 +139,7 @@ export interface ToolDef {
   label: string
   description: string
   roles: RoleId[]
+  /** 参数 JSON Schema（function-calling 映射用；缺省视为无参对象） */
+  parameters?: { type: 'object'; properties: Record<string, unknown>; required?: string[] }
   run(args: Record<string, unknown>): Promise<ToolResult>
 }

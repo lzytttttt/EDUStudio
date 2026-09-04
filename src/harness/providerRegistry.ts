@@ -1,18 +1,57 @@
-import type { ProviderMode } from './types'
-import { getLLMProvider } from './llm'
+import type { AgentProvider, BriefingProvider, ArtifactProvider, LLMProvider, ProviderMode } from './types'
+import { getLLMProvider, type DeepSeekConfig } from './llm'
 import { getAgentProvider } from './agent'
 import { getBriefingProvider } from './briefing'
 import { getArtifactProvider } from './artifacts'
+import { useSettingsStore } from '../stores/settingsStore'
+
+export { ACTIVE_MODE } from './defaults'
+
+export interface Providers {
+  llm: LLMProvider
+  agent: AgentProvider
+  briefing: BriefingProvider
+  artifacts: ArtifactProvider
+}
 
 /**
- * 统一注册中心：切换 ACTIVE_MODE 即可在 Mock 与真实 API 间整体切换，
- * 业务代码只依赖 harness/types 契约，零改动。
+ * 统一注册中心（v0.2 起运行时切换）：
+ * getProviders() 按 settingsStore 当前配置惰性构建并缓存 providers；
+ * 配置（mode/baseUrl/model/apiKey/proxyUrl）任一变化 → 缓存自动失效重建。
+ * 业务代码只依赖 harness/types 契约，Mock ↔ API 切换零业务改动。
  */
-export const ACTIVE_MODE: ProviderMode = 'mock'
+let cached: { key: string; providers: Providers } | null = null
 
-export const providers = {
-  llm: getLLMProvider(ACTIVE_MODE),
-  agent: getAgentProvider(ACTIVE_MODE),
-  briefing: getBriefingProvider(ACTIVE_MODE),
-  artifacts: getArtifactProvider(ACTIVE_MODE),
+function buildProviders(s: {
+  mode: ProviderMode
+  baseUrl: string
+  model: string
+  apiKey: string
+  proxyUrl: string
+}): Providers {
+  const config: DeepSeekConfig = {
+    baseUrl: s.baseUrl,
+    apiKey: s.apiKey,
+    model: s.model,
+    proxyUrl: s.proxyUrl || undefined,
+  }
+  return {
+    llm: getLLMProvider(s.mode, 'teacher', config),
+    agent: getAgentProvider(s.mode, config),
+    briefing: getBriefingProvider(s.mode),
+    artifacts: getArtifactProvider(s.mode, config),
+  }
+}
+
+export function getProviders(): Providers {
+  const s = useSettingsStore.getState()
+  const key = `${s.mode}|${s.baseUrl}|${s.model}|${s.apiKey}|${s.proxyUrl}`
+  if (cached?.key === key) return cached.providers
+  cached = { key, providers: buildProviders(s) }
+  return cached.providers
+}
+
+/** 手动失效缓存（一般无需调用：getProviders 的 key 已含全部配置） */
+export function invalidateProviders(): void {
+  cached = null
 }

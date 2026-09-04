@@ -10,6 +10,11 @@
 | [v0.2-roadmap.md](./v0.2-roadmap.md) | — | v0.2 路线图总览：里程碑、优先级、依赖图、包体预算 |
 | [v0.2-01-deepseek-adapter.md](./v0.2-01-deepseek-adapter.md) | P0 | DeepSeek 真实接入：SSE 解析、function-calling 编排、运行时切换 |
 | [v0.2-02-proxy.md](./v0.2-02-proxy.md) | P0 | 轻后端代理：Workers / Express 双方案、限额与审计 |
+| [v0.3-roadmap.md](./v0.3-roadmap.md) | — | v0.3 路线图总览：角色深化、Artifact 增强、个性化、质量保障 |
+| [v0.3-01-role-deepening.md](./v0.3-01-role-deepening.md) | P1 | 角色深化：试题编辑器、预警看板、区域指标看板 |
+| [v0.3-02-artifact-enhancement.md](./v0.3-02-artifact-enhancement.md) | P1 | Artifact 增强：全格式导出、版本历史、模板库 |
+| [v0.3-03-personalization.md](./v0.3-03-personalization.md) | P2 | 记忆与个性化：偏好注入 system prompt、快捷指令自定义 |
+| [v0.3-04-quality.md](./v0.3-04-quality.md) | P2 | 质量保障：harness 契约单测 + 关键流程 E2E 进 CI |
 
 ## 文档规范
 
@@ -20,4 +25,5 @@
 ## 版本约定
 
 - v0.1（已交付）：Mock 全流程工作台（登录 → 今日简报 → 三栏工作台）
-- v0.2（规划中）：DeepSeek 真实接入 + 轻后端代理（M1），角色深化 + Artifact 增强（M2），个性化 + 质量护栏（M3）
+- v0.2（已交付）：DeepSeek 真实接入 + 轻后端代理（M1）；角色深化 + Artifact 增强（M2）与个性化 + 质量护栏（M3）顺延至 v0.3
+- v0.3（规划中）：角色深化 + Artifact 增强（M1），记忆与个性化 + 质量保障（M2）

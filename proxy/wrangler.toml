@@ -1,0 +1,21 @@
+name = "edustudio-proxy"
+main = "worker.js"
+compatibility_date = "2026-01-01"
+
+[vars]
+UPSTREAM = "https://api.deepseek.com/v1"
+# 生产环境建议配置前端域名白名单（逗号分隔）：
+# ALLOWED_ORIGINS = "https://your-frontend.example.com"
+# 可选机构统一 token：
+# EDU_TOKEN = ""
+
+# KV 命名空间（先执行：
+#   wrangler kv namespace create EDU_RATE_KV
+#   wrangler kv namespace create EDU_AUDIT_KV
+# 再把返回的 id 填到下面并取消注释）
+# [[kv_namespaces]]
+# binding = "EDU_RATE_KV"
+# id = "<EDU_RATE_KV_ID>"
+# [[kv_namespaces]]
+# binding = "EDU_AUDIT_KV"
+# id = "<EDU_AUDIT_KV_ID>"

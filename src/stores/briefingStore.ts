@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type { BriefingCard, RoleId } from '../harness/types'
-import { providers } from '../harness/providerRegistry'
+import { getProviders } from '../harness/providerRegistry'
 import { loadJSON, saveJSON } from '../lib/storage'
 
 export type CardDecision = 'skip' | 'fav' | 'accept'
@@ -30,7 +30,7 @@ export const useBriefingStore = create<BriefingState>((set, get) => ({
   favorites: persisted.favorites,
   processed: 0,
   loadDeck: (role) => {
-    const deck = providers.briefing.getDeck(role)
+    const deck = getProviders().briefing.getDeck(role)
     set({ cards: deck, processed: 0 })
   },
   decide: (cardId, decision) => {

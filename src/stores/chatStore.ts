@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type { AgentTraceEvent, ChatMessage, RoleId } from '../harness/types'
-import { providers } from '../harness/providerRegistry'
+import { getProviders } from '../harness/providerRegistry'
 import { useAuthStore } from './authStore'
 import { useArtifactStore } from './artifactStore'
 import { loadJSON, saveJSON } from '../lib/storage'
@@ -164,6 +164,10 @@ export const useChatStore = create<ChatState>((set, get) => {
             artifactStore.appendChunk(e.artifactId, e.chunk)
             return
           }
+          case 'artifact_done': {
+            artifactStore.finalize(e.artifactId, e.title, e.docKind as never)
+            return
+          }
         }
       }
 
@@ -173,10 +177,17 @@ export const useChatStore = create<ChatState>((set, get) => {
         .map((x) => ({ role: x.role === 'user' ? 'user' : 'assistant', content: x.content }))
 
       try {
-        await providers.agent.runTask({ role, goal: trimmed, history, signal }, (e) => enqueue(() => handleEvent(e)))
+        await getProviders().agent.runTask({ role, goal: trimmed, history, signal }, (e) => enqueue(() => handleEvent(e)))
         await queue
       } catch (err) {
         console.error('[chat] runTask failed:', err)
+        // 连续失败达上限（FallbackAgent 抛出）：向用户给出可感知的错误反馈
+        const cur = get().sessions.find((s) => s.id === sessionId)?.entries.find((x) => x.id === entryId)
+        if (!cur?.content) {
+          patchEntry(sessionId, entryId, {
+            content: `任务执行失败：${((err as Error)?.message ?? '未知错误').slice(0, 120)}。请检查设置页的模型配置后重试，或切换 Mock 模式。`,
+          })
+        }
       } finally {
         patchEntry(sessionId, entryId, { streaming: false })
         set({ streaming: false })

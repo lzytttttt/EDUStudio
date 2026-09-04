@@ -56,7 +56,7 @@ Vite 5 · React 18 · TypeScript 5 · Tailwind CSS 3 · Zustand · lucide-react 
 
 ---
 
-v0.1 · Mock 剧本驱动 · 架构模式参考 EduOS-95（仅借鉴模式，未复用代码）
+v0.2 · DeepSeek 适配器 + 代理 + Agent 增强 · 架构模式参考 EduOS-95（仅借鉴模式，未复用代码）
 
 ## 许可协议
 
