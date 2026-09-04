@@ -57,3 +57,12 @@ Vite 5 · React 18 · TypeScript 5 · Tailwind CSS 3 · Zustand · lucide-react 
 ---
 
 v0.1 · Mock 剧本驱动 · 架构模式参考 EduOS-95（仅借鉴模式，未复用代码）
+
+## 许可协议
+
+本项目采用 [Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)](./LICENSE) 协议发布。
+
+- **署名（BY）**：使用时须注明出处。
+- **非商业性使用（NC）**：不得用于商业目的。
+
+详见 [LICENSE](./LICENSE) 文件。
