@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  Sparkles, Plus, MessageSquare, Star, Trash2, Settings, ChevronRight, ChevronLeft, FileText,
+  Sparkles, Plus, MessageSquare, Star, Trash2, Settings, ChevronRight, ChevronLeft, FileText, CircleHelp,
 } from 'lucide-react'
 import { useAuthStore } from '../stores/authStore'
 import { useChatStore } from '../stores/chatStore'
@@ -9,6 +9,7 @@ import { useArtifactStore } from '../stores/artifactStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { getRolePreset } from '../harness/roles'
 import SettingsDialog from '../components/SettingsDialog'
+import GuideDialog from '../components/GuideDialog'
 import { cn } from '../lib/cn'
 
 const ROLE_BADGE = { teacher: 'bg-mint-soft text-mint', schoolAdmin: 'bg-primary-soft text-primary', bureau: 'bg-coral-soft text-coral' } as const
@@ -24,6 +25,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const setActiveDoc = useArtifactStore((s) => s.setActive)
   const mode = useSettingsStore((s) => s.mode)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [guideOpen, setGuideOpen] = useState(false)
   const [tab, setTab] = useState<'tasks' | 'fav' | 'docs'>('tasks')
 
   const preset = role ? getRolePreset(role) : null
@@ -45,13 +47,23 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
             <p className="text-[10px] text-ink-mute">{mode === 'mock' ? 'Mock 演示模式' : 'API 模式'}</p>
           </div>
         </button>
-        <button
-          onClick={() => setSettingsOpen(true)}
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-mute transition-colors hover:bg-surface-2 hover:text-ink"
-          aria-label="设置"
-        >
-          <Settings size={16} />
-        </button>
+        <div className="flex items-center gap-0.5">
+          <button
+            onClick={() => setGuideOpen(true)}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-mute transition-colors hover:bg-surface-2 hover:text-ink"
+            aria-label="使用指南"
+            title="使用指南"
+          >
+            <CircleHelp size={16} />
+          </button>
+          <button
+            onClick={() => setSettingsOpen(true)}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-mute transition-colors hover:bg-surface-2 hover:text-ink"
+            aria-label="设置"
+          >
+            <Settings size={16} />
+          </button>
+        </div>
       </div>
 
       {/* 新建任务 */}
@@ -196,7 +208,8 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         </div>
       </div>
 
-      <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
+      {guideOpen && <GuideDialog stage="workbench" onClose={() => setGuideOpen(false)} />}
     </div>
   )
 }

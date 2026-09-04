@@ -15,6 +15,8 @@
 | [v0.3-02-artifact-enhancement.md](./v0.3-02-artifact-enhancement.md) | P1 | Artifact 增强：全格式导出、版本历史、模板库 |
 | [v0.3-03-personalization.md](./v0.3-03-personalization.md) | P2 | 记忆与个性化：偏好注入 system prompt、快捷指令自定义 |
 | [v0.3-04-quality.md](./v0.3-04-quality.md) | P2 | 质量保障：harness 契约单测 + 关键流程 E2E 进 CI |
+| [v0.3-05-ui-ux.md](./v0.3-05-ui-ux.md) | P1 | UI 与交互优化：字号调节、操作说明引导、移动端优化（追加专项） |
+| [v0.4-roadmap.md](./v0.4-roadmap.md) | — | v0.4 路线图总览：Agent 多轮循环、协作分享、E2E/CI、性能治理 |
 
 ## 文档规范
 
@@ -26,4 +28,5 @@
 
 - v0.1（已交付）：Mock 全流程工作台（登录 → 今日简报 → 三栏工作台）
 - v0.2（已交付）：DeepSeek 真实接入 + 轻后端代理（M1）；角色深化 + Artifact 增强（M2）与个性化 + 质量护栏（M3）顺延至 v0.3
-- v0.3（规划中）：角色深化 + Artifact 增强（M1），记忆与个性化 + 质量保障（M2）
+- v0.3（已交付）：角色深化 + Artifact 增强（M1），记忆与个性化 + 质量保障（M2），UI/交互优化（追加专项：字号调节 / 操作说明 / 移动端）
+- v0.4（规划中）：见 [v0.4-roadmap.md](./v0.4-roadmap.md)

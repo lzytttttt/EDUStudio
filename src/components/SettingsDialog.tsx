@@ -1,210 +1,236 @@
 import { useState } from 'react'
-import { X, Server, ShieldCheck, Trash2, PlugZap, Eye, EyeOff, Loader2, TriangleAlert } from 'lucide-react'
-import { useSettingsStore, maskKey, type LLMSettings } from '../stores/settingsStore'
-import { testLLMConnection } from '../harness/llm/adapter'
+import { X, Eye, EyeOff, RotateCcw, Trash2, User, Type } from 'lucide-react'
+import { useSettingsStore, maskKey, clampPref, PREF_MAX_LEN, type FontSize } from '../stores/settingsStore'
 import { cn } from '../lib/cn'
 
-type TestState = { status: 'idle' | 'testing' | 'ok' | 'fail'; message: string }
+const FONT_OPTIONS: { value: FontSize; label: string; sample: string }[] = [
+  { value: 'small', label: '小', sample: 'A' },
+  { value: 'medium', label: '标准', sample: 'A' },
+  { value: 'large', label: '大', sample: 'A' },
+]
 
-export default function SettingsDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const settings = useSettingsStore()
-  const { update, clearAllData } = settings
-  const [draft, setDraft] = useState<LLMSettings>(() => ({
-    mode: settings.mode,
-    baseUrl: settings.baseUrl,
-    model: settings.model,
-    apiKey: settings.apiKey,
-    proxyUrl: settings.proxyUrl,
-  }))
+const FONT_SAMPLE_SIZE: Record<FontSize, string> = { small: 'text-[13px]', medium: 'text-[15px]', large: 'text-[17px]' }
+
+export default function SettingsDialog({ onClose }: { onClose: () => void }) {
+  const s = useSettingsStore()
   const [showKey, setShowKey] = useState(false)
-  const [test, setTest] = useState<TestState>({ status: 'idle', message: '' })
-  const [saved, setSaved] = useState(false)
+  const [confirmClear, setConfirmClear] = useState(false)
 
-  if (!open) return null
-
-  const set = (patch: Partial<LLMSettings>) => {
-    setDraft((d) => ({ ...d, ...patch }))
-    setSaved(false)
-  }
-
-  const save = () => {
-    update(draft)
-    setSaved(true)
-  }
-
-  const runTest = async () => {
-    setTest({ status: 'testing', message: '' })
-    const r = await testLLMConnection({
-      baseUrl: draft.baseUrl,
-      model: draft.model,
-      apiKey: draft.apiKey,
-      proxyUrl: draft.proxyUrl || undefined,
-    })
-    setTest({ status: r.ok ? 'ok' : 'fail', message: r.message })
-  }
-
-  const usingProxy = Boolean(draft.proxyUrl.trim())
+  const pref = s.preferences
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-ink/30 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative max-h-[88vh] w-full max-w-md animate-fade-up overflow-y-auto rounded-3xl border border-line bg-surface p-6 shadow-pop">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold">设置</h2>
-          <button
-            onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-mute hover:bg-surface-2"
-            aria-label="关闭设置"
-          >
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className="animate-fade-up max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-3xl border border-line bg-surface p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-5 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-ink">设置</h2>
+          <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-xl text-ink-mute transition-colors hover:bg-surface-2 hover:text-ink" aria-label="关闭">
             <X size={16} />
           </button>
         </div>
 
-        {/* 模式（点击即切换，运行时生效） */}
-        <div className="mt-5">
-          <p className="text-xs font-semibold text-ink-soft">Harness 模式</p>
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            <button
-              onClick={() => set({ mode: 'mock' })}
-              className={cn(
-                'rounded-2xl border p-3.5 text-left transition-colors',
-                draft.mode === 'mock' ? 'border-primary bg-primary-soft' : 'border-line bg-surface-2 opacity-70 hover:opacity-100',
-              )}
-            >
-              <div className="flex items-center gap-2 text-sm font-semibold">
-                <ShieldCheck size={15} className={draft.mode === 'mock' ? 'text-primary' : 'text-ink-mute'} />
-                Mock 剧本
-              </div>
-              <p className="mt-1 text-[11px] leading-relaxed text-ink-soft">
-                {draft.mode === 'mock' ? '当前生效 · 离线可演示' : '离线可演示，零成本'}
-              </p>
-            </button>
-            <button
-              onClick={() => set({ mode: 'api' })}
-              className={cn(
-                'rounded-2xl border p-3.5 text-left transition-colors',
-                draft.mode === 'api' ? 'border-primary bg-primary-soft' : 'border-line bg-surface-2 opacity-70 hover:opacity-100',
-              )}
-            >
-              <div className="flex items-center gap-2 text-sm font-semibold">
-                <Server size={15} className={draft.mode === 'api' ? 'text-primary' : 'text-ink-mute'} />
-                DeepSeek API
-              </div>
-              <p className="mt-1 text-[11px] leading-relaxed text-ink-soft">
-                {draft.mode === 'api' ? '当前生效 · 真实模型' : '真实模型，失败自动回退 Mock'}
-              </p>
-            </button>
+        {/* ── 偏好画像（注入 system prompt，API 模式生效） ── */}
+        <section className="mb-6">
+          <div className="mb-3 flex items-center gap-2">
+            <User size={14} className="text-primary" />
+            <h3 className="text-sm font-semibold text-ink">偏好画像</h3>
+            <span className="rounded-full bg-primary-soft px-2 py-0.5 text-[10px] text-primary">API 模式生效</span>
           </div>
-        </div>
-
-        {/* API 配置 */}
-        <div className="mt-5 border-t border-line pt-4">
-          <p className="text-xs font-semibold text-ink-soft">模型配置（OpenAI 兼容）</p>
-
-          <label className="mt-3 block text-[11px] font-medium text-ink-soft">
-            代理地址（可选，填入后 key 由代理保管）
-            <input
-              value={draft.proxyUrl}
-              onChange={(e) => set({ proxyUrl: e.target.value })}
-              placeholder="https://your-proxy.example.com/v1"
-              className="mt-1 w-full rounded-xl border border-line bg-surface-2 px-3 py-2 text-xs text-ink outline-none transition-colors placeholder:text-ink-mute focus:border-primary"
-            />
-          </label>
-
-          <label className="mt-3 block text-[11px] font-medium text-ink-soft">
-            API 直连 baseUrl
-            <input
-              value={draft.baseUrl}
-              onChange={(e) => set({ baseUrl: e.target.value })}
-              disabled={usingProxy}
-              placeholder="https://api.deepseek.com/v1"
-              className={cn(
-                'mt-1 w-full rounded-xl border border-line bg-surface-2 px-3 py-2 text-xs text-ink outline-none transition-colors placeholder:text-ink-mute focus:border-primary',
-                usingProxy && 'cursor-not-allowed opacity-50',
-              )}
-            />
-          </label>
-
-          <label className="mt-3 block text-[11px] font-medium text-ink-soft">
-            模型 ID
-            <input
-              value={draft.model}
-              onChange={(e) => set({ model: e.target.value })}
-              disabled={usingProxy}
-              placeholder="deepseek-chat"
-              className={cn(
-                'mt-1 w-full rounded-xl border border-line bg-surface-2 px-3 py-2 text-xs text-ink outline-none transition-colors placeholder:text-ink-mute focus:border-primary',
-                usingProxy && 'cursor-not-allowed opacity-50',
-              )}
-            />
-          </label>
-
-          <label className="mt-3 block text-[11px] font-medium text-ink-soft">
-            API Key {draft.apiKey && <span className="text-ink-mute">（{maskKey(draft.apiKey)}）</span>}
-            <div className="relative mt-1">
-              <input
-                type={showKey ? 'text' : 'password'}
-                value={draft.apiKey}
-                onChange={(e) => set({ apiKey: e.target.value })}
-                disabled={usingProxy}
-                placeholder={usingProxy ? '由代理保管，无需填写' : 'sk-…'}
-                className={cn(
-                  'w-full rounded-xl border border-line bg-surface-2 px-3 py-2 pr-9 text-xs text-ink outline-none transition-colors placeholder:text-ink-mute focus:border-primary',
-                  usingProxy && 'cursor-not-allowed opacity-50',
-                )}
-              />
-              <button
-                onClick={() => setShowKey((v) => !v)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-ink-mute hover:text-ink-soft"
-                aria-label={showKey ? '隐藏 Key' : '显示 Key'}
-                type="button"
-              >
-                {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
-              </button>
-            </div>
-          </label>
-
-          <div className="mt-3 flex items-center gap-2">
-            <button
-              onClick={runTest}
-              disabled={test.status === 'testing'}
-              className="flex items-center gap-1.5 rounded-xl border border-line px-3 py-2 text-xs font-medium text-ink-soft transition-colors hover:border-primary hover:text-primary disabled:opacity-60"
-            >
-              {test.status === 'testing' ? <Loader2 size={13} className="animate-spin" /> : <PlugZap size={13} />}
-              测试连接
-            </button>
-            <button
-              onClick={save}
-              className="flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-xs font-medium text-white shadow-soft transition-all hover:bg-primary-deep active:scale-[0.98]"
-            >
-              保存配置
-            </button>
-            {saved && <span className="text-[11px] text-mint">已保存</span>}
-          </div>
-          {test.status !== 'idle' && test.status !== 'testing' && (
-            <p className={cn('mt-2 text-[11px] leading-relaxed', test.status === 'ok' ? 'text-mint' : 'text-danger')}>
-              {test.status === 'ok' ? '✓ ' : '✗ '}
-              {test.message}
-            </p>
-          )}
-          <p className="mt-2 flex items-start gap-1 text-[11px] leading-relaxed text-ink-mute">
-            <TriangleAlert size={12} className="mt-0.5 shrink-0" />
-            Key 仅存于浏览器 LocalStorage，生产环境请使用代理地址统一保管。
+          <p className="mb-3 text-xs leading-relaxed text-ink-mute">
+            让 AI 记住你的称呼、背景与表达偏好，注入到每次对话的 system prompt（仅存本机，最长 {PREF_MAX_LEN} 字）。
           </p>
-        </div>
+          <div className="space-y-3">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-ink-soft">称呼</label>
+              <input
+                value={pref.nickname}
+                onChange={(e) => s.updatePreferences({ nickname: clampPref(e.target.value) })}
+                maxLength={PREF_MAX_LEN}
+                placeholder="如：张老师"
+                className="w-full rounded-xl border border-line bg-surface-2 px-3 py-2 text-sm text-ink outline-none transition-colors placeholder:text-ink-mute focus:border-primary"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-ink-soft">学段学科背景</label>
+              <input
+                value={pref.stage}
+                onChange={(e) => s.updatePreferences({ stage: clampPref(e.target.value) })}
+                maxLength={PREF_MAX_LEN}
+                placeholder="如：初中物理，带初三毕业班"
+                className="w-full rounded-xl border border-line bg-surface-2 px-3 py-2 text-sm text-ink outline-none transition-colors placeholder:text-ink-mute focus:border-primary"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-ink-soft">表达风格偏好</label>
+              <input
+                value={pref.style}
+                onChange={(e) => s.updatePreferences({ style: clampPref(e.target.value) })}
+                maxLength={PREF_MAX_LEN}
+                placeholder="如：简洁务实，少用套话"
+                className="w-full rounded-xl border border-line bg-surface-2 px-3 py-2 text-sm text-ink outline-none transition-colors placeholder:text-ink-mute focus:border-primary"
+              />
+            </div>
+          </div>
+        </section>
 
-        {/* 数据 */}
-        <div className="mt-5 border-t border-line pt-4">
-          <p className="text-xs font-semibold text-ink-soft">本地数据</p>
-          <p className="mt-1 text-[11px] text-ink-mute">会话、收藏、文档均存储于浏览器 LocalStorage（edustudio: 前缀）</p>
-          <button
-            onClick={clearAllData}
-            className="mt-3 flex items-center gap-2 rounded-xl border border-danger/30 px-3.5 py-2 text-xs font-medium text-danger transition-colors hover:bg-danger/10"
-          >
-            <Trash2 size={13} />
-            清空全部本地数据
-          </button>
-        </div>
+        {/* ── 界面：字号 ── */}
+        <section className="mb-6">
+          <div className="mb-3 flex items-center gap-2">
+            <Type size={14} className="text-primary" />
+            <h3 className="text-sm font-semibold text-ink">界面字号</h3>
+          </div>
+          <p className="mb-3 text-xs leading-relaxed text-ink-mute">调整对话与文档阅读区的字号，即时生效。</p>
+          <div className="flex gap-2">
+            {FONT_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => s.setFontSize(opt.value)}
+                className={cn(
+                  'flex flex-1 flex-col items-center gap-1 rounded-2xl border px-3 py-3 transition-all',
+                  s.fontSize === opt.value
+                    ? 'border-primary bg-primary-soft text-primary'
+                    : 'border-line bg-surface-2 text-ink-soft hover:border-primary/40',
+                )}
+              >
+                <span className={cn('font-semibold', FONT_SAMPLE_SIZE[opt.value])}>{opt.sample}</span>
+                <span className="text-[11px]">{opt.label}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {/* ── 模型接入 ── */}
+        <section className="mb-6">
+          <h3 className="mb-3 text-sm font-semibold text-ink">模型接入</h3>
+          <div className="mb-3 grid grid-cols-2 gap-2">
+            <button
+              onClick={() => s.update({ mode: 'mock' })}
+              className={cn(
+                'rounded-2xl border px-3 py-3 text-left transition-all',
+                s.mode === 'mock' ? 'border-primary bg-primary-soft' : 'border-line bg-surface-2 hover:border-primary/40',
+              )}
+            >
+              <p className={cn('text-sm font-medium', s.mode === 'mock' ? 'text-primary' : 'text-ink')}>演示模式</p>
+              <p className="mt-0.5 text-[11px] text-ink-mute">内置剧本，无需联网</p>
+            </button>
+            <button
+              onClick={() => s.update({ mode: 'api' })}
+              className={cn(
+                'rounded-2xl border px-3 py-3 text-left transition-all',
+                s.mode === 'api' ? 'border-primary bg-primary-soft' : 'border-line bg-surface-2 hover:border-primary/40',
+              )}
+            >
+              <p className={cn('text-sm font-medium', s.mode === 'api' ? 'text-primary' : 'text-ink')}>API 模式</p>
+              <p className="mt-0.5 text-[11px] text-ink-mute">OpenAI 兼容接口</p>
+            </button>
+          </div>
+
+          {s.mode === 'api' && (
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-ink-soft">接入方式</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => s.update({ proxyUrl: '' })}
+                    className={cn(
+                      'rounded-xl border px-3 py-2 text-xs transition-all',
+                      !s.proxyUrl ? 'border-primary bg-primary-soft text-primary' : 'border-line bg-surface-2 text-ink-soft',
+                    )}
+                  >
+                    浏览器直连
+                  </button>
+                  <button
+                    onClick={() => s.update({ proxyUrl: s.proxyUrl || 'http://localhost:8787/api/llm' })}
+                    className={cn(
+                      'rounded-xl border px-3 py-2 text-xs transition-all',
+                      s.proxyUrl ? 'border-primary bg-primary-soft text-primary' : 'border-line bg-surface-2 text-ink-soft',
+                    )}
+                  >
+                    轻后端代理
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-ink-soft">{s.proxyUrl ? '代理地址' : 'Base URL'}</label>
+                <input
+                  value={s.proxyUrl || s.baseUrl}
+                  onChange={(e) => s.update(s.proxyUrl ? { proxyUrl: e.target.value } : { baseUrl: e.target.value })}
+                  placeholder={s.proxyUrl ? 'http://localhost:8787/api/llm' : 'https://api.deepseek.com/v1'}
+                  className="w-full rounded-xl border border-line bg-surface-2 px-3 py-2 text-sm text-ink outline-none transition-colors placeholder:text-ink-mute focus:border-primary"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-ink-soft">模型 ID</label>
+                <input
+                  value={s.model}
+                  onChange={(e) => s.update({ model: e.target.value })}
+                  placeholder="deepseek-chat"
+                  className="w-full rounded-xl border border-line bg-surface-2 px-3 py-2 text-sm text-ink outline-none transition-colors placeholder:text-ink-mute focus:border-primary"
+                />
+              </div>
+              {!s.proxyUrl && (
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-ink-soft">API Key</label>
+                  <div className="relative">
+                    <input
+                      type={showKey ? 'text' : 'password'}
+                      value={s.apiKey}
+                      onChange={(e) => s.update({ apiKey: e.target.value })}
+                      placeholder="sk-..."
+                      className="w-full rounded-xl border border-line bg-surface-2 px-3 py-2 pr-10 text-sm text-ink outline-none transition-colors placeholder:text-ink-mute focus:border-primary"
+                    />
+                    <button
+                      onClick={() => setShowKey((v) => !v)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-ink-mute transition-colors hover:text-ink-soft"
+                      aria-label={showKey ? '隐藏' : '显示'}
+                    >
+                      {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
+                    </button>
+                  </div>
+                  {s.apiKey && <p className="mt-1 text-[11px] text-ink-mute">已保存：{maskKey(s.apiKey)}</p>}
+                </div>
+              )}
+              <p className="rounded-xl bg-amber-50 px-3 py-2 text-[11px] leading-relaxed text-amber-700">
+                ⚠️ Key 仅存本机浏览器。生产环境请使用轻后端代理（proxy/ 目录），避免 Key 暴露。
+              </p>
+            </div>
+          )}
+        </section>
+
+        {/* ── 数据 ── */}
+        <section>
+          <h3 className="mb-3 text-sm font-semibold text-ink">数据</h3>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => s.resetLLMSettings()}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-surface-2 px-3 py-2 text-xs text-ink-soft transition-colors hover:border-primary/40 hover:text-primary"
+            >
+              <RotateCcw size={12} />
+              重置模型设置
+            </button>
+            <button
+              onClick={() => {
+                if (confirmClear) {
+                  s.clearAllData()
+                } else {
+                  setConfirmClear(true)
+                  setTimeout(() => setConfirmClear(false), 3000)
+                }
+              }}
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs transition-colors',
+                confirmClear
+                  ? 'border-danger bg-danger text-white'
+                  : 'border-line bg-surface-2 text-ink-soft hover:border-danger/40 hover:text-danger',
+              )}
+            >
+              <Trash2 size={12} />
+              {confirmClear ? '确认清空？' : '清空全部数据'}
+            </button>
+          </div>
+        </section>
       </div>
     </div>
   )

@@ -3,11 +3,13 @@ import {
   CLASS_LEARNING,
   REGION_METRICS,
   SCHOOL_ALERTS,
+  SCHOOL_TREND,
   SCHOOLS,
   TEACHERS,
   POLICIES,
   findClassLearning,
 } from '../../../data/seed'
+import { useQuizStore, type QuizItem } from '../../../stores/quizStore'
 
 const ALL: RoleId[] = ['bureau', 'schoolAdmin', 'teacher']
 
@@ -33,18 +35,18 @@ export const queryClassLearning: ToolDef = {
   },
 }
 
-/** 校情统计：学校规模、预警、教师队伍 */
+/** 校情统计：学校规模、周趋势、结构化预警、教师队伍（v0.3 专项 ①） */
 export const querySchoolStats: ToolDef = {
   name: 'querySchoolStats',
   label: '校情统计',
-  description: '查询学校规模、教学质量预警与教师队伍概况',
+  description: '查询学校规模、近8周教学质量趋势、预警清单与教师队伍概况',
   roles: ['schoolAdmin'],
   parameters: { type: 'object', properties: {} },
   async run() {
     const s = SCHOOLS[0]
     return {
-      summary: `${s.name}（${s.level}）：${s.classes} 个教学班，教师 ${s.teachers} 人，学生 ${s.students} 人；当前预警 ${SCHOOL_ALERTS.length} 项`,
-      payload: { school: s, alerts: SCHOOL_ALERTS, teachers: TEACHERS },
+      summary: `${s.name}（${s.level}）：${s.classes} 个教学班，教师 ${s.teachers} 人，学生 ${s.students} 人；当前预警 ${SCHOOL_ALERTS.length} 项（1 高 / 1 中 / 1 低）`,
+      payload: { school: s, trend: SCHOOL_TREND, alerts: SCHOOL_ALERTS, teachers: TEACHERS },
     }
   },
 }
@@ -109,11 +111,75 @@ export const genLessonPlan: ToolDef = {
   },
 }
 
-/** 命制试题 */
+/** 按知识点生成结构化试题组（Mock 骨架，API 模式下同样回填工作台） */
+function buildQuizItems(point: string): QuizItem[] {
+  const base = point || '综合'
+  return [
+    {
+      id: `q_${Date.now().toString(36)}_1`,
+      type: 'single',
+      stem: `下列关于「${base}」的说法，正确的是（　）`,
+      options: [
+        'A. 概念界定与题设相符',
+        'B. 混淆了适用条件，判断错误',
+        'C. 忽略了前提约束，结论不成立',
+        'D. 计算过程有误，结果偏差',
+      ],
+      answer: 'A',
+      analysis: `本题考查「${base}」的核心定义与适用条件：A 项符合定义；B 项混淆条件；C 项忽略前提；D 项计算失误。故选 A。`,
+      difficulty: 0.55,
+      knowledgePoint: base,
+    },
+    {
+      id: `q_${Date.now().toString(36)}_2`,
+      type: 'single',
+      stem: `运用「${base}」分析下列情境，其中推理正确的是（　）`,
+      options: [
+        'A. 情境条件完整，推理链正确',
+        'B. 条件缺失，推理不充分',
+        'C. 结论与条件无必然联系',
+        'D. 推理方向颠倒',
+      ],
+      answer: 'A',
+      analysis: `围绕「${base}」的推理需先确认条件完整性：A 项条件与推理链一致；B、C、D 分别存在条件缺失、无关与方向错误。故选 A。`,
+      difficulty: 0.65,
+      knowledgePoint: base,
+    },
+    {
+      id: `q_${Date.now().toString(36)}_3`,
+      type: 'blank',
+      stem: `已知某对象满足「${base}」的典型特征，其关键量值为________（保留两位有效数字）。`,
+      answer: '按参考解答给分',
+      analysis: `解题要点：先由「${base}」的定义列出关系式，代入已知量求解，注意单位换算与有效数字要求。`,
+      difficulty: 0.7,
+      knowledgePoint: base,
+    },
+    {
+      id: `q_${Date.now().toString(36)}_4`,
+      type: 'blank',
+      stem: `在涉及「${base}」的变式情境中，判断该结论是否仍然成立：________（填「成立」或「不成立」），并简述理由。`,
+      answer: '成立（需说明适用条件未变）',
+      analysis: `变式情境考查条件迁移：只要「${base}」的适用前提未被破坏，结论依然成立；答题需点明前提条件。`,
+      difficulty: 0.72,
+      knowledgePoint: base,
+    },
+    {
+      id: `q_${Date.now().toString(36)}_5`,
+      type: 'solve',
+      stem: `综合应用：请结合「${base}」的相关规律，完成下列小题。\n（1）写出必要的依据与关系式；\n（2）代入数据求解并说明结果的合理性。`,
+      answer: '按步骤给分：依据 2 分、关系式 3 分、求解 3 分、合理性说明 2 分',
+      analysis: `评分要点：①明确「${base}」的适用条件与依据；②正确列出关系式；③运算规范、结果合理；④能对结果进行检验与讨论。`,
+      difficulty: 0.78,
+      knowledgePoint: base,
+    },
+  ]
+}
+
+/** 命制试题：结构化输出并写入出题工作台（v0.3 专项 ①） */
 export const genQuiz: ToolDef = {
   name: 'genQuiz',
   label: '命制试题',
-  description: '按知识点与难度生成试题组（选择/填空/解答）',
+  description: '按知识点与难度生成试题组（选择/填空/解答），结果写入出题工作台',
   roles: ['teacher'],
   parameters: {
     type: 'object',
@@ -125,9 +191,12 @@ export const genQuiz: ToolDef = {
   },
   async run(args) {
     const point = String(args.knowledgePoint ?? '综合')
+    const items = buildQuizItems(point)
+    // payload 直接写入出题工作台（Mock/API 模式一致）
+    useQuizStore.getState().setItems(point, items)
     return {
-      summary: `围绕「${point}」命制试题 5 道：单选 2、填空 2、解答 1，难度 0.65`,
-      payload: { knowledgePoint: point, counts: { single: 2, blank: 2, solve: 1 } },
+      summary: `围绕「${point}」命制试题 5 道：单选 2、填空 2、解答 1，已写入出题工作台`,
+      payload: { knowledgePoint: point, counts: { single: 2, blank: 2, solve: 1 }, items },
     }
   },
 }

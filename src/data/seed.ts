@@ -44,6 +44,24 @@ export interface RegionMetric {
   value: string
   trend: number
   note: string
+  /** 近 6 期历史值（用于趋势图，v0.3 专项 ①） */
+  history: number[]
+}
+
+/** 校情周趋势（校长驾驶舱用，v0.3 专项 ①） */
+export interface SchoolTrendPoint {
+  week: string
+  avgScore: number
+  homework: number
+  attention: number
+}
+
+/** 结构化预警（v0.3 专项 ①：可点击定位） */
+export interface SchoolAlert {
+  level: 'high' | 'mid' | 'low'
+  title: string
+  detail: string
+  className: string
 }
 
 export interface PolicyDoc {
@@ -130,17 +148,44 @@ export const CLASS_LEARNING: ClassLearning[] = [
 ]
 
 export const REGION_METRICS: RegionMetric[] = [
-  { name: '区域教学质量综合指数', value: '86.4', trend: 1.6, note: '全区 12 所中小学，环比上升' },
-  { name: '课堂 AI 分析覆盖率', value: '65%', trend: 12.0, note: '本学期新增 4 所试点校' },
-  { name: '教师专业发展达标率', value: '88.2%', trend: 2.3, note: '继续教育学时完成情况' },
-  { name: '学生体质健康优良率', value: '62.7%', trend: -0.8, note: '需关注体育课开足开齐' },
-  { name: '义务教育巩固率', value: '99.1%', trend: 0.1, note: '保持高位稳定' },
+  { name: '区域教学质量综合指数', value: '86.4', trend: 1.6, note: '全区 12 所中小学，环比上升', history: [82.1, 83.0, 83.8, 84.5, 85.0, 86.4] },
+  { name: '课堂 AI 分析覆盖率', value: '65%', trend: 12.0, note: '本学期新增 4 所试点校', history: [38, 42, 47, 53, 58, 65] },
+  { name: '教师专业发展达标率', value: '88.2%', trend: 2.3, note: '继续教育学时完成情况', history: [83.5, 84.2, 85.1, 86.0, 86.4, 88.2] },
+  { name: '学生体质健康优良率', value: '62.7%', trend: -0.8, note: '需关注体育课开足开齐', history: [64.8, 64.5, 64.0, 63.8, 63.5, 62.7] },
+  { name: '义务教育巩固率', value: '99.1%', trend: 0.1, note: '保持高位稳定', history: [98.8, 98.9, 99.0, 99.0, 99.0, 99.1] },
 ]
 
-export const SCHOOL_ALERTS = [
-  { level: 'high', text: '高一（7）班物理均分环比下降 3.2 分，连续两周作业完成率低于 88%' },
-  { level: 'mid', text: '初二（5）班本周有 3 节课出现集体走神峰值，集中在下午第一节' },
-  { level: 'low', text: '五（2）班语文均分微降 0.6 分，阅读概括题型失分率上升' },
+/** 校情周趋势：近 8 周（实验一中示例） */
+export const SCHOOL_TREND: SchoolTrendPoint[] = [
+  { week: 'W1', avgScore: 78.2, homework: 88, attention: 79 },
+  { week: 'W2', avgScore: 78.9, homework: 89, attention: 80 },
+  { week: 'W3', avgScore: 79.6, homework: 90, attention: 82 },
+  { week: 'W4', avgScore: 80.1, homework: 91, attention: 83 },
+  { week: 'W5', avgScore: 80.8, homework: 90, attention: 82 },
+  { week: 'W6', avgScore: 81.0, homework: 89, attention: 81 },
+  { week: 'W7', avgScore: 81.4, homework: 88, attention: 80 },
+  { week: 'W8', avgScore: 81.9, homework: 87, attention: 79 },
+]
+
+export const SCHOOL_ALERTS: SchoolAlert[] = [
+  {
+    level: 'high',
+    title: '高一（7）班物理持续下滑',
+    detail: '物理均分环比下降 3.2 分，连续两周作业完成率低于 88%，建议启动骨干教师跟班诊断',
+    className: '高一（7）班',
+  },
+  {
+    level: 'mid',
+    title: '初二（5）班课堂专注度波动',
+    detail: '本周有 3 节课出现集体走神峰值，集中在下午第一节，建议调整课表或引入互动环节',
+    className: '初二（5）班',
+  },
+  {
+    level: 'low',
+    title: '五（2）班语文阅读失分上升',
+    detail: '语文均分微降 0.6 分，阅读概括题型失分率上升，建议布置专项阅读训练',
+    className: '五（2）班',
+  },
 ]
 
 export const POLICIES: PolicyDoc[] = [

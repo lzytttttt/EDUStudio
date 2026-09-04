@@ -1,4 +1,5 @@
 import type { RoleId, RolePreset } from '../types'
+import type { UserPreferences } from '../../stores/settingsStore'
 import { TEACHER_TOOLS, SCHOOL_ADMIN_TOOLS, BUREAU_TOOLS } from '../agent/tools'
 
 export const TEACHER_PRESET: RolePreset = {
@@ -52,4 +53,18 @@ export function getRolePreset(role: RoleId): RolePreset {
 
 export function listRoles(): RolePreset[] {
   return [TEACHER_PRESET, SCHOOL_ADMIN_PRESET, BUREAU_PRESET]
+}
+
+/**
+ * 将用户偏好画像拼接进 system prompt（v0.3 专项 ③）。
+ * 无偏好时原样返回；Mock 剧本模式不受影响（剧本驱动，不走此注入）。
+ */
+export function buildSystemPrompt(preset: RolePreset, p?: UserPreferences): string {
+  if (!p) return preset.systemPrompt
+  const lines = [
+    p.nickname.trim() && `用户称呼：${p.nickname.trim()}，回复时自然使用该称呼。`,
+    p.stage.trim() && `用户背景：${p.stage.trim()}。`,
+    p.style.trim() && `表达偏好：${p.style.trim()}。`,
+  ].filter(Boolean) as string[]
+  return lines.length ? `${preset.systemPrompt}\n\n【用户偏好】\n${lines.join('\n')}` : preset.systemPrompt
 }

@@ -100,7 +100,7 @@ export default function LoginScreen() {
       </main>
 
       <footer className="px-8 pb-6 text-center text-xs text-ink-mute">
-        EDUStudio v0.1 · 轻量教育 Agent Harness · Mock 剧本驱动，可无缝切换 DeepSeek API
+        EDUStudio v0.3 · 轻量教育 Agent Harness · Mock 剧本驱动，可无缝切换 DeepSeek API
       </footer>
     </div>
   )

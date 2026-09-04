@@ -5,8 +5,10 @@ import {
 import { useAuthStore } from '../../stores/authStore'
 import { useBriefingStore } from '../../stores/briefingStore'
 import { useChatStore } from '../../stores/chatStore'
+import { useSettingsStore } from '../../stores/settingsStore'
 import { getRolePreset } from '../../harness/roles'
 import BriefingCardView from './BriefingCardView'
+import GuideDialog from '../../components/GuideDialog'
 import { cn } from '../../lib/cn'
 
 type Direction = 'left' | 'up' | 'right'
@@ -39,6 +41,10 @@ export default function BriefingPage() {
   const [exiting, setExiting] = useState<Direction | null>(null)
   const [drag, setDrag] = useState({ x: 0, y: 0 })
   const [dragging, setDragging] = useState(false)
+  // 首次进入简报：自动弹出操作说明（v0.3 UI 专项）
+  const guideSeen = useSettingsStore((s) => s.guideSeen)
+  const markGuideSeen = useSettingsStore((s) => s.markGuideSeen)
+  const [guideOpen, setGuideOpen] = useState(!guideSeen)
   const pointerStart = useRef<{ x: number; y: number } | null>(null)
   const suppressClick = useRef(false)
   const cardRef = useRef<HTMLDivElement>(null)
@@ -249,7 +255,7 @@ export default function BriefingPage() {
 
       {/* 决策栏 */}
       {current && (
-        <footer className="pb-7">
+        <footer className="pb-[max(28px,env(safe-area-inset-bottom))]">
           <div className="flex items-center justify-center gap-8">
             <button
               onClick={() => handleDecide('left')}
@@ -289,6 +295,17 @@ export default function BriefingPage() {
             <span>· 支持拖拽滑卡</span>
           </p>
         </footer>
+      )}
+
+      {/* 首次进入操作说明 */}
+      {guideOpen && (
+        <GuideDialog
+          stage="briefing"
+          onClose={() => {
+            setGuideOpen(false)
+            markGuideSeen()
+          }}
+        />
       )}
     </div>
   )

@@ -2,22 +2,77 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── 阅读区字号缩放（v0.3 UI 专项：设置 → 界面字号） ──
+   仅作用于对话气泡 / Markdown 文档 / 编辑器等阅读内容，不影响布局骨架 */
+:root {
+  --content-fs: 0.875rem; /* 标准 14px */
+}
+html[data-font='small'] {
+  --content-fs: 0.8125rem; /* 小 13px */
+}
+html[data-font='large'] {
+  --content-fs: 1rem; /* 大 16px */
+}
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    overscroll-behavior-y: none;
+  }
+  /* 移动端触控：去除点击延迟，保留捏合缩放 */
+  button,
+  a,
+  [role='button'] {
+    touch-action: manipulation;
+  }
+  /* iOS：输入框字号 ≥16px 防止聚焦自动放大 */
+  @media (pointer: coarse) {
+    .chat-input {
+      font-size: max(var(--content-fs), 16px);
+    }
+  }
+}
+
 @layer components {
-  /* 自研 Markdown 渲染器样式（Artifact 预览） */
+  /* 对话气泡：跟随字号档位 */
+  .chat-bubble {
+    font-size: var(--content-fs);
+  }
+  /* 文档编辑器：略小于阅读字号 */
+  .doc-editor {
+    font-size: calc(var(--content-fs) * 0.85);
+  }
+  /* 对话输入框 */
+  .chat-input {
+    font-size: var(--content-fs);
+  }
+  /* iOS 安全区：底部工具条/输入区避让 */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* 自研 Markdown 渲染器样式（Artifact 预览）：内部尺寸用 em，随档位整体缩放 */
   .md-body {
-    @apply text-sm leading-relaxed text-ink;
+    font-size: var(--content-fs);
+    @apply leading-relaxed text-ink;
   }
   .md-body .md-h1 {
-    @apply mb-3 mt-1 text-xl font-bold tracking-tight;
+    @apply mb-3 mt-1 font-bold tracking-tight;
+    font-size: 1.45em;
   }
   .md-body .md-h2 {
-    @apply mb-2 mt-5 border-b border-line pb-1.5 text-base font-bold;
+    @apply mb-2 mt-5 border-b border-line pb-1.5 font-bold;
+    font-size: 1.15em;
   }
   .md-body .md-h3 {
-    @apply mb-1.5 mt-4 text-sm font-semibold;
+    @apply mb-1.5 mt-4 font-semibold;
+    font-size: 1em;
   }
   .md-body .md-h4 {
-    @apply mb-1.5 mt-3 text-sm font-semibold text-ink-soft;
+    @apply mb-1.5 mt-3 font-semibold text-ink-soft;
+    font-size: 1em;
   }
   .md-body .md-p {
     @apply my-2.5;
@@ -35,16 +90,19 @@
     @apply my-4 border-line;
   }
   .md-body .md-code {
-    @apply rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[12px] text-primary;
+    @apply rounded bg-surface-2 px-1.5 py-0.5 font-mono text-primary;
+    font-size: 0.85em;
   }
   .md-body .md-pre {
-    @apply my-3 overflow-x-auto rounded-2xl bg-ink p-4 font-mono text-xs leading-relaxed text-mint-soft;
+    @apply my-3 overflow-x-auto rounded-2xl bg-ink p-4 font-mono leading-relaxed text-mint-soft;
+    font-size: 0.85em;
   }
   .md-body .md-pre .md-code {
     @apply bg-transparent p-0 text-inherit;
   }
   .md-body .md-table {
-    @apply my-3 w-full border-collapse text-xs;
+    @apply my-3 w-full border-collapse;
+    font-size: 0.9em;
   }
   .md-body .md-table th {
     @apply border border-line bg-surface-2 px-3 py-2 text-left font-semibold;

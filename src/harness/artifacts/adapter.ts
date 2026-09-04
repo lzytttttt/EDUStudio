@@ -1,7 +1,8 @@
 import type { ArtifactKind, ArtifactProvider, RoleId } from '../types'
 import { DeepSeekAdapter, type DeepSeekConfig } from '../llm/adapter'
-import { getRolePreset } from '../roles'
+import { getRolePreset, buildSystemPrompt } from '../roles'
 import { matchTemplate } from '../scripts/artifacts'
+import { useSettingsStore } from '../../stores/settingsStore'
 
 const KIND_LABEL: Record<ArtifactKind, string> = {
   lessonPlan: '教案（含教学目标/重难点/教学过程/板书设计/作业布置）',
@@ -27,7 +28,7 @@ export class ArtifactApiAdapter implements ArtifactProvider {
     const fallbackTitle = matchTemplate(input.goal, input.role).title(input.goal)
 
     const system =
-      `${preset.systemPrompt}\n\n` +
+      `${buildSystemPrompt(preset, useSettingsStore.getState().preferences)}\n\n` +
       `你现在直接产出一份完整的 Markdown 文档，要求：\n` +
       `1. 首行为「# 文档标题」；\n` +
       `2. 文档类型：${KIND_LABEL[kind]}；\n` +

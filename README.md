@@ -43,20 +43,26 @@ src/harness/
 ## 数据分层与持久化
 
 Raw（`src/data/seed.ts` 种子数据）→ Aggregated（工具聚合）→ Agent Output（trace / 文档）→ Presentation（渲染）。
-会话、收藏、文档、登录态均存 LocalStorage（`edustudio:` 前缀），设置弹层可一键清空。
+会话、收藏、文档、版本历史、偏好画像、登录态均存 LocalStorage（`edustudio:` 前缀），设置弹层可一键清空。
 
 ## 技术栈
 
-Vite 5 · React 18 · TypeScript 5 · Tailwind CSS 3 · Zustand · lucide-react / react-icons · recharts
+Vite 5 · React 18 · TypeScript 5 · Tailwind CSS 3 · Zustand · lucide-react / react-icons · recharts · Vitest
 （无路由库：阶段状态机 login → briefing → workbench；Markdown 渲染器自研零依赖）
 
 ## 响应式
 
 桌面三栏；<1280px 右栏折叠为抽屉；<768px 单栏 + 顶栏抽屉导航，简报滑卡保持完整触控体验。
+v0.3 起支持阅读区字号三档调节、iOS 安全区避让与输入防缩放。
+
+## 质量保障
+
+`npm test` 运行 Vitest 单测（39 例，覆盖 SSE 解析 / 增量归一化 / Markdown 渲染 / 工具注册 / 剧本与模板匹配 / 存储往返 / 偏好注入 / 导出工具）；
+`npm run build` 前置执行单测 + tsc 类型检查，双闸门保障交付质量。
 
 ---
 
-v0.2 · DeepSeek 适配器 + 代理 + Agent 增强 · 架构模式参考 EduOS-95（仅借鉴模式，未复用代码）
+v0.3 · 角色深化（出题工作台 / 校情驾驶舱 / 区域看板）+ 文档增强（导出 / 版本历史 / 模板库）+ 偏好个性化 + UI/交互优化 · 架构模式参考 EduOS-95（仅借鉴模式，未复用代码）
 
 ## 许可协议
 

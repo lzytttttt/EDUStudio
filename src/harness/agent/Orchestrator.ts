@@ -10,8 +10,9 @@ import { DeepSeekAdapter, type DeepSeekConfig } from '../llm/adapter'
 import { toolRegistry } from './ToolRegistry'
 import { runScript, runScriptStep, nextId, type StepContext } from './stepRunner'
 import { ArtifactApiAdapter } from '../artifacts/adapter'
-import { getRolePreset } from '../roles'
+import { getRolePreset, buildSystemPrompt } from '../roles'
 import { FALLBACK_SCRIPTS, type ScriptStep } from '../scripts/agent'
+import { useSettingsStore } from '../../stores/settingsStore'
 
 /** 循环护栏：最多 8 轮工具调用 */
 const MAX_TOOL_ROUNDS = 8
@@ -51,7 +52,7 @@ export class Orchestrator implements AgentProvider {
 
     try {
       const messages: ChatMessage[] = [
-        { role: 'system', content: preset.systemPrompt },
+        { role: 'system', content: buildSystemPrompt(preset, useSettingsStore.getState().preferences) },
         ...history,
         { role: 'user', content: goal },
       ]
@@ -234,7 +235,7 @@ export class Orchestrator implements AgentProvider {
     let full = ''
     for await (const delta of this.llm.streamChat(
       [
-        { role: 'system', content: preset.systemPrompt },
+        { role: 'system', content: buildSystemPrompt(preset, useSettingsStore.getState().preferences) },
         ...history,
         { role: 'user', content: `任务目标：${goal}\n\n${instruction}` },
       ],

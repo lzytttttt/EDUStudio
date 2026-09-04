@@ -110,7 +110,7 @@ export default function ChatPanel() {
             {session.entries.map((entry) =>
               entry.role === 'user' ? (
                 <div key={entry.id} className="animate-fade-up flex justify-end">
-                  <div className="max-w-[85%] rounded-3xl rounded-br-lg bg-primary px-4.5 px-4 py-2.5 text-sm leading-relaxed text-white shadow-soft">
+                  <div className="chat-bubble max-w-[85%] rounded-3xl rounded-br-lg bg-primary px-4.5 px-4 py-2.5 leading-relaxed text-white shadow-soft">
                     {entry.content}
                   </div>
                 </div>
@@ -118,7 +118,7 @@ export default function ChatPanel() {
                 <div key={entry.id} className="animate-fade-up">
                   <AgentTraceView trace={entry.trace} streaming={!!entry.streaming} />
                   {entry.content && (
-                    <div className="rounded-3xl rounded-bl-lg border border-line bg-surface px-4 py-3 text-sm leading-relaxed shadow-soft-next shadow-soft">
+                    <div className="chat-bubble rounded-3xl rounded-bl-lg border border-line bg-surface px-4 py-3 leading-relaxed shadow-soft-next shadow-soft">
                       <p className="whitespace-pre-wrap">
                         {entry.content}
                         {entry.streaming && <span className="ml-0.5 inline-block h-4 w-[2px] animate-pulse bg-primary align-middle" />}

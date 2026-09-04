@@ -3,7 +3,13 @@ import type { ArtifactKind, RoleId } from '../types'
 /** 文档模板：按 kind + 角色生成 Markdown 骨架，占位符用 goal/topic 填充 */
 
 export interface ArtifactTemplate {
+  /** 模板 ID（模板库选择器用） */
+  id: string
   kind: ArtifactKind
+  /** 模板库展示名 */
+  name: string
+  /** 一句话说明 */
+  desc: string
   title: (goal: string) => string
   match: string[]
   roles: RoleId[]
@@ -11,7 +17,10 @@ export interface ArtifactTemplate {
 }
 
 const lessonPlan: ArtifactTemplate = {
+  id: 'lessonPlan',
   kind: 'lessonPlan',
+  name: '教学教案',
+  desc: '五环节课堂流程 + 分层作业 + 板书设计',
   match: ['教案', '备课', '公开课', '习题课', '课程'],
   roles: ['teacher'],
   title: (g) => `教案 · ${g}`,
@@ -59,7 +68,10 @@ const lessonPlan: ArtifactTemplate = {
 }
 
 const report: ArtifactTemplate = {
+  id: 'report',
   kind: 'report',
+  name: '分析报告',
+  desc: '总体情况 + 成效问题 + 建议行动',
   match: ['报告', '简报', '分析', '汇总', '总结', '评审', '讲稿', '方案'],
   roles: ['bureau', 'schoolAdmin', 'teacher'],
   title: (g) => `报告 · ${g}`,
@@ -95,7 +107,10 @@ const report: ArtifactTemplate = {
 }
 
 const notice: ArtifactTemplate = {
+  id: 'notice',
   kind: 'notice',
+  name: '公文通知',
+  desc: '目标 + 安排 + 要求 + 报送方式',
   match: ['通知', '通报', '纪要', '公文', '督导', '函'],
   roles: ['bureau', 'schoolAdmin'],
   title: (g) => `通知 · ${g}`,
@@ -128,7 +143,10 @@ const notice: ArtifactTemplate = {
 }
 
 const generic: ArtifactTemplate = {
+  id: 'generic',
   kind: 'generic',
+  name: '通用文档',
+  desc: '背景目标 + 关键举措 + 风险预案',
   match: [],
   roles: ['bureau', 'schoolAdmin', 'teacher'],
   title: (g) => `文档 · ${g}`,
@@ -156,4 +174,14 @@ export function matchTemplate(goal: string, role: RoleId): ArtifactTemplate {
     (t) => t.roles.includes(role) && t.match.some((k) => goal.includes(k)),
   )
   return hit ?? generic
+}
+
+/** 模板库：按角色返回可选模板（v0.3 专项 ②） */
+export function listTemplates(role: RoleId): ArtifactTemplate[] {
+  return ARTIFACT_TEMPLATES.filter((t) => t.roles.includes(role))
+}
+
+/** 按 ID 取模板（找不到回退 generic） */
+export function getTemplateById(id: string): ArtifactTemplate {
+  return ARTIFACT_TEMPLATES.find((t) => t.id === id) ?? generic
 }

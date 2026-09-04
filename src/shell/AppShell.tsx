@@ -2,8 +2,10 @@ import { useState } from 'react'
 import { PanelLeft, FileText, X } from 'lucide-react'
 import Sidebar from './Sidebar'
 import ChatPanel from '../apps/chat/ChatPanel'
-import ArtifactPanel from '../apps/artifacts/ArtifactPanel'
+import RightPanel from './RightPanel'
+import GuideDialog from '../components/GuideDialog'
 import { useAuthStore } from '../stores/authStore'
+import { useSettingsStore } from '../stores/settingsStore'
 import { cn } from '../lib/cn'
 
 /** 三栏工作台外壳：<xl 右栏折叠为抽屉，<md 左栏折叠为抽屉 */
@@ -11,6 +13,10 @@ export default function AppShell() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [artifactOpen, setArtifactOpen] = useState(false)
   const setStage = useAuthStore((s) => s.setStage)
+  // 首次进入工作台：自动弹出操作说明（v0.3 UI 专项）
+  const guideSeen = useSettingsStore((s) => s.guideSeen)
+  const markGuideSeen = useSettingsStore((s) => s.markGuideSeen)
+  const [guideOpen, setGuideOpen] = useState(!guideSeen)
 
   return (
     <div className="flex h-full overflow-hidden bg-bg">
@@ -56,9 +62,9 @@ export default function AppShell() {
         <ChatPanel />
       </main>
 
-      {/* 右栏：Artifact，桌面常驻 / 窄屏抽屉 */}
+      {/* 右栏：文档 + 角色增强面板，桌面常驻 / 窄屏抽屉 */}
       <aside className="hidden xl:flex xl:w-[400px] 2xl:w-[440px] shrink-0 border-l border-line bg-surface">
-        <ArtifactPanel />
+        <RightPanel />
       </aside>
       {artifactOpen && (
         <div className="fixed inset-0 z-40 xl:hidden">
@@ -72,10 +78,21 @@ export default function AppShell() {
               >
                 <X size={16} />
               </button>
-              <ArtifactPanel />
+              <RightPanel />
             </div>
           </aside>
         </div>
+      )}
+
+      {/* 首次进入操作说明 */}
+      {guideOpen && (
+        <GuideDialog
+          stage="workbench"
+          onClose={() => {
+            setGuideOpen(false)
+            markGuideSeen()
+          }}
+        />
       )}
     </div>
   )
