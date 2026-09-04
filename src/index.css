@@ -1,0 +1,61 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  /* 自研 Markdown 渲染器样式（Artifact 预览） */
+  .md-body {
+    @apply text-sm leading-relaxed text-ink;
+  }
+  .md-body .md-h1 {
+    @apply mb-3 mt-1 text-xl font-bold tracking-tight;
+  }
+  .md-body .md-h2 {
+    @apply mb-2 mt-5 border-b border-line pb-1.5 text-base font-bold;
+  }
+  .md-body .md-h3 {
+    @apply mb-1.5 mt-4 text-sm font-semibold;
+  }
+  .md-body .md-h4 {
+    @apply mb-1.5 mt-3 text-sm font-semibold text-ink-soft;
+  }
+  .md-body .md-p {
+    @apply my-2.5;
+  }
+  .md-body .md-ul {
+    @apply my-2.5 list-disc space-y-1 pl-5;
+  }
+  .md-body .md-ol {
+    @apply my-2.5 list-decimal space-y-1 pl-5;
+  }
+  .md-body .md-quote {
+    @apply my-3 rounded-r-lg border-l-4 border-primary/40 bg-primary-soft px-4 py-2 text-ink-soft;
+  }
+  .md-body .md-hr {
+    @apply my-4 border-line;
+  }
+  .md-body .md-code {
+    @apply rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[12px] text-primary;
+  }
+  .md-body .md-pre {
+    @apply my-3 overflow-x-auto rounded-2xl bg-ink p-4 font-mono text-xs leading-relaxed text-mint-soft;
+  }
+  .md-body .md-pre .md-code {
+    @apply bg-transparent p-0 text-inherit;
+  }
+  .md-body .md-table {
+    @apply my-3 w-full border-collapse text-xs;
+  }
+  .md-body .md-table th {
+    @apply border border-line bg-surface-2 px-3 py-2 text-left font-semibold;
+  }
+  .md-body .md-table td {
+    @apply border border-line px-3 py-2;
+  }
+  .md-body a {
+    @apply text-primary underline underline-offset-2;
+  }
+  .md-body strong {
+    @apply font-semibold text-ink;
+  }
+}

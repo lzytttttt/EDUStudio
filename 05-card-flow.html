@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Card Flow · 专注卡片流</title>
+<style>
+  :root {
+    --bg: #faf8f5;
+    --card-bg: #ffffff;
+    --text: #2d2a26;
+    --text-soft: #6b6660;
+    --text-mute: #a8a39d;
+    --line: #ece8e2;
+    --coral: #ff6b6b;
+    --coral-soft: #fff1f1;
+    --mint: #4ecdc4;
+    --mint-soft: #e8faf8;
+    --amber: #f6c453;
+    --amber-soft: #fef6e4;
+    --shadow-card: 0 20px 60px -20px rgba(45, 42, 38, 0.18), 0 8px 24px -12px rgba(45, 42, 38, 0.08);
+    --shadow-card-next: 0 10px 30px -16px rgba(45, 42, 38, 0.14);
+    --radius: 28px;
+    --radius-sm: 14px;
+    --transition: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+  }
+
+  /* 顶部极简条 */
+  .topbar {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 28px;
+    z-index: 50;
+    backdrop-filter: blur(12px);
+    background: rgba(250, 248, 245, 0.72);
+    border-bottom: 1px solid rgba(236, 232, 226, 0.6);
+  }
+  .top-progress {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    color: var(--text-soft);
+    font-weight: 500;
+  }
+  .top-progress .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--coral);
+    box-shadow: 0 0 0 4px rgba(255, 107, 107, 0.15);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 4px rgba(255, 107, 107, 0.15); }
+    50% { box-shadow: 0 0 0 8px rgba(255, 107, 107, 0.05); }
+  }
+  .top-progress strong { color: var(--text); font-weight: 600; }
+  .top-agent {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .agent-avatar {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--coral), var(--mint));
+    display: flex; align-items: center; justify-content: center;
+    color: white;
+    font-weight: 700;
+    font-size: 14px;
+    box-shadow: 0 4px 12px rgba(255, 107, 107, 0.25);
+  }
+  .agent-name { font-size: 13px; font-weight: 600; color: var(--text); }
+  .top-settings {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: var(--text-soft);
+    transition: all 0.2s;
+  }
+  .top-settings:hover { background: var(--line); color: var(--text); }
+
+  /* 卡片舞台 */
+  .stage {
+    position: absolute;
+    top: 64px; bottom: 0; left: 0; right: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    perspective: 1800px;
+    overflow: hidden;
+  }
+
+  .card-deck {
+    position: relative;
+    width: min(440px, 92vw);
+    height: min(620px, 78vh);
+  }
+
+  .card {
+    position: absolute;
+    inset: 0;
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-card);
+    padding: 32px 30px 28px;
+    display: flex;
+    flex-direction: column;
+    transform-style: preserve-3d;
+    transition: transform 0.55s var(--transition), opacity 0.45s var(--transition);
+    will-change: transform, opacity;
+    cursor: grab;
+    overflow: hidden;
+  }
+  .card:active { cursor: grabbing; }
+
+  /* 卡片堆叠 - 下一张露出边缘 */
+  .card.next {
+    transform: translateY(14px) scale(0.94);
+    opacity: 0.5;
+    box-shadow: var(--shadow-card-next);
+    pointer-events: none;
+    z-index: 1;
+  }
+  .card.next-2 {
+    transform: translateY(26px) scale(0.88);
+    opacity: 0.25;
+    box-shadow: var(--shadow-card-next);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .card.active {
+    z-index: 10;
+  }
+
+  /* 离场动画 */
+  .card.fly-left {
+    transform: translateX(-130%) rotate(-18deg) !important;
+    opacity: 0 !important;
+    z-index: 20;
+  }
+  .card.fly-right {
+    transform: translateX(130%) rotate(18deg) !important;
+    opacity: 0 !important;
+    z-index: 20;
+  }
+  .card.fly-up {
+    transform: translateY(-140%) scale(0.9) !important;
+    opacity: 0 !important;
+    z-index: 20;
+  }
+  .card.fly-down {
+    transform: translateY(140%) scale(0.9) !important;
+    opacity: 0 !important;
+    z-index: 20;
+  }
+
+  /* 卡片类型标签 */
+  .card-tag {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    margin-bottom: 18px;
+  }
+  .card-tag svg { width: 12px; height: 12px; }
+  .tag-insight { background: var(--coral-soft); color: var(--coral); }
+  .tag-decision { background: var(--amber-soft); color: #b8860b; }
+  .tag-creation { background: var(--mint-soft); color: #2a9d8f; }
+  .tag-todo { background: #eef0f3; color: #5a6573; }
+  .tag-data { background: #eef4ff; color: #4a6cf7; }
+  .tag-question { background: #f3eaff; color: #7c3aed; }
+
+  .card-title {
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.35;
+    color: var(--text);
+    margin-bottom: 14px;
+    letter-spacing: -0.3px;
+  }
+  .card-body {
+    font-size: 15px;
+    line-height: 1.7;
+    color: var(--text-soft);
+    flex: 1;
+    overflow-y: auto;
+  }
+  .card-body::-webkit-scrollbar { width: 4px; }
+  .card-body::-webkit-scrollbar-thumb { background: var(--line); border-radius: 2px; }
+
+  /* 卡片内容块 */
+  .content-quote {
+    padding: 16px 18px;
+    background: linear-gradient(135deg, #fffaf5, #fff5f5);
+    border-left: 3px solid var(--coral);
+    border-radius: 12px;
+    font-style: italic;
+    color: var(--text);
+    margin: 10px 0;
+  }
+  .content-options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .option-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    border: 1.5px solid var(--line);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 14px;
+  }
+  .option-item:hover { border-color: var(--mint); background: var(--mint-soft); }
+  .option-item.selected { border-color: var(--mint); background: var(--mint-soft); }
+  .option-radio {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    border: 2px solid var(--text-mute);
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+  }
+  .option-item.selected .option-radio {
+    border-color: var(--mint);
+    background: var(--mint);
+  }
+  .option-item.selected .option-radio::after {
+    content: ''; width: 6px; height: 6px; border-radius: 50%; background: white;
+  }
+
+  .content-editable {
+    width: 100%;
+    min-height: 90px;
+    padding: 14px;
+    border: 1.5px dashed var(--line);
+    border-radius: 12px;
+    background: #fafafa;
+    font-family: inherit;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text);
+    resize: none;
+    outline: none;
+    transition: border-color 0.2s;
+    user-select: text;
+  }
+  .content-editable:focus { border-color: var(--mint); border-style: solid; background: white; }
+
+  .content-chart {
+    margin-top: 8px;
+  }
+  .chart-bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    height: 120px;
+    padding: 8px 0;
+  }
+  .chart-bar {
+    flex: 1;
+    background: linear-gradient(180deg, var(--mint), #7fe3da);
+    border-radius: 6px 6px 0 0;
+    position: relative;
+    transition: height 0.6s var(--transition);
+    min-height: 8px;
+  }
+  .chart-bar.peak { background: linear-gradient(180deg, var(--coral), #ff8e8e); }
+  .chart-bar-label {
+    position: absolute;
+    bottom: -22px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 10px;
+    color: var(--text-mute);
+    white-space: nowrap;
+  }
+  .chart-bar-value {
+    position: absolute;
+    top: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .content-todo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px;
+    background: #f8f9fa;
+    border-radius: 12px;
+    margin-top: 10px;
+  }
+  .todo-check {
+    width: 22px; height: 22px;
+    border-radius: 6px;
+    border: 2px solid var(--text-mute);
+    flex-shrink: 0;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+  }
+  .todo-check.done { background: var(--mint); border-color: var(--mint); }
+  .todo-check.done::after { content: '✓'; color: white; font-size: 14px; font-weight: 700; }
+  .todo-text { font-size: 14px; color: var(--text); flex: 1; }
+  .todo-text.done { text-decoration: line-through; color: var(--text-mute); }
+  .todo-meta { font-size: 11px; color: var(--text-mute); }
+
+  .expandable-detail {
+    margin-top: 14px;
+    border-top: 1px solid var(--line);
+    padding-top: 14px;
+  }
+  .expand-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--mint);
+    font-weight: 600;
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 0;
+  }
+  .expand-toggle svg { transition: transform 0.2s; }
+  .expand-toggle.open svg { transform: rotate(180deg); }
+  .expand-content {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.4s var(--transition);
+    font-size: 13px;
+    color: var(--text-soft);
+    line-height: 1.7;
+  }
+  .expand-content.open { max-height: 300px; padding-top: 12px; }
+
+  .card-foot-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+    font-size: 11px;
+    color: var(--text-mute);
+  }
+  .foot-source { display: flex; align-items: center; gap: 6px; }
+  .foot-confidence { display: flex; align-items: center; gap: 4px; }
+  .confidence-dots { display: flex; gap: 2px; }
+  .confidence-dots span { width: 5px; height: 5px; border-radius: 50%; background: var(--line); }
+  .confidence-dots span.on { background: var(--mint); }
+
+  /* 底部操作区 */
+  .actions {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 36px;
+    z-index: 50;
+    backdrop-filter: blur(12px);
+    background: linear-gradient(180deg, transparent, rgba(250, 248, 245, 0.92) 40%);
+  }
+  .action-btn {
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s var(--transition);
+    box-shadow: 0 8px 24px -6px rgba(0,0,0,0.18);
+    position: relative;
+  }
+  .action-btn svg { width: 26px; height: 26px; }
+  .action-btn:hover { transform: translateY(-4px) scale(1.06); }
+  .action-btn:active { transform: translateY(-2px) scale(0.96); }
+  .action-btn::after {
+    content: attr(data-label);
+    position: absolute;
+    bottom: -22px;
+    font-size: 11px;
+    color: var(--text-mute);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .btn-skip { background: #f0ede8; color: #8a8580; }
+  .btn-skip:hover { background: #e5e1da; }
+  .btn-fav { background: var(--amber); color: white; width: 56px; height: 56px; }
+  .btn-fav svg { width: 22px; height: 22px; }
+  .btn-accept { background: var(--mint); color: white; }
+  .btn-accept:hover { background: #3dbab1; }
+
+  .action-hint {
+    position: absolute;
+    top: 12px;
+    font-size: 11px;
+    color: var(--text-mute);
+    letter-spacing: 0.5px;
+  }
+
+  /* AI反馈条 */
+  .feedback-toast {
+    position: fixed;
+    bottom: 130px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--text);
+    color: white;
+    padding: 12px 22px;
+    border-radius: 24px;
+    font-size: 13px;
+    font-weight: 500;
+    box-shadow: 0 12px 32px -8px rgba(0,0,0,0.3);
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.4s var(--transition);
+    z-index: 60;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    max-width: 90vw;
+  }
+  .feedback-toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  .feedback-toast .toast-icon {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: var(--mint);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .feedback-toast .toast-icon::after { content: '✓'; color: white; font-size: 11px; font-weight: 700; }
+
+  /* 键盘提示 */
+  .kbd-hints {
+    position: fixed;
+    bottom: 8px;
+    right: 16px;
+    display: flex;
+    gap: 8px;
+    z-index: 40;
+    font-size: 10px;
+    color: var(--text-mute);
+  }
+  .kbd {
+    padding: 2px 6px;
+    background: var(--line);
+    border-radius: 4px;
+    font-family: monospace;
+    font-weight: 600;
+  }
+
+  /* 进度条 */
+  .progress-track {
+    position: fixed;
+    top: 64px;
+    left: 0; right: 0;
+    height: 2px;
+    background: var(--line);
+    z-index: 45;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--coral), var(--mint));
+    transition: width 0.5s var(--transition);
+  }
+
+  /* 空状态 */
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    color: var(--text-soft);
+    gap: 16px;
+  }
+  .empty-icon {
+    width: 72px; height: 72px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--coral-soft), var(--mint-soft));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 32px;
+  }
+  .empty-title { font-size: 20px; font-weight: 700; color: var(--text); }
+  .empty-sub { font-size: 14px; max-width: 280px; line-height: 1.6; }
+
+  @media (max-width: 480px) {
+    .topbar { padding: 0 16px; }
+    .top-progress { font-size: 12px; }
+    .agent-name { display: none; }
+    .card { padding: 24px 22px 20px; border-radius: 22px; }
+    .card-title { font-size: 19px; }
+    .card-body { font-size: 14px; }
+    .actions { gap: 28px; }
+    .action-btn { width: 58px; height: 58px; }
+    .btn-fav { width: 50px; height: 50px; }
+    .kbd-hints { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- 顶部极简条 -->
+<header class="topbar">
+  <div class="top-progress">
+    <span class="dot"></span>
+    <span>今日 <strong id="totalCards">12</strong> 张</span>
+    <span style="color:var(--text-mute);">·</span>
+    <span>已完成 <strong id="doneCards">0</strong></span>
+  </div>
+  <div class="top-agent">
+    <div class="agent-avatar">N</div>
+    <span class="agent-name">Nova</span>
+  </div>
+  <button class="top-settings" aria-label="设置">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+    </svg>
+  </button>
+</header>
+
+<!-- 进度条 -->
+<div class="progress-track">
+  <div class="progress-fill" id="progressFill" style="width:0%"></div>
+</div>
+
+<!-- 卡片舞台 -->
+<main class="stage">
+  <div class="card-deck" id="cardDeck">
+    <!-- 卡片由JS渲染 -->
+  </div>
+</main>
+
+<!-- 底部操作 -->
+<nav class="actions">
+  <button class="action-btn btn-skip" id="btnSkip" data-label="跳过 ←">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+      <line x1="18" y1="6" x2="6" y2="18"/>
+      <line x1="6" y1="6" x2="18" y2="18"/>
+    </svg>
+  </button>
+  <button class="action-btn btn-fav" id="btnFav" data-label="收藏 ↑">
+    <svg viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+    </svg>
+  </button>
+  <button class="action-btn btn-accept" id="btnAccept" data-label="采纳 →">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+      <polyline points="20 6 9 17 4 12"/>
+    </svg>
+  </button>
+</nav>
+
+<!-- AI反馈条 -->
+<div class="feedback-toast" id="feedbackToast">
+  <span class="toast-icon"></span>
+  <span id="feedbackText">已加入你的计划</span>
+</div>
+
+<!-- 键盘提示 -->
+<div class="kbd-hints">
+  <span><span class="kbd">←</span> 跳过</span>
+  <span><span class="kbd">↑</span> 收藏</span>
+  <span><span class="kbd">→</span> 采纳</span>
+</div>
+
+<script>
+// 卡片数据 - 真实AI助手场景内容
+const CARDS = [
+  {
+    id: 1,
+    type: 'insight',
+    tag: '洞察',
+    title: '你的专注时段在上午 10-12 点效率最高',
+    body: `基于过去 14 天的应用使用与任务完成数据分析，你在上午的深度工作产出是下午的 2.3 倍。`,
+    extra: 'chart',
+    chartData: [
+      {h: '08', v: 40, label: '08', val: '40%'},
+      {h: '10', v: 92, label: '10', val: '92%', peak: true},
+      {h: '12', v: 65, label: '12', val: '65%'},
+      {h: '14', v: 38, label: '14', val: '38%'},
+      {h: '16', v: 52, label: '16', val: '52%'},
+      {h: '18', v: 30, label: '18', val: '30%'},
+    ],
+    chartTitle: '各时段专注度分布',
+    confidence: 3,
+    source: '行为分析 · 14天数据'
+  },
+  {
+    id: 2,
+    type: 'decision',
+    tag: '决策',
+    title: '这份报告初稿已完成，需要你确认 3 处修改',
+    body: `我已根据你的反馈调整了《Q3 产品路线图》初稿，以下三处关键变更需要你拍板：`,
+    extra: 'options',
+    options: [
+      { text: '将"提升留存"目标从 15% 调整为 20%', sub: '基于 Q2 实际达成 18%' },
+      { text: '砍掉"社区模块"，资源转移至"AI 助手"', sub: '预计节省 6 周开发周期' },
+      { text: '新增"数据看板"为 P0 优先级', sub: '客户反馈高频需求' },
+    ],
+    confidence: 2,
+    source: '文档协作 · 刚刚'
+  },
+  {
+    id: 3,
+    type: 'creation',
+    tag: '创作',
+    title: '为你生成了本周周报的开头段落',
+    body: `根据本周你的任务记录与会议纪要，我起草了周报开头。你可以直接编辑下方内容：`,
+    extra: 'editable',
+    editableText: '本周团队聚焦于产品 V4.0 的核心功能交付，完成了 AI 助手模块的开发与首轮内部测试，关键指标测试通过率达 94%。同时推进了用户增长实验，新增注册转化提升 12%。',
+    confidence: 3,
+    source: 'AI 生成 · 基于本周记录'
+  },
+  {
+    id: 4,
+    type: 'todo',
+    tag: '待办',
+    title: '明天有 3 件事需要你处理',
+    body: `已从你的日程和邮件中提取，并按重要性排序：`,
+    extra: 'todos',
+    todos: [
+      { text: '10:00 与设计团队评审新原型', meta: '会议 · 30分钟', done: false },
+      { text: '回复张总的合同条款邮件', meta: '高优先 · 已等待2天', done: false },
+      { text: '确认下周出差机票', meta: '截止今天 18:00', done: false },
+    ],
+    confidence: 3,
+    source: '日程同步 · 实时'
+  },
+  {
+    id: 5,
+    type: 'question',
+    tag: '提问',
+    title: '你希望我把下次团队会议安排在周几？',
+    body: `检测到本周原定周三的会议与产品发布会冲突。根据大家日历空闲情况，以下时段可选：`,
+    extra: 'options',
+    options: [
+      { text: '周二下午 15:00', sub: '5/7 人有空' },
+      { text: '周四上午 10:00', sub: '7/7 人有空 · 推荐' },
+      { text: '周五下午 16:00', sub: '6/7 人有空' },
+    ],
+    confidence: 2,
+    source: '日历分析 · 刚刚'
+  },
+  {
+    id: 6,
+    type: 'insight',
+    tag: '洞察',
+    title: '你本周的会议时长比上周增加了 28%',
+    body: `其中 42% 为低效同步会。我建议把 3 个例会转为异步文档协作，预计每周为你释放约 4 小时。`,
+    extra: 'expandable',
+    expandTitle: '查看会议分析详情',
+    expandContent: `• 周一项目同步会（1h）→ 可转为周报文档<br>• 周三进度对齐（30min）→ 可转为看板自动通知<br>• 周五复盘会（1h）→ 建议保留，但压缩为 30min<br><br>需要我帮你起草异步沟通模板吗？`,
+    confidence: 3,
+    source: '时间分析 · 本周vs上周'
+  },
+  {
+    id: 7,
+    type: 'data',
+    tag: '数据',
+    title: '你的产品本周活跃用户增长 18%',
+    body: `新功能"AI 写作助手"上线后，DNU 提升 18%，次日留存从 41% 升至 53%。核心指标如下：`,
+    extra: 'chart',
+    chartData: [
+      {h: '一', v: 45, label: '周一', val: ''},
+      {h: '二', v: 52, label: '周二', val: ''},
+      {h: '三', v: 68, label: '周三', val: '', peak: true},
+      {h: '四', v: 71, label: '周四', val: '', peak: true},
+      {h: '五', v: 63, label: '周五', val: ''},
+      {h: '六', v: 48, label: '周六', val: ''},
+      {h: '日', v: 42, label: '周日', val: ''},
+    ],
+    chartTitle: '本周日活趋势（千）',
+    confidence: 3,
+    source: '数据看板 · 实时'
+  },
+  {
+    id: 8,
+    type: 'decision',
+    tag: '决策',
+    title: '检测到你的订阅服务有 2 笔可优化支出',
+    body: `基于过去 3 个月的使用记录分析：`,
+    extra: 'options',
+    options: [
+      { text: '取消"设计素材Pro"（$29/月）', sub: '近90天仅使用2次' },
+      { text: '将"云存储"从1TB降为200GB', sub: '实际占用仅38GB · 省$8/月' },
+    ],
+    confidence: 2,
+    source: '财务分析 · 90天'
+  },
+  {
+    id: 9,
+    type: 'creation',
+    tag: '创作',
+    title: '为你准备了给客户的提案邮件草稿',
+    body: `根据上次沟通纪要生成，关键卖点已突出：`,
+    extra: 'editable',
+    editableText: '王总您好：\n\n感谢上周的深入交流。结合贵方提出的"降本增效"核心诉求，我们整理了针对性方案：预计可在 3 个月内将运营成本降低 25%，同时提升处理效率 40%。\n\n附件为详细方案与案例参考，期待您的反馈。\n\n此致\nNova',
+    confidence: 2,
+    source: 'AI 生成 · 基于沟通纪要'
+  },
+  {
+    id: 10,
+    type: 'insight',
+    tag: '洞察',
+    title: '建议你把深度工作安排在明早 10-12 点',
+    body: `该时段你的日历完全空闲，且根据历史数据这是你的专注峰值窗口。已为你屏蔽通知。`,
+    extra: 'expandable',
+    expandTitle: '查看建议依据',
+    expandContent: `• 当前日历：10:00-12:00 无任何会议<br>• 历史专注度：该时段平均 92%<br>• 待办优先级：路线图文档为 P0<br>• 已自动开启"勿扰"模式至 12:00`,
+    confidence: 3,
+    source: '智能排程 · 刚刚'
+  },
+  {
+    id: 11,
+    type: 'todo',
+    tag: '待办',
+    title: '有 1 封重要邮件已等待你回复 3 天',
+    body: `来自张总，关于合同条款的最终确认：`,
+    extra: 'todos',
+    todos: [
+      { text: '回复张总 · 合同第7条付款条款', meta: '高优先 · 等待3天', done: false },
+    ],
+    confidence: 3,
+    source: '邮件监控 · 实时'
+  },
+  {
+    id: 12,
+    type: 'question',
+    tag: '提问',
+    title: '今晚要不要我帮你规划明天的日程？',
+    body: `我可以根据你的待办优先级、会议安排和精力曲线，自动生成一份优化后的明日计划。`,
+    extra: 'options',
+    options: [
+      { text: '好，帮我规划', sub: '将生成完整日程建议' },
+      { text: '稍后再说', sub: '明早 8:00 提醒你' },
+    ],
+    confidence: 1,
+    source: '主动建议 · 现在'
+  },
+];
+
+// 状态
+let currentIndex = 0;
+let doneCount = 0;
+const totalCards = CARDS.length;
+
+// 图标
+const TAG_ICONS = {
+  insight: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a7 7 0 0 0-4 12.74V17a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-2.26A7 7 0 0 0 12 2zm-1 19h2a1 1 0 0 1 0 2h-2a1 1 0 0 1 0-2z"/></svg>',
+  decision: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>',
+  creation: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>',
+  todo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>',
+  data: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
+  question: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+};
+
+// 渲染卡片内容
+function renderCardContent(card) {
+  let extraHTML = '';
+  if (card.extra === 'chart') {
+    const bars = card.chartData.map(d => `
+      <div class="chart-bar ${d.peak ? 'peak' : ''}" style="height:${d.v}%">
+        ${d.val ? `<span class="chart-bar-value">${d.val}</span>` : ''}
+        <span class="chart-bar-label">${d.label}</span>
+      </div>
+    `).join('');
+    extraHTML = `
+      <div class="content-chart">
+        <div style="font-size:12px;color:var(--text-mute);margin-bottom:4px;">${card.chartTitle}</div>
+        <div class="chart-bars">${bars}</div>
+        <div style="height:24px"></div>
+      </div>
+    `;
+  } else if (card.extra === 'options') {
+    extraHTML = `
+      <div class="content-options">
+        ${card.options.map((o, i) => `
+          <div class="option-item" data-idx="${i}">
+            <span class="option-radio"></span>
+            <div>
+              <div>${o.text}</div>
+              ${o.sub ? `<div style="font-size:12px;color:var(--text-mute);margin-top:2px;">${o.sub}</div>` : ''}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  } else if (card.extra === 'editable') {
+    extraHTML = `<textarea class="content-editable" onclick="event.stopPropagation()">${card.editableText}</textarea>`;
+  } else if (card.extra === 'todos') {
+    extraHTML = card.todos.map((t, i) => `
+      <div class="content-todo">
+        <div class="todo-check ${t.done ? 'done' : ''}" data-todo-idx="${i}"></div>
+        <div style="flex:1">
+          <div class="todo-text ${t.done ? 'done' : ''}">${t.text}</div>
+          <div class="todo-meta">${t.meta}</div>
+        </div>
+      </div>
+    `).join('');
+  } else if (card.extra === 'expandable') {
+    extraHTML = `
+      <div class="expandable-detail">
+        <button class="expand-toggle" onclick="toggleExpand(this)">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+          ${card.expandTitle}
+        </button>
+        <div class="expand-content">${card.expandContent}</div>
+      </div>
+    `;
+  }
+
+  const confidenceDots = [0,1,2].map(i => `<span class="${i < card.confidence ? 'on' : ''}"></span>`).join('');
+
+  return `
+    <span class="card-tag tag-${card.type}">${TAG_ICONS[card.type]} ${card.tag}</span>
+    <h2 class="card-title">${card.title}</h2>
+    <div class="card-body">
+      <p>${card.body}</p>
+      ${extraHTML}
+    </div>
+    <div class="card-foot-meta">
+      <span class="foot-source">
+        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        ${card.source}
+      </span>
+      <span class="foot-confidence">
+        置信度
+        <span class="confidence-dots">${confidenceDots}</span>
+      </span>
+    </div>
+  `;
+}
+
+function toggleExpand(btn) {
+  btn.classList.toggle('open');
+  btn.nextElementSibling.classList.toggle('open');
+}
+window.toggleExpand = toggleExpand;
+
+// 渲染牌堆
+function renderDeck() {
+  const deck = document.getElementById('cardDeck');
+  if (currentIndex >= totalCards) {
+    deck.innerHTML = `
+      <div class="card active" style="display:flex;align-items:center;justify-content:center;">
+        <div class="empty-state">
+          <div class="empty-icon">✨</div>
+          <div class="empty-title">今天的卡片都看完啦</div>
+          <div class="empty-sub">你已处理 ${doneCount} 张卡片。Nova 会持续为你准备新的洞察，明天见。</div>
+          <button onclick="resetCards()" style="margin-top:8px;padding:10px 24px;background:var(--mint);color:white;border:none;border-radius:20px;font-size:14px;font-weight:600;cursor:pointer;">重新查看</button>
+        </div>
+      </div>
+    `;
+    document.querySelector('.actions').style.opacity = '0.3';
+    document.querySelector('.actions').style.pointerEvents = 'none';
+    return;
+  }
+
+  // 渲染当前+下两张
+  const visible = [];
+  for (let i = 0; i < 3; i++) {
+    const idx = currentIndex + i;
+    if (idx >= totalCards) break;
+    visible.push({ card: CARDS[idx], offset: i });
+  }
+
+  deck.innerHTML = visible.map(({ card, offset }) => {
+    let cls = 'card';
+    if (offset === 0) cls += ' active';
+    else if (offset === 1) cls += ' next';
+    else if (offset === 2) cls += ' next-2';
+    return `<div class="${cls}" data-card-id="${card.id}">${renderCardContent(card)}</div>`;
+  }).join('');
+
+  // 绑定选项交互
+  bindCardInteractions();
+  document.querySelector('.actions').style.opacity = '1';
+  document.querySelector('.actions').style.pointerEvents = 'auto';
+}
+
+function bindCardInteractions() {
+  // 选项点击
+  document.querySelectorAll('.option-item').forEach(item => {
+    item.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const parent = item.parentElement;
+      parent.querySelectorAll('.option-item').forEach(i => i.classList.remove('selected'));
+      item.classList.add('selected');
+    });
+  });
+  // 待办勾选
+  document.querySelectorAll('.todo-check').forEach(check => {
+    check.addEventListener('click', (e) => {
+      e.stopPropagation();
+      check.classList.toggle('done');
+      const text = check.nextElementSibling.querySelector('.todo-text');
+      if (text) text.classList.toggle('done');
+    });
+  });
+}
+
+function resetCards() {
+  currentIndex = 0;
+  doneCount = 0;
+  document.getElementById('doneCards').textContent = '0';
+  document.getElementById('progressFill').style.width = '0%';
+  renderDeck();
+}
+window.resetCards = resetCards;
+
+// 反馈消息
+const FEEDBACKS = {
+  skip: ['已跳过，稍后可再查看', '好的，这张先放着', '明白，跳过这张'],
+  fav: ['已收藏到你的灵感库', '已加入收藏', '已保存，随时可回顾'],
+  accept: ['已加入你的计划', '已采纳，正在执行', '已采纳，我会在后台跟进', '已确认，马上处理'],
+};
+
+function showFeedback(type) {
+  const toast = document.getElementById('feedbackToast');
+  const text = document.getElementById('feedbackText');
+  const msgs = FEEDBACKS[type];
+  text.textContent = msgs[Math.floor(Math.random() * msgs.length)];
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 1800);
+}
+
+// 切换卡片
+function nextCard(direction) {
+  const activeCard = document.querySelector('.card.active');
+  if (!activeCard) return;
+
+  const flyClass = {
+    skip: 'fly-left',
+    accept: 'fly-right',
+    fav: 'fly-up',
+  }[direction];
+
+  activeCard.classList.add(flyClass);
+
+  setTimeout(() => {
+    currentIndex++;
+    doneCount++;
+    document.getElementById('doneCards').textContent = doneCount;
+    const pct = Math.round((doneCount / totalCards) * 100);
+    document.getElementById('progressFill').style.width = pct + '%';
+    renderDeck();
+    showFeedback(direction);
+  }, 450);
+}
+
+// 按钮事件
+document.getElementById('btnSkip').addEventListener('click', () => nextCard('skip'));
+document.getElementById('btnFav').addEventListener('click', () => nextCard('fav'));
+document.getElementById('btnAccept').addEventListener('click', () => nextCard('accept'));
+
+// 键盘事件
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowLeft') { e.preventDefault(); nextCard('skip'); }
+  else if (e.key === 'ArrowRight') { e.preventDefault(); nextCard('accept'); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); nextCard('fav'); }
+  else if (e.key === 'ArrowDown') { e.preventDefault(); nextCard('skip'); }
+});
+
+// 触摸滑动
+let touchStartX = 0, touchStartY = 0, touchStart = false;
+const stage = document.querySelector('.stage');
+
+stage.addEventListener('touchstart', (e) => {
+  touchStartX = e.touches[0].clientX;
+  touchStartY = e.touches[0].clientY;
+  touchStart = true;
+}, { passive: true });
+
+stage.addEventListener('touchend', (e) => {
+  if (!touchStart) return;
+  touchStart = false;
+  const dx = e.changedTouches[0].clientX - touchStartX;
+  const dy = e.changedTouches[0].clientY - touchStartY;
+  const absX = Math.abs(dx), absY = Math.abs(dy);
+  if (Math.max(absX, absY) < 50) return;
+  if (absX > absY) {
+    if (dx > 0) nextCard('accept');
+    else nextCard('skip');
+  } else {
+    if (dy < 0) nextCard('fav');
+    else nextCard('skip');
+  }
+}, { passive: true });
+
+// 鼠标拖拽
+let mouseStart = null;
+stage.addEventListener('mousedown', (e) => {
+  if (e.target.closest('.option-item, .todo-check, .content-editable, .expand-toggle')) return;
+  mouseStart = { x: e.clientX, y: e.clientY };
+});
+document.addEventListener('mouseup', (e) => {
+  if (!mouseStart) return;
+  const dx = e.clientX - mouseStart.x;
+  const dy = e.clientY - mouseStart.y;
+  const absX = Math.abs(dx), absY = Math.abs(dy);
+  mouseStart = null;
+  if (Math.max(absX, absY) < 60) return;
+  if (absX > absY) {
+    if (dx > 0) nextCard('accept');
+    else nextCard('skip');
+  } else {
+    if (dy < 0) nextCard('fav');
+  }
+});
+
+// 初始化
+document.getElementById('totalCards').textContent = totalCards;
+renderDeck();
+</script>
+
+</body>
+</html>

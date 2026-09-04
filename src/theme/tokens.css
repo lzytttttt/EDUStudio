@@ -1,0 +1,50 @@
+/* 设计 token：RGB 三元组格式，供 Tailwind 以 rgb(var(--x) / <alpha-value>) 消费 */
+:root {
+  --bg: 250 248 245;
+  --surface: 255 255 255;
+  --surface-2: 243 241 236;
+  --ink: 38 34 29;
+  --ink-soft: 107 102 96;
+  --ink-mute: 168 163 157;
+  --line: 236 232 226;
+  --primary: 79 70 229;
+  --primary-deep: 67 56 202;
+  --primary-soft: 238 242 255;
+  --coral: 255 107 107;
+  --coral-soft: 255 241 241;
+  --amber: 246 196 83;
+  --amber-soft: 254 246 228;
+  --mint: 42 157 143;
+  --mint-soft: 232 250 248;
+  --danger: 229 72 77;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: rgb(var(--bg));
+  color: rgb(var(--ink));
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgb(var(--line));
+  border-radius: 3px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
