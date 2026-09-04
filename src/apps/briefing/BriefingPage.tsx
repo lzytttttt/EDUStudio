@@ -157,7 +157,8 @@ export default function BriefingPage() {
           <div>
             <p className="text-sm font-semibold leading-tight">今日简报</p>
             <p className="text-[11px] text-ink-mute">
-              2026 年 9 月 4 日 · {preset?.name ?? '访客'} · 已处理 {processed}/{total}
+              <span className="minor-info">2026 年 9 月 4 日 · </span>
+              {preset?.name ?? '访客'} · 已处理 {processed}/{total}
             </p>
           </div>
         </div>
@@ -288,7 +289,7 @@ export default function BriefingPage() {
               <span className="text-[11px] font-medium text-primary">采纳执行</span>
             </button>
           </div>
-          <p className="mt-4 flex items-center justify-center gap-3 text-[11px] text-ink-mute">
+          <p className="minor-info mt-4 flex items-center justify-center gap-3 text-[11px] text-ink-mute">
             <span className="inline-flex items-center gap-1"><ArrowLeft size={11} /> 跳过</span>
             <span className="inline-flex items-center gap-1"><ArrowUp size={11} /> 收藏</span>
             <span className="inline-flex items-center gap-1"><ArrowRight size={11} /> 采纳</span>

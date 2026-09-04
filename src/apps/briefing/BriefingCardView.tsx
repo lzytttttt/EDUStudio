@@ -115,7 +115,7 @@ export default function BriefingCardView({ card }: { card: BriefingCard }) {
             <Icon size={13} />
             {meta.label} · {card.tag}
           </span>
-          <span className="flex items-center gap-1" title={`置信度 ${card.confidence}/3`}>
+          <span className="minor-info flex items-center gap-1" title={`置信度 ${card.confidence}/3`}>
             {[1, 2, 3].map((i) => (
               <span key={i} className={cn('h-1.5 w-1.5 rounded-full', i <= card.confidence ? 'bg-mint' : 'bg-line')} />
             ))}
@@ -131,7 +131,7 @@ export default function BriefingCardView({ card }: { card: BriefingCard }) {
         {card.payload?.kind === 'todos' && <TodosPayload payload={card.payload} />}
         {card.payload?.kind === 'expandable' && <ExpandablePayload payload={card.payload} />}
 
-        <div className="mt-auto pt-4">
+        <div className="minor-info mt-auto pt-4">
           <p className="text-[11px] text-ink-mute">来源：{card.source}</p>
         </div>
       </div>

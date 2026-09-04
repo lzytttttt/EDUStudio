@@ -115,7 +115,7 @@ export default function ArtifactPanel() {
                         className="flex w-full items-center justify-between px-3 py-2.5 text-left transition-colors hover:bg-surface-2"
                       >
                         <span className="text-xs font-medium text-ink">{item.label}</span>
-                        <span className="text-[10px] text-ink-mute">{item.hint}</span>
+                        <span className="minor-info text-[10px] text-ink-mute">{item.hint}</span>
                       </button>
                     ))}
                   </div>
@@ -196,9 +196,9 @@ export default function ArtifactPanel() {
         />
       )}
 
-      {/* 底部元信息 */}
+      {/* 底部元信息（超大字号档隐藏） */}
       {doc && (
-        <footer className="flex items-center justify-between border-t border-line px-4 py-2 text-[10px] text-ink-mute">
+        <footer className="minor-info flex items-center justify-between border-t border-line px-4 py-2 text-[10px] text-ink-mute">
           <span>{doc.source === 'agent' ? 'Agent 生成' : doc.source === 'manual' ? '手动创建' : '简报采纳'}</span>
           <span>{doc.content.length} 字 · 可编辑 / 导出</span>
         </footer>
@@ -254,7 +254,7 @@ export default function ArtifactPanel() {
                             <span className="rounded-full bg-mint/15 px-1.5 py-0.5 text-[9px] font-medium text-mint">最新</span>
                           )}
                         </p>
-                        <p className="mt-0.5 text-[10px] text-ink-mute">
+                        <p className="minor-info mt-0.5 text-[10px] text-ink-mute">
                           {fmtTime(rev.createdAt)} · {rev.content.length} 字
                         </p>
                       </div>

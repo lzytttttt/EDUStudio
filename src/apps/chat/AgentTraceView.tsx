@@ -7,7 +7,7 @@ import { cn } from '../../lib/cn'
 function JsonPeek({ payload }: { payload: unknown }) {
   const [open, setOpen] = useState(false)
   return (
-    <div className="mt-1.5">
+    <div className="minor-info mt-1.5">
       <button
         onClick={() => setOpen(!open)}
         className="inline-flex items-center gap-1 text-[10px] font-medium text-mint hover:underline"
@@ -24,11 +24,12 @@ function JsonPeek({ payload }: { payload: unknown }) {
   )
 }
 
-/** Agent 执行轨迹：Plan(蓝) → Tool Call(黄) → Result(绿,可展开) → Reflect(纸感) */
+/** Agent 执行轨迹：Plan(蓝) → Tool Call(黄) → Result(绿,可展开) → Reflect(纸感)
+ *  根容器挂 .agent-trace：超大字号档下内部文字跟随放大（见 index.css） */
 export default function AgentTraceView({ trace, streaming }: { trace: AgentTraceEvent[]; streaming: boolean }) {
   if (trace.length === 0) return null
   return (
-    <div className="mb-2 space-y-1.5">
+    <div className="agent-trace mb-2 space-y-1.5">
       {trace.map((e, i) => {
         const isLast = i === trace.length - 1
         if (e.kind === 'plan') {

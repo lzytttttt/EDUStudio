@@ -3,7 +3,8 @@
 @tailwind utilities;
 
 /* ── 阅读区字号缩放（v0.3 UI 专项：设置 → 界面字号） ──
-   仅作用于对话气泡 / Markdown 文档 / 编辑器等阅读内容，不影响布局骨架 */
+   仅作用于对话气泡 / Markdown 文档 / 编辑器等阅读内容，不影响布局骨架
+   xlarge（超大档）面向高龄用户：20px 阅读字号 + 隐藏次要信息（.minor-info） */
 :root {
   --content-fs: 0.875rem; /* 标准 14px */
 }
@@ -12,6 +13,23 @@ html[data-font='small'] {
 }
 html[data-font='large'] {
   --content-fs: 1rem; /* 大 16px */
+}
+html[data-font='xlarge'] {
+  --content-fs: 1.25rem; /* 超大 20px */
+}
+
+/* 超大档简化：次要信息（时间戳 / 来源 / 字数 / 键盘提示等）统一隐藏 */
+html[data-font='xlarge'] .minor-info {
+  display: none !important;
+}
+/* 超大档：Agent 轨迹固定小字号跟随放大，保证可读性 */
+html[data-font='xlarge'] .agent-trace p,
+html[data-font='xlarge'] .agent-trace li,
+html[data-font='xlarge'] .agent-trace span {
+  font-size: 0.9375rem; /* 15px */
+}
+html[data-font='xlarge'] .agent-trace pre {
+  font-size: 0.8125rem;
 }
 
 @layer base {

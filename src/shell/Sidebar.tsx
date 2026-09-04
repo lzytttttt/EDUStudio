@@ -44,7 +44,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           </div>
           <div>
             <p className="text-sm font-bold leading-tight">EDUStudio</p>
-            <p className="text-[10px] text-ink-mute">{mode === 'mock' ? 'Mock 演示模式' : 'API 模式'}</p>
+            <p className="minor-info text-[10px] text-ink-mute">{mode === 'mock' ? 'Mock 演示模式' : 'API 模式'}</p>
           </div>
         </button>
         <div className="flex items-center gap-0.5">
@@ -116,7 +116,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
                 <MessageSquare size={14} className="shrink-0 opacity-70" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[13px] font-medium leading-tight">{s.title}</p>
-                  <p className="text-[10px] text-ink-mute">
+                  <p className="minor-info text-[10px] text-ink-mute">
                     {new Date(s.updatedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
                   </p>
                 </div>
@@ -152,7 +152,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
                     <Trash2 size={12} />
                   </button>
                 </div>
-                <p className="mt-1 pl-5 text-[10px] text-ink-mute">{f.source}</p>
+                <p className="minor-info mt-1 pl-5 text-[10px] text-ink-mute">{f.source}</p>
               </div>
             ))}
           </>
@@ -174,7 +174,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
                 <FileText size={14} className="shrink-0 text-ink-mute" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[13px] font-medium leading-tight">{d.title}</p>
-                  <p className="text-[10px] text-ink-mute">
+                  <p className="minor-info text-[10px] text-ink-mute">
                     {new Date(d.createdAt).toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' })}
                   </p>
                 </div>
@@ -194,7 +194,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
             </span>
             <div>
               <p className="text-xs font-semibold leading-tight">{preset?.name}</p>
-              <p className="text-[10px] text-ink-mute">{preset?.subtitle}</p>
+              <p className="minor-info text-[10px] text-ink-mute">{preset?.subtitle}</p>
             </div>
           </div>
           <button

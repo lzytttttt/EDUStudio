@@ -7,9 +7,15 @@ const FONT_OPTIONS: { value: FontSize; label: string; sample: string }[] = [
   { value: 'small', label: '小', sample: 'A' },
   { value: 'medium', label: '标准', sample: 'A' },
   { value: 'large', label: '大', sample: 'A' },
+  { value: 'xlarge', label: '超大', sample: 'A' },
 ]
 
-const FONT_SAMPLE_SIZE: Record<FontSize, string> = { small: 'text-[13px]', medium: 'text-[15px]', large: 'text-[17px]' }
+const FONT_SAMPLE_SIZE: Record<FontSize, string> = {
+  small: 'text-[13px]',
+  medium: 'text-[15px]',
+  large: 'text-[17px]',
+  xlarge: 'text-[20px]',
+}
 
 export default function SettingsDialog({ onClose }: { onClose: () => void }) {
   const s = useSettingsStore()
@@ -81,7 +87,9 @@ export default function SettingsDialog({ onClose }: { onClose: () => void }) {
             <Type size={14} className="text-primary" />
             <h3 className="text-sm font-semibold text-ink">界面字号</h3>
           </div>
-          <p className="mb-3 text-xs leading-relaxed text-ink-mute">调整对话与文档阅读区的字号，即时生效。</p>
+          <p className="mb-3 text-xs leading-relaxed text-ink-mute">
+            调整对话与文档阅读区的字号，即时生效。超大档适合高龄用户：自动隐藏时间戳、来源等次要信息，聚焦核心内容。
+          </p>
           <div className="flex gap-2">
             {FONT_OPTIONS.map((opt) => (
               <button

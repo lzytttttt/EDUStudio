@@ -51,8 +51,10 @@ function BackToBriefingCard() {
         <CheckCircle2 size={16} className="shrink-0 text-mint" />
         <p className="truncate text-xs text-ink-soft">
           <span className="font-semibold text-ink">本任务已完成</span>
-          <span className="mx-1.5 text-ink-mute">·</span>
-          {hint}
+          <span className="minor-info">
+            <span className="mx-1.5 text-ink-mute">·</span>
+            {hint}
+          </span>
         </p>
       </div>
       <button

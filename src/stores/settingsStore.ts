@@ -30,8 +30,9 @@ export interface UserPreferences {
 
 export const EMPTY_PREFERENCES: UserPreferences = { nickname: '', stage: '', style: '', scenes: {} }
 
-/** 界面字号档位：作用于对话气泡 / Markdown 文档 / 编辑器等阅读区 */
-export type FontSize = 'small' | 'medium' | 'large'
+/** 界面字号档位：作用于对话气泡 / Markdown 文档 / 编辑器等阅读区
+ *  xlarge（超大）面向高龄用户：阅读区 20px，并隐藏次要信息（时间戳/来源/字数等）聚焦核心内容 */
+export type FontSize = 'small' | 'medium' | 'large' | 'xlarge'
 
 export const DEFAULT_LLM_SETTINGS: LLMSettings = {
   mode: ACTIVE_MODE,
