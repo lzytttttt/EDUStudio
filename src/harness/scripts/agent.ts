@@ -2,9 +2,13 @@ import type { ArtifactKind, RoleId } from '../types'
 
 /** Agent 预制剧本：Plan→Act→Reflect 步骤序列，按角色 + 关键词匹配，任何输入都有降级剧本 */
 
+export type ToolStep = { type: 'tool'; tool: string; args: Record<string, unknown> }
+
 export type ScriptStep =
   | { type: 'plan'; steps: string[] }
-  | { type: 'tool'; tool: string; args: Record<string, unknown> }
+  | ToolStep
+  /** 并行工具组（v0.4 M1②）：组内步骤 Promise.all 并行执行，trace 标注同一 group */
+  | { type: 'parallel'; label: string; steps: { tool: string; args: Record<string, unknown> }[] }
   | { type: 'reflect'; text: string }
   | { type: 'artifact'; kind: ArtifactKind }
   | { type: 'text'; text: string }
@@ -18,6 +22,56 @@ export interface AgentScript {
 }
 
 export const AGENT_SCRIPTS: AgentScript[] = [
+  /* ---------- 组合任务（v0.4 M1⑤：多轮工具循环演示，置于最前优先匹配） ---------- */
+  {
+    id: 'teacher-combo-pipeline',
+    roles: ['teacher'],
+    match: ['先查', '再出', '最后写', '一条龙', '组合任务'],
+    steps: [
+      { type: 'plan', steps: ['查询班级学情，定位薄弱知识点', '基于学情命制分层试题', '结合试题结构生成习题课教案'] },
+      // 第 1 轮工具：查学情
+      { type: 'tool', tool: 'queryClassLearning', args: { className: '高一（3）班' } },
+      {
+        type: 'reflect',
+        text: '第 1 轮观察：学情显示「函数单调性判定」掌握率仅 61%，为最薄弱知识点，决定围绕它命制分层试题。',
+      },
+      // 第 2 轮工具：出题（依赖第 1 轮结果）
+      { type: 'tool', tool: 'genQuiz', args: { knowledgePoint: '函数单调性判定', difficulty: '分层 A/B/C' } },
+      {
+        type: 'reflect',
+        text: '第 2 轮观察：试题已按 A/B/C 三层命制（单选 2、填空 2、解答 1），难度梯度与学情匹配，可生成配套教案。',
+      },
+      { type: 'artifact', kind: 'lessonPlan' },
+      {
+        type: 'done',
+        text: '组合任务已完成：学情定位 → 分层试题 → 习题课教案，共 2 轮工具调用。试题已写入出题工作台，教案在右侧可编辑。',
+      },
+    ],
+  },
+  /* ---------- 学校管理（并行工具组演示，v0.4 M1②） ---------- */
+  {
+    id: 'admin-parallel-compare',
+    roles: ['schoolAdmin'],
+    match: ['对比两个班', '并行调取', '两班对比'],
+    steps: [
+      { type: 'plan', steps: ['并行调取两个班学情与校情数据', '交叉对比生成分析报告'] },
+      {
+        type: 'parallel',
+        label: '班级学情与校情统计',
+        steps: [
+          { tool: 'queryClassLearning', args: { className: '高一（3）班' } },
+          { tool: 'queryClassLearning', args: { className: '高一（7）班' } },
+          { tool: 'querySchoolStats', args: {} },
+        ],
+      },
+      {
+        type: 'reflect',
+        text: '并行数据已齐：高一（3）班物理 82.4 领先，高一（7）班物理 74.1 且环比 -3.2 需重点帮扶，校情预警与之互相印证。',
+      },
+      { type: 'artifact', kind: 'report' },
+      { type: 'done', text: '对比分析已生成：两班差异、预警关联与帮扶建议齐备，可在右侧编辑后提交行政会。' },
+    ],
+  },
   /* ---------- 教师 ---------- */
   {
     id: 'teacher-weakpoint-drill',

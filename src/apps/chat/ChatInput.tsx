@@ -159,6 +159,7 @@ export default function ChatInput() {
           ref={inputRef}
           value={text}
           onChange={(e) => setText(e.target.value)}
+          data-testid="chat-input"
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
               e.preventDefault()
@@ -181,6 +182,7 @@ export default function ChatInput() {
           <button
             onClick={submit}
             disabled={!text.trim()}
+            data-testid="chat-send"
             className={cn(
               'flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl transition-all active:scale-95',
               text.trim() ? 'bg-primary text-white hover:bg-primary-deep' : 'bg-line text-ink-mute',

@@ -1,0 +1,49 @@
+/**
+ * v0.4 M3③：包体预算门禁。
+ * - 主 chunk（index-*.js）gzip ≤ 110KB
+ * - 全部 JS gzip ≤ 230KB
+ * 超限 exit 1，CI 中作为 build 后门禁执行。
+ */
+import { gzipSync } from 'node:zlib'
+import { readdirSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
+
+const BUDGET = {
+  mainChunkKB: 110, // 主 chunk gzip 上限
+  totalJsKB: 230, // 全部 JS gzip 上限
+}
+
+const dist = 'dist/assets'
+const kb = (bytes) => Math.round(bytes / 102.4) / 10
+
+try {
+  const files = readdirSync(dist).filter((f) => f.endsWith('.js'))
+  if (files.length === 0) {
+    console.error(`[budget] 未找到 JS 产物，请先执行 vite build（目录 ${dist}）`)
+    process.exit(1)
+  }
+
+  let total = 0
+  let main = 0
+  const rows = []
+  for (const f of files) {
+    const gz = gzipSync(readFileSync(join(dist, f))).length
+    total += gz
+    if (/^index-.*\.js$/.test(f)) main = Math.max(main, gz)
+    rows.push({ f, gz })
+  }
+
+  rows.sort((a, b) => b.gz - a.gz)
+  for (const { f, gz } of rows) console.log(`  ${f.padEnd(40)} ${kb(gz)} KB (gzip)`)
+
+  const mainOk = main <= BUDGET.mainChunkKB * 1024
+  const totalOk = total <= BUDGET.totalJsKB * 1024
+  console.log('')
+  console.log(`主 chunk gzip: ${kb(main)} KB / 预算 ${BUDGET.mainChunkKB} KB  ${mainOk ? 'PASS' : 'FAIL'}`)
+  console.log(`全部 JS  gzip: ${kb(total)} KB / 预算 ${BUDGET.totalJsKB} KB  ${totalOk ? 'PASS' : 'FAIL'}`)
+
+  if (!mainOk || !totalOk) process.exit(1)
+} catch (err) {
+  console.error(`[budget] 执行失败：${err.message}`)
+  process.exit(1)
+}

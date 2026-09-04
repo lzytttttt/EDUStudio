@@ -58,6 +58,11 @@ html[data-font='xlarge'] .agent-trace pre {
   .chat-bubble {
     font-size: var(--content-fs);
   }
+  /* v0.4 M4②：消息条目原生虚拟化——屏外条目跳过布局与渲染，长会话滚动不掉帧 */
+  .cv-msg {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 120px;
+  }
   /* 文档编辑器：略小于阅读字号 */
   .doc-editor {
     font-size: calc(var(--content-fs) * 0.85);

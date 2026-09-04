@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react'
 import {
-  Eye, Pencil, Copy, Trash2, FileText, Check, X, Download, History, Save, Plus, RotateCcw, LayoutTemplate,
+  Eye, Pencil, Copy, Trash2, FileText, Check, X, Download, History, Save, Plus, RotateCcw, LayoutTemplate, Share2, Link2,
 } from 'lucide-react'
 import { useArtifactStore } from '../../stores/artifactStore'
 import { useAuthStore } from '../../stores/authStore'
 import { renderMarkdown } from '../../lib/markdown'
 import { copyText } from '../../lib/clipboard'
 import { exportDoc, type ExportFormat } from '../../lib/exporters'
+import { buildShareUrl } from '../../lib/share'
 import { listTemplates } from '../../harness/scripts/artifacts'
 import { cn } from '../../lib/cn'
 
@@ -39,6 +40,11 @@ export default function ArtifactPanel() {
   const [copyState, setCopyState] = useState<'idle' | 'ok' | 'fail'>('idle')
   const [exportOpen, setExportOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
+  // 分享弹层（v0.4 M2①）：生成只读快照链接
+  const [shareOpen, setShareOpen] = useState(false)
+  const [shareUrl, setShareUrl] = useState('')
+  const [shareState, setShareState] = useState<'idle' | 'generating' | 'ready' | 'too-long' | 'fail'>('idle')
+  const [shareCopied, setShareCopied] = useState(false)
   const html = useMemo(() => (doc ? renderMarkdown(doc.content) : ''), [doc?.content])
   const docRevisions = doc ? revisions[doc.id] ?? [] : []
   const templates = role ? listTemplates(role) : []
@@ -53,6 +59,35 @@ export default function ArtifactPanel() {
   const doExport = (format: ExportFormat) => {
     if (doc?.content) exportDoc(doc.content, doc.title, format)
     setExportOpen(false)
+  }
+
+  /* 生成分享链接（v0.4 M2①）：快照压缩进 hash，接收方免登录只读查看 */
+  const openShare = async () => {
+    if (!doc?.content) return
+    setShareOpen(true)
+    setShareState('generating')
+    setShareCopied(false)
+    const res = await buildShareUrl({
+      v: 1,
+      title: doc.title,
+      kind: doc.kind,
+      role: doc.role,
+      content: doc.content,
+      createdAt: doc.createdAt,
+      author: role ? { bureau: '教育局', schoolAdmin: '校长', teacher: '教师' }[role] : undefined,
+    })
+    if (res.ok) {
+      setShareUrl(res.url)
+      setShareState('ready')
+    } else {
+      setShareState(res.reason === 'too-long' ? 'too-long' : 'fail')
+    }
+  }
+
+  const copyShareUrl = async () => {
+    const ok = await copyText(shareUrl)
+    setShareCopied(ok)
+    window.setTimeout(() => setShareCopied(false), 1800)
   }
 
   return (
@@ -91,6 +126,17 @@ export default function ArtifactPanel() {
               aria-label="复制全文"
             >
               {copyState === 'ok' ? <Check size={15} className="text-mint" /> : copyState === 'fail' ? <X size={15} /> : <Copy size={15} />}
+            </button>
+
+            {/* 分享（v0.4 M2①）：只读快照链接 */}
+            <button
+              onClick={() => void openShare()}
+              disabled={!doc.content}
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-mute transition-colors hover:bg-surface-2 hover:text-ink disabled:opacity-40"
+              title="生成分享链接"
+              aria-label="生成分享链接"
+            >
+              <Share2 size={15} />
             </button>
 
             {/* 导出菜单 */}
@@ -177,6 +223,7 @@ export default function ArtifactPanel() {
             <button
               onClick={() => role && createManual(role)}
               className="rounded-2xl border border-dashed border-line px-4 py-2.5 text-xs font-medium text-ink-soft transition-colors hover:border-primary/50 hover:text-primary"
+              data-testid="new-doc-btn"
             >
               空白文档
             </button>
@@ -202,6 +249,73 @@ export default function ArtifactPanel() {
           <span>{doc.source === 'agent' ? 'Agent 生成' : doc.source === 'manual' ? '手动创建' : '简报采纳'}</span>
           <span>{doc.content.length} 字 · 可编辑 / 导出</span>
         </footer>
+      )}
+
+      {/* 分享弹层（v0.4 M2①） */}
+      {shareOpen && doc && (
+        <div className="absolute inset-0 z-30 flex items-center justify-center bg-ink/30 p-4 backdrop-blur-sm" onClick={() => setShareOpen(false)}>
+          <div
+            className="animate-fade-up w-full max-w-sm rounded-3xl border border-line bg-surface p-5 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="flex items-center gap-2 text-sm font-semibold text-ink">
+                <Share2 size={14} className="text-primary" />
+                分享文档
+              </h3>
+              <button
+                onClick={() => setShareOpen(false)}
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-ink-mute transition-colors hover:bg-surface-2 hover:text-ink"
+                aria-label="关闭"
+              >
+                <X size={14} />
+              </button>
+            </div>
+
+            {shareState === 'generating' && <p className="mt-4 text-xs text-ink-mute">正在生成分享链接…</p>}
+
+            {shareState === 'ready' && (
+              <>
+                <p className="mt-3 text-xs leading-relaxed text-ink-soft">
+                  链接包含文档只读快照，接收方无需登录即可查看；校长/局角色可在分享页添加批注后回传。
+                </p>
+                <div className="mt-3 flex items-center gap-2 rounded-xl border border-line bg-surface-2 px-3 py-2">
+                  <Link2 size={13} className="shrink-0 text-ink-mute" />
+                  <input
+                    readOnly
+                    value={shareUrl}
+                    onFocus={(e) => e.target.select()}
+                    className="min-w-0 flex-1 bg-transparent text-[11px] text-ink-soft outline-none"
+                    aria-label="分享链接"
+                  />
+                </div>
+                <button
+                  onClick={copyShareUrl}
+                  className={cn(
+                    'mt-3 flex w-full items-center justify-center gap-1.5 rounded-full py-2.5 text-xs font-medium transition-all active:scale-[0.98]',
+                    shareCopied ? 'bg-mint-soft text-mint' : 'bg-primary text-white hover:bg-primary-deep',
+                  )}
+                >
+                  {shareCopied ? <Check size={13} /> : <Link2 size={13} />}
+                  {shareCopied ? '已复制到剪贴板' : '复制链接'}
+                </button>
+              </>
+            )}
+
+            {shareState === 'too-long' && (
+              <div className="mt-4 rounded-2xl bg-amber-soft px-4 py-3">
+                <p className="text-xs font-medium text-ink">文档过长，无法生成链接</p>
+                <p className="mt-1 text-[11px] leading-relaxed text-ink-soft">
+                  分享链接有长度限制，建议改用「导出 Word / PDF」后通过文件分享。
+                </p>
+              </div>
+            )}
+
+            {shareState === 'fail' && (
+              <p className="mt-4 rounded-2xl bg-coral-soft px-4 py-3 text-xs text-coral">链接生成失败，请重试或改用导出文件分享。</p>
+            )}
+          </div>
+        </div>
       )}
 
       {/* 版本历史抽屉 */}

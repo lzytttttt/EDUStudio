@@ -1,8 +1,10 @@
+import { getDataProvider } from './dataProvider'
+
 const NS = 'edustudio:'
 
 export function loadJSON<T>(key: string, fallback: T): T {
   try {
-    const raw = localStorage.getItem(NS + key)
+    const raw = getDataProvider().getItem(NS + key)
     if (!raw) return fallback
     return JSON.parse(raw) as T
   } catch (err) {
@@ -13,7 +15,7 @@ export function loadJSON<T>(key: string, fallback: T): T {
 
 export function saveJSON(key: string, value: unknown): void {
   try {
-    localStorage.setItem(NS + key, JSON.stringify(value))
+    getDataProvider().setItem(NS + key, JSON.stringify(value))
   } catch (err) {
     console.error('[storage] save failed:', key, err)
   }
@@ -21,7 +23,7 @@ export function saveJSON(key: string, value: unknown): void {
 
 export function removeKey(key: string): void {
   try {
-    localStorage.removeItem(NS + key)
+    getDataProvider().removeItem(NS + key)
   } catch (err) {
     console.error('[storage] remove failed:', key, err)
   }
@@ -29,12 +31,10 @@ export function removeKey(key: string): void {
 
 export function clearAll(): void {
   try {
-    const keys: string[] = []
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i)
-      if (k?.startsWith(NS)) keys.push(k)
-    }
-    keys.forEach((k) => localStorage.removeItem(k))
+    const keys = getDataProvider()
+      .keys()
+      .filter((k) => k.startsWith(NS))
+    keys.forEach((k) => getDataProvider().removeItem(k))
   } catch (err) {
     console.error('[storage] clear failed:', err)
   }

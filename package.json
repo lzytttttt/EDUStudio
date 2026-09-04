@@ -1,14 +1,17 @@
 {
   "name": "edustudio",
   "private": true,
-  "version": "0.3.1",
+  "version": "0.4.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "test": "vitest run",
     "test:watch": "vitest",
     "build": "vitest run && tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "e2e": "playwright test",
+    "e2e:ui": "playwright test --ui",
+    "check:budget": "node scripts/budget.mjs"
   },
   "dependencies": {
     "clsx": "^2.1.1",
@@ -21,6 +24,7 @@
     "zustand": "^5.0.2"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",

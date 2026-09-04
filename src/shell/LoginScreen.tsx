@@ -68,6 +68,7 @@ export default function LoginScreen() {
               <button
                 key={role.id}
                 onClick={() => login(role.id)}
+                data-testid={`role-card-${role.id}`}
                 style={{ animationDelay: `${120 + i * 90}ms` }}
                 className={cn(
                   'group animate-fade-up rounded-3xl border border-line bg-surface p-6 text-left shadow-card-next transition-all duration-300',

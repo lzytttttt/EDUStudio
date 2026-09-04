@@ -282,6 +282,7 @@ export default function BriefingPage() {
               onClick={() => handleDecide('right')}
               className="group flex flex-col items-center gap-1.5"
               aria-label="采纳"
+              data-testid="adopt-btn"
             >
               <span className="flex h-[58px] w-[58px] items-center justify-center rounded-full bg-primary text-white shadow-pop transition-all group-hover:translate-y-0.5 group-hover:bg-primary-deep group-active:scale-90">
                 <Check size={22} />

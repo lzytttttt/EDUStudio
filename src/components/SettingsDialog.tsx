@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { X, Eye, EyeOff, RotateCcw, Trash2, User, Type } from 'lucide-react'
 import { useSettingsStore, maskKey, clampPref, PREF_MAX_LEN, type FontSize } from '../stores/settingsStore'
 import { cn } from '../lib/cn'
+import { useDialogA11y } from '../lib/useDialogA11y'
 
 const FONT_OPTIONS: { value: FontSize; label: string; sample: string }[] = [
   { value: 'small', label: '小', sample: 'A' },
@@ -21,13 +22,16 @@ export default function SettingsDialog({ onClose }: { onClose: () => void }) {
   const s = useSettingsStore()
   const [showKey, setShowKey] = useState(false)
   const [confirmClear, setConfirmClear] = useState(false)
+  const dialogRef = useDialogA11y<HTMLDivElement>(true, onClose)
 
   const pref = s.preferences
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="animate-fade-up max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-3xl border border-line bg-surface p-6 shadow-2xl"
+        ref={dialogRef}
+        tabIndex={-1}
+        className="animate-fade-up max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-3xl border border-line bg-surface p-6 shadow-2xl outline-none"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-5 flex items-center justify-between">

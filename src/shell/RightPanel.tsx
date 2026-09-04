@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
-import { FileText, Sparkles, Loader2 } from 'lucide-react'
+import { FileText, Sparkles, Loader2, Send } from 'lucide-react'
 import ArtifactPanel from '../apps/artifacts/ArtifactPanel'
 import { useAuthStore } from '../stores/authStore'
 import { useQuizStore } from '../stores/quizStore'
@@ -10,6 +10,8 @@ import { cn } from '../lib/cn'
 const QuizEditor = lazy(() => import('../apps/workbench/QuizEditor'))
 const AlertBoard = lazy(() => import('../apps/workbench/AlertBoard'))
 const RegionBoard = lazy(() => import('../apps/workbench/RegionBoard'))
+/** 下发任务链（v0.4 M2③：局→校→教师通知下发与回执跟踪） */
+const TaskFlowBoard = lazy(() => import('../apps/workbench/TaskFlowBoard'))
 
 const BOARD: Record<RoleId, { label: string; Comp: React.LazyExoticComponent<React.ComponentType> }> = {
   teacher: { label: '出题工作台', Comp: QuizEditor },
@@ -25,11 +27,11 @@ function BoardFallback() {
   )
 }
 
-/** 右栏：文档 + 角色增强面板双 tab（桌面常驻 / 窄屏抽屉共用） */
+/** 右栏：文档 + 角色增强面板 + 下发任务三 tab（桌面常驻 / 窄屏抽屉共用） */
 export default function RightPanel() {
   const role = useAuthStore((s) => s.role)
   const quizItems = useQuizStore((s) => s.items)
-  const [tab, setTab] = useState<'doc' | 'board'>('doc')
+  const [tab, setTab] = useState<'doc' | 'board' | 'flow'>('doc')
   const prevQuizLen = useRef(quizItems.length)
 
   // Agent 命制新试题时自动切到出题工作台
@@ -69,12 +71,26 @@ export default function RightPanel() {
             {board.label}
           </button>
         )}
+        <button
+          onClick={() => setTab('flow')}
+          className={cn(
+            'flex items-center gap-1.5 rounded-t-lg px-3 py-2 text-xs font-medium transition-colors',
+            tab === 'flow' ? 'border-b-2 border-primary text-primary' : 'text-ink-mute hover:text-ink-soft',
+          )}
+        >
+          <Send size={13} />
+          下发
+        </button>
       </div>
 
       {/* 内容 */}
       <div className="flex min-h-0 flex-1 flex-col">
         {tab === 'doc' ? (
           <ArtifactPanel />
+        ) : tab === 'flow' ? (
+          <Suspense fallback={<BoardFallback />}>
+            <TaskFlowBoard />
+          </Suspense>
         ) : (
           <Suspense fallback={<BoardFallback />}>{BoardComp && <BoardComp />}</Suspense>
         )}

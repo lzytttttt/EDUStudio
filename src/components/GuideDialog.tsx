@@ -1,5 +1,6 @@
 import { X, MousePointerClick, Keyboard, Layers, FileText, MessageSquare, SlidersHorizontal, Sparkles, Compass } from 'lucide-react'
 import { cn } from '../lib/cn'
+import { useDialogA11y } from '../lib/useDialogA11y'
 
 export type GuideStage = 'briefing' | 'workbench'
 
@@ -21,11 +22,14 @@ const WORKBENCH_STEPS = [
 export default function GuideDialog({ stage, onClose }: { stage: GuideStage; onClose: () => void }) {
   const steps = stage === 'briefing' ? BRIEFING_STEPS : WORKBENCH_STEPS
   const title = stage === 'briefing' ? '欢迎使用 EDUStudio' : '工作台使用指南'
+  const dialogRef = useDialogA11y<HTMLDivElement>(true, onClose)
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="animate-fade-up w-full max-w-md overflow-hidden rounded-3xl border border-line bg-surface shadow-2xl"
+        ref={dialogRef}
+        tabIndex={-1}
+        className="animate-fade-up w-full max-w-md overflow-hidden rounded-3xl border border-line bg-surface shadow-2xl outline-none"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="relative bg-gradient-to-br from-primary-soft to-surface px-6 pb-5 pt-6">
@@ -66,6 +70,7 @@ export default function GuideDialog({ stage, onClose }: { stage: GuideStage; onC
           <button
             onClick={onClose}
             className="w-full rounded-2xl bg-primary py-2.5 text-sm font-semibold text-white transition-all hover:bg-primary-deep active:scale-[0.98]"
+            data-testid="guide-done"
           >
             知道了，开始使用
           </button>

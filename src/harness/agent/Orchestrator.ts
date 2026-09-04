@@ -14,10 +14,14 @@ import { getRolePreset, buildSystemPrompt } from '../roles'
 import { FALLBACK_SCRIPTS, type ScriptStep } from '../scripts/agent'
 import { useSettingsStore } from '../../stores/settingsStore'
 
-/** 循环护栏：最多 8 轮工具调用 */
-const MAX_TOOL_ROUNDS = 8
+/** 循环护栏：最多 5 轮工具调用（v0.4 M1①：plan → tool → 观察 → 再 plan） */
+const MAX_TOOL_ROUNDS = 5
 /** 连续工具失败达到该次数 → 切 Plan-JSON 降级 */
 const TOOL_FAIL_LIMIT = 2
+/** 上下文裁剪：仅保留最近 N 轮工具结果全文，更早轮次截断（v0.4 风险对策：token 成本控制） */
+const KEEP_FULL_TOOL_ROUNDS = 2
+/** 截断后的单条工具结果上限（字符） */
+const TRIMMED_TOOL_CHARS = 240
 
 interface PendingToolCall {
   id: string
@@ -90,23 +94,34 @@ export class Orchestrator implements AgentProvider {
           content: text,
           toolCalls: toolCalls.map((tc) => ({ id: tc.id, name: tc.name, arguments: tc.args })),
         })
-        let fails = 0
-        for (const tc of toolCalls) {
-          let args: Record<string, unknown> = {}
-          try {
-            args = tc.args ? (JSON.parse(tc.args) as Record<string, unknown>) : {}
-          } catch {
-            args = {}
-          }
-          const { ok, resultText } = await this.execTool(tc.id, tc.name, args, ctx.emit)
-          if (!ok) fails++
-          messages.push({ role: 'tool', toolCallId: tc.id, content: resultText })
+        // v0.4 M1②：同轮多个独立 tool_calls 并行执行（Promise.all），trace 标注并行组
+        const group = toolCalls.length > 1 ? nextId('grp') : undefined
+        if (group) {
+          ctx.emit({ kind: 'reflect', text: `检测到 ${toolCalls.length} 个独立工具调用，并行执行以缩短等待。` })
+        }
+        const results = await Promise.all(
+          toolCalls.map(async (tc) => {
+            let args: Record<string, unknown> = {}
+            try {
+              args = tc.args ? (JSON.parse(tc.args) as Record<string, unknown>) : {}
+            } catch {
+              args = {}
+            }
+            const { ok, resultText } = await this.execTool(tc.id, tc.name, args, ctx.emit, group)
+            return { tc, ok, resultText }
+          }),
+        )
+        const fails = results.filter((r) => !r.ok).length
+        for (const r of results) {
+          messages.push({ role: 'tool', toolCallId: r.tc.id, content: r.resultText })
         }
         consecutiveToolFails = fails > 0 ? consecutiveToolFails + fails : 0
         if (consecutiveToolFails >= TOOL_FAIL_LIMIT) {
           await this.runPlanJsonFallback(input, ctx, '工具调用连续失败')
           return
         }
+        // v0.4 风险对策：多轮循环的上下文裁剪（只保留最近 2 轮工具结果全文）
+        trimOldToolResults(messages)
         continue // 工具结果回填后继续推理
       }
 
@@ -182,12 +197,13 @@ export class Orchestrator implements AgentProvider {
     name: string,
     args: Record<string, unknown>,
     emit: (e: AgentTraceEvent) => void,
+    group?: string,
   ): Promise<{ ok: boolean; resultText: string }> {
-    emit({ kind: 'tool_call', id: callId, tool: name, args })
+    emit({ kind: 'tool_call', id: callId, tool: name, args, group })
     const tool = toolRegistry.get(name)
     if (!toolRegistry.has(name) || !tool) {
       const msg = `工具 ${name} 未注册，请从可用工具列表中选择`
-      emit({ kind: 'tool_result', id: callId, tool: name, summary: msg })
+      emit({ kind: 'tool_result', id: callId, tool: name, summary: msg, group })
       return { ok: false, resultText: JSON.stringify({ error: msg }) }
     }
     try {
@@ -198,11 +214,12 @@ export class Orchestrator implements AgentProvider {
         tool: name,
         summary: result.summary,
         payload: result.payload,
+        group,
       })
       return { ok: true, resultText: JSON.stringify({ summary: result.summary, payload: result.payload }) }
     } catch (err) {
       const msg = `工具执行失败：${(err as Error)?.message ?? String(err)}`
-      emit({ kind: 'tool_result', id: callId, tool: name, summary: msg })
+      emit({ kind: 'tool_result', id: callId, tool: name, summary: msg, group })
       return { ok: false, resultText: JSON.stringify({ error: msg }) }
     }
   }
@@ -318,3 +335,28 @@ export function parsePlanJson(text: string): ScriptStep[] | null {
 
 /** 生成 trace 用的调用 id（导出供测试） */
 export const newCallId = () => nextId('call')
+
+/**
+ * 上下文裁剪（v0.4 M1① 风险对策）：多轮工具循环时，仅保留最近 KEEP_FULL_TOOL_ROUNDS 轮
+ * 工具结果全文，更早轮次的 tool 消息截断为摘要，控制 token 成本。
+ * 裁剪以「assistant(toolCalls) + 紧随的 tool 消息组」为一轮，成对处理保证协议合法。
+ */
+export function trimOldToolResults(messages: ChatMessage[]): void {
+  // 从后向前找 tool 消息轮次边界
+  const roundStarts: number[] = []
+  for (let i = 0; i < messages.length; i++) {
+    const m = messages[i]
+    const prev = messages[i - 1]
+    if (m.role === 'tool' && prev?.role !== 'tool') roundStarts.push(i)
+  }
+  const cutoff = roundStarts.length - KEEP_FULL_TOOL_ROUNDS
+  if (cutoff <= 0) return
+  for (const start of roundStarts.slice(0, cutoff)) {
+    for (let i = start; i < messages.length && messages[i].role === 'tool'; i++) {
+      const m = messages[i]
+      if (m.content.length > TRIMMED_TOOL_CHARS) {
+        m.content = `${m.content.slice(0, TRIMMED_TOOL_CHARS)}…（早期轮次结果已截断）`
+      }
+    }
+  }
+}

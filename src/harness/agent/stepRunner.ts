@@ -19,8 +19,9 @@ export interface StepContext {
 }
 
 /**
- * 执行单个剧本步骤（Plan/Tool/Reflect/Artifact/Text/Done）。
+ * 执行单个剧本步骤（Plan/Tool/Parallel/Reflect/Artifact/Text/Done）。
  * 从 MockOrchestrator 抽取，供 Mock 剧本与 API Plan-JSON 降级复用。
+ * v0.4 M1②：parallel 步骤组内 Promise.all 并行执行，trace 事件标注同一并行组。
  */
 export async function runScriptStep(step: ScriptStep, ctx: StepContext): Promise<void> {
   const { emit, signal, role, goal, artifacts } = ctx
@@ -32,22 +33,14 @@ export async function runScriptStep(step: ScriptStep, ctx: StepContext): Promise
     }
     case 'tool': {
       await jitterDelay(300, 600, signal)
-      const callId = nextId('call')
-      emit({ kind: 'tool_call', id: callId, tool: step.tool, args: step.args })
-      const tool = toolRegistry.get(step.tool)
-      if (!tool) {
-        emit({ kind: 'tool_result', id: callId, tool: step.tool, summary: `工具 ${step.tool} 未注册` })
-        return
-      }
-      const result = await tool.run(step.args)
-      await jitterDelay(200, 500, signal)
-      emit({
-        kind: 'tool_result',
-        id: callId,
-        tool: step.tool,
-        summary: result.summary,
-        payload: result.payload,
-      })
+      await execToolStep(step.tool, step.args, undefined, ctx)
+      return
+    }
+    case 'parallel': {
+      await jitterDelay(300, 600, signal)
+      const group = nextId('grp')
+      emit({ kind: 'reflect', text: `并行执行 ${step.label}（${step.steps.length} 项同时进行）` })
+      await Promise.all(step.steps.map((s) => execToolStep(s.tool, s.args, group, ctx)))
       return
     }
     case 'reflect': {
@@ -77,6 +70,33 @@ export async function runScriptStep(step: ScriptStep, ctx: StepContext): Promise
       return
     }
   }
+}
+
+/** 执行单个工具调用并 emit tool_call/tool_result（group 非空时标注并行组） */
+async function execToolStep(
+  toolName: string,
+  args: Record<string, unknown>,
+  group: string | undefined,
+  ctx: StepContext,
+): Promise<void> {
+  const { emit, signal } = ctx
+  const callId = nextId('call')
+  emit({ kind: 'tool_call', id: callId, tool: toolName, args, group })
+  const tool = toolRegistry.get(toolName)
+  if (!tool) {
+    emit({ kind: 'tool_result', id: callId, tool: toolName, summary: `工具 ${toolName} 未注册`, group })
+    return
+  }
+  const result = await tool.run(args)
+  await jitterDelay(200, 500, signal)
+  emit({
+    kind: 'tool_result',
+    id: callId,
+    tool: toolName,
+    summary: result.summary,
+    payload: result.payload,
+    group,
+  })
 }
 
 /** 顺序执行整份剧本；signal 触发 abort 时抛出 AbortError 由调用方处理 */

@@ -75,8 +75,8 @@ export interface BriefingProvider {
 
 export type AgentTraceEvent =
   | { kind: 'plan'; steps: string[] }
-  | { kind: 'tool_call'; id: string; tool: string; args: Record<string, unknown> }
-  | { kind: 'tool_result'; id: string; tool: string; summary: string; payload?: unknown }
+  | { kind: 'tool_call'; id: string; tool: string; args: Record<string, unknown>; /** 并行组标注（v0.4 M1②）：同组步骤并行执行 */ group?: string }
+  | { kind: 'tool_result'; id: string; tool: string; summary: string; payload?: unknown; group?: string }
   | { kind: 'reflect'; text: string }
   | { kind: 'artifact_meta'; artifactId: string; title: string; docKind: string }
   | { kind: 'artifact_chunk'; artifactId: string; chunk: string }

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { Sparkles, Zap, CheckCircle2, ArrowLeft } from 'lucide-react'
+import { Sparkles, Zap, CheckCircle2, ArrowLeft, RotateCcw, AlertCircle } from 'lucide-react'
 import { useAuthStore } from '../../stores/authStore'
 import { useChatStore } from '../../stores/chatStore'
 import { useBriefingStore } from '../../stores/briefingStore'
@@ -69,7 +69,7 @@ function BackToBriefingCard() {
 }
 
 export default function ChatPanel() {
-  const { sessions, activeId, streaming } = useChatStore()
+  const { sessions, activeId, streaming, retry } = useChatStore()
   const session = sessions.find((s) => s.id === activeId)
   const bottomRef = useRef<HTMLDivElement>(null)
   const entries = session?.entries ?? []
@@ -103,7 +103,7 @@ export default function ChatPanel() {
         </header>
       )}
 
-      {/* 消息流 */}
+      {/* 消息流（v0.4 M4②：content-visibility 原生虚拟化，长会话跳过屏外渲染） */}
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 md:px-6">
         {!session || session.entries.length === 0 ? (
           <EmptyState />
@@ -111,13 +111,13 @@ export default function ChatPanel() {
           <div className="mx-auto max-w-2xl space-y-5">
             {session.entries.map((entry) =>
               entry.role === 'user' ? (
-                <div key={entry.id} className="animate-fade-up flex justify-end">
+                <div key={entry.id} className="cv-msg animate-fade-up flex justify-end">
                   <div className="chat-bubble max-w-[85%] rounded-3xl rounded-br-lg bg-primary px-4.5 px-4 py-2.5 leading-relaxed text-white shadow-soft">
                     {entry.content}
                   </div>
                 </div>
               ) : (
-                <div key={entry.id} className="animate-fade-up">
+                <div key={entry.id} className="cv-msg animate-fade-up">
                   <AgentTraceView trace={entry.trace} streaming={!!entry.streaming} />
                   {entry.content && (
                     <div className="chat-bubble rounded-3xl rounded-bl-lg border border-line bg-surface px-4 py-3 leading-relaxed shadow-soft-next shadow-soft">
@@ -125,6 +125,21 @@ export default function ChatPanel() {
                         {entry.content}
                         {entry.streaming && <span className="ml-0.5 inline-block h-4 w-[2px] animate-pulse bg-primary align-middle" />}
                       </p>
+                    </div>
+                  )}
+                  {/* 失败重试（v0.4 M1④）：断点重试，按原目标重新执行 */}
+                  {!entry.streaming && entry.error && (
+                    <div className="mt-2 flex items-center gap-2.5 rounded-2xl border border-danger/25 bg-danger/5 px-4 py-2.5">
+                      <AlertCircle size={14} className="shrink-0 text-danger" />
+                      <p className="min-w-0 flex-1 truncate text-xs text-ink-soft">执行中断，可从断点重试</p>
+                      <button
+                        onClick={() => void retry(entry.id)}
+                        disabled={streaming}
+                        className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-surface px-3 py-1.5 text-xs font-medium text-danger shadow-soft transition-all hover:shadow-pop active:scale-95 disabled:opacity-40"
+                      >
+                        <RotateCcw size={12} />
+                        重试
+                      </button>
                     </div>
                   )}
                 </div>

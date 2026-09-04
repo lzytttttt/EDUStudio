@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { ProviderMode, RoleId } from '../harness/types'
 import { ACTIVE_MODE, DEFAULT_LLM_BASEURL, DEFAULT_LLM_MODEL } from '../harness/defaults'
 import { clearAll, loadJSON, saveJSON } from '../lib/storage'
+import { conceal, reveal } from '../lib/secretBox'
 
 export interface LLMSettings {
   /** harness 模式：mock 剧本 / api 真实模型 */
@@ -49,6 +50,8 @@ interface PersistedSettings extends LLMSettings {
 }
 
 const persisted = loadJSON<Partial<PersistedSettings>>('settings', {})
+/** apiKey 落盘为混淆串（v0.4 M5③），读回时还原；历史明文由 reveal 兼容 */
+persisted.apiKey = reveal(persisted.apiKey ?? '')
 
 /** 偏好字段限长（防 prompt 超长，见 v0.3-03 风险对策） */
 export const PREF_MAX_LEN = 40
@@ -75,7 +78,7 @@ function persist(s: SettingsState): void {
     mode: s.mode,
     baseUrl: s.baseUrl,
     model: s.model,
-    apiKey: s.apiKey,
+    apiKey: conceal(s.apiKey),
     proxyUrl: s.proxyUrl,
     preferences: s.preferences,
     fontSize: s.fontSize,

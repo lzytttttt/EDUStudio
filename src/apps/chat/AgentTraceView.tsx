@@ -59,6 +59,9 @@ export default function AgentTraceView({ trace, streaming }: { trace: AgentTrace
               <Wrench size={13} className="shrink-0 text-amber" />
               <p className="text-xs text-ink-soft">
                 调用工具 <span className="font-semibold text-ink">{label}</span>
+                {e.group && (
+                  <span className="ml-1.5 rounded-md bg-amber/15 px-1.5 py-0.5 text-[9px] font-semibold text-amber-600">并行组</span>
+                )}
                 {streaming && isLast && <span className="ml-1.5 inline-block h-3 w-1.5 animate-pulse rounded-sm bg-amber align-middle" />}
               </p>
             </div>
@@ -71,7 +74,11 @@ export default function AgentTraceView({ trace, streaming }: { trace: AgentTrace
               <p className="flex items-start gap-2 text-xs leading-relaxed text-ink-soft">
                 <CheckCircle2 size={13} className="mt-0.5 shrink-0 text-mint" />
                 <span>
-                  <span className="font-semibold text-ink">{label}</span> · {e.summary}
+                  <span className="font-semibold text-ink">{label}</span>
+                  {e.group && (
+                    <span className="ml-1.5 rounded-md bg-mint/15 px-1.5 py-0.5 text-[9px] font-semibold text-mint">并行组</span>
+                  )}{' '}
+                  · {e.summary}
                 </span>
               </p>
               {e.payload !== undefined && <JsonPeek payload={e.payload} />}
