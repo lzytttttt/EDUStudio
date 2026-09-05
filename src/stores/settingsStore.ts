@@ -54,6 +54,23 @@ export const DEFAULT_WATERMARK: WatermarkSettings = { enabled: false, org: '', p
 /** 单任务 token 预算（v0.5 M3③）：0 = 不限制；超出后 Agent 提前收尾 */
 export const DEFAULT_TOKEN_BUDGET = 60000
 
+/** 三栏栏宽（v0.6 M4③）：桌面工作台左/右栏可拖拽调整，持久化 */
+export interface ColumnWidths {
+  left: number
+  right: number
+}
+
+export const DEFAULT_COLUMN_WIDTHS: ColumnWidths = { left: 320, right: 400 }
+/** 栏宽约束：左栏 220–420、右栏 320–560（保证中栏最小可用宽度） */
+export const COLUMN_LIMITS = { leftMin: 220, leftMax: 420, rightMin: 320, rightMax: 560 } as const
+
+export function clampColumnWidth(side: 'left' | 'right', width: number): number {
+  const { leftMin, leftMax, rightMin, rightMax } = COLUMN_LIMITS
+  const min = side === 'left' ? leftMin : rightMin
+  const max = side === 'left' ? leftMax : rightMax
+  return Math.min(max, Math.max(min, Math.round(width)))
+}
+
 export const DEFAULT_LLM_SETTINGS: LLMSettings = {
   mode: ACTIVE_MODE,
   baseUrl: DEFAULT_LLM_BASEURL,
@@ -70,6 +87,7 @@ interface PersistedSettings extends LLMSettings {
   guideSeen?: boolean
   tokenBudget?: number
   watermark?: WatermarkSettings
+  columnWidths?: ColumnWidths
 }
 
 const persisted = loadJSON<Partial<PersistedSettings>>('settings', {})
@@ -92,10 +110,13 @@ interface SettingsState extends LLMSettings {
   tokenBudget: number
   /** 导出水印（v0.5 M5③） */
   watermark: WatermarkSettings
+  /** 三栏栏宽（v0.6 M4③） */
+  columnWidths: ColumnWidths
   update: (patch: Partial<LLMSettings> & { tokenBudget?: number }) => void
   updatePreferences: (patch: Partial<UserPreferences>) => void
   setFontSize: (size: FontSize) => void
   setWatermark: (patch: Partial<WatermarkSettings>) => void
+  setColumnWidth: (side: 'left' | 'right', width: number) => void
   markGuideSeen: () => void
   resetLLMSettings: () => void
   clearAllData: () => void
@@ -115,6 +136,7 @@ function persist(s: SettingsState): void {
     guideSeen: s.guideSeen,
     tokenBudget: s.tokenBudget,
     watermark: s.watermark,
+    columnWidths: s.columnWidths,
   })
 }
 
@@ -126,6 +148,10 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   guideSeen: persisted.guideSeen ?? false,
   tokenBudget: persisted.tokenBudget ?? DEFAULT_TOKEN_BUDGET,
   watermark: { ...DEFAULT_WATERMARK, ...persisted.watermark },
+  columnWidths: {
+    left: clampColumnWidth('left', persisted.columnWidths?.left ?? DEFAULT_COLUMN_WIDTHS.left),
+    right: clampColumnWidth('right', persisted.columnWidths?.right ?? DEFAULT_COLUMN_WIDTHS.right),
+  },
   update: (patch) => {
     set(patch)
     persist(useSettingsStore.getState())
@@ -140,6 +166,11 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   },
   setWatermark: (patch) => {
     set({ watermark: { ...useSettingsStore.getState().watermark, ...patch } })
+    persist(useSettingsStore.getState())
+  },
+  setColumnWidth: (side, width) => {
+    const cur = useSettingsStore.getState().columnWidths
+    set({ columnWidths: { ...cur, [side]: clampColumnWidth(side, width) } })
     persist(useSettingsStore.getState())
   },
   markGuideSeen: () => {
@@ -159,6 +190,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       guideSeen: false,
       tokenBudget: DEFAULT_TOKEN_BUDGET,
       watermark: { ...DEFAULT_WATERMARK },
+      columnWidths: { ...DEFAULT_COLUMN_WIDTHS },
     })
     window.location.reload()
   },

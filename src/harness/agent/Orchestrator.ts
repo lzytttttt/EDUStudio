@@ -13,6 +13,9 @@ import { ArtifactApiAdapter } from '../artifacts/adapter'
 import { getRolePreset, buildSystemPrompt } from '../roles'
 import { FALLBACK_SCRIPTS, type ScriptStep } from '../scripts/agent'
 import { useSettingsStore } from '../../stores/settingsStore'
+import { matchSkill, summarizeSkill } from '../skills/library'
+import { LlmSkillDistiller, type SkillDistiller } from '../skills/distill'
+import { useSkillStore } from '../../stores/skillStore'
 
 /** 循环护栏：最多 5 轮工具调用（v0.4 M1①：plan → tool → 观察 → 再 plan） */
 const MAX_TOOL_ROUNDS = 5
@@ -44,25 +47,47 @@ interface PendingToolCall {
 export class Orchestrator implements AgentProvider {
   private llm: DeepSeekAdapter
   private artifacts: ArtifactApiAdapter
+  /** LLM 驱动的技能提炼（v0.6 M2③：接口骨架，默认 no-op，接入点见 runTask 尾部） */
+  private distiller: SkillDistiller
 
   constructor(config?: DeepSeekConfig) {
     const conf = config ?? { baseUrl: 'https://api.deepseek.com/v1', apiKey: '', model: 'deepseek-chat' }
     this.llm = new DeepSeekAdapter(conf)
     this.artifacts = new ArtifactApiAdapter(conf)
+    this.distiller = new LlmSkillDistiller()
   }
 
   async runTask(input: AgentTaskInput, emit: (e: AgentTraceEvent) => void): Promise<void> {
     const { role, goal, history, signal } = input
     const preset = getRolePreset(role)
-    const ctx: StepContext = { role, goal, artifacts: this.artifacts, emit, signal }
+    /** 收集事件供任务完成后 LLM 提炼（v0.6 骨架预留） */
+    const collected: AgentTraceEvent[] = []
+    const track = (e: AgentTraceEvent) => {
+      collected.push(e)
+      emit(e)
+    }
+    const ctx: StepContext = { role, goal, artifacts: this.artifacts, emit: track, signal }
+
+    // v0.6 M2③：技能命中 → 技能步骤摘要注入 system prompt（学习技能优先），提升输出一致性
+    const skillStore = useSkillStore.getState()
+    const skill = matchSkill(role, goal, skillStore.learned)
+    const skillPrompt = skill
+      ? `\n\n【已命中技能 ${skill.name}（v${skill.version}，${skill.origin === 'learned' ? '学习沉淀' : '内置'}）】\n优先按以下沉淀步骤组织执行：\n${summarizeSkill(skill)}`
+      : ''
 
     try {
       const messages: ChatMessage[] = [
-        { role: 'system', content: buildSystemPrompt(preset, useSettingsStore.getState().preferences) },
+        { role: 'system', content: buildSystemPrompt(preset, useSettingsStore.getState().preferences) + skillPrompt },
         ...history,
         { role: 'user', content: goal },
       ]
+      if (skill) {
+        emit({ kind: 'skill_hit', skillId: skill.id, name: skill.name, version: skill.version, origin: skill.origin })
+      }
       await this.runFunctionCallingLoop(messages, input, ctx)
+      if (skill) skillStore.recordUsage(skill.id, skill.origin)
+      // v0.6 M2③：LLM 驱动技能提炼接入点（当前 no-op；实现后自动沉淀新技能/进化）
+      await this.distiller.distill({ goal, events: collected, role })
     } catch (err) {
       if ((err as Error)?.name === 'AbortError') {
         emit({ kind: 'done', text: '任务已取消。' })

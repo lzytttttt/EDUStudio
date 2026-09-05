@@ -1,22 +1,60 @@
-import type { AgentProvider, AgentTaskInput, AgentTraceEvent, ArtifactProvider } from '../types'
-import { matchScript } from '../scripts/agent'
+import type { AgentProvider, AgentTaskInput, AgentTraceEvent, ArtifactProvider, RoleId } from '../types'
+import { FALLBACK_SCRIPTS, buildGenericScript, looksLikeTask } from '../scripts/agent'
 import { runScript, type StepContext } from './stepRunner'
+import { matchSkill } from '../skills/library'
+import { distillSkill } from '../skills/distill'
+import { useSkillStore } from '../../stores/skillStore'
 
 /**
- * MockOrchestrator —— Plan→Act→Reflect 剧本驱动编排。
- * 按角色+目标匹配剧本，逐步 emit trace 事件；artifact 步骤委托 ArtifactProvider 流式生成。
- * 步骤执行器已抽取至 stepRunner（与 API Orchestrator 的 Plan-JSON 降级共用）。
+ * MockOrchestrator —— 三层执行链（v0.6 M2①）：
+ *
+ * 1. 技能命中（matchSkill：学习技能优先，内置剧本技能次之）→ emit skill_hit →
+ *    按技能步骤执行 → recordUsage（学习技能补 done 收尾）；
+ * 2. 未命中且目标为任务型 → 通用探索剧本（plan → 角色工具 → artifact）→
+ *    distillSkill 自动沉淀（去重合并则版本+1）→ emit skill_learned；
+ * 3. 非任务型（寒暄/咨询）→ 角色降级引导剧本，保证任何输入都有响应。
+ *
+ * 步骤执行器复用 stepRunner（与 API Orchestrator 的 Plan-JSON 降级共用）。
  */
 export class MockOrchestrator implements AgentProvider {
   constructor(private artifacts: ArtifactProvider) {}
 
   async runTask(input: AgentTaskInput, emit: (e: AgentTraceEvent) => void): Promise<void> {
     const { role, goal, signal } = input
-    const script = matchScript(role, goal)
-    const ctx: StepContext = { role, goal, artifacts: this.artifacts, emit, signal }
+    /** 收集本次执行事件，供任务完成后提炼技能 */
+    const collected: AgentTraceEvent[] = []
+    const track = (e: AgentTraceEvent) => {
+      collected.push(e)
+      emit(e)
+    }
+    const ctx: StepContext = { role, goal, artifacts: this.artifacts, emit: track, signal }
 
     try {
-      await runScript(script.steps, ctx)
+      const store = useSkillStore.getState()
+
+      // 第一/二层：技能命中（学习技能优先于内置剧本技能，matchSkill 内部排序）
+      const skill = matchSkill(role, goal, store.learned)
+      if (skill) {
+        emit({ kind: 'skill_hit', skillId: skill.id, name: skill.name, version: skill.version, origin: skill.origin })
+        await runScript(skill.steps, ctx)
+        if (skill.origin === 'learned') {
+          // 学习技能步骤不含 done（提炼时排除一次性话术），此处补收尾
+          emit({ kind: 'done', text: `已按技能「${skill.name}」（v${skill.version}）的沉淀步骤完成执行，无需从零推理。` })
+        }
+        store.recordUsage(skill.id, skill.origin)
+        return
+      }
+
+      // 第三层 A：任务型目标 → 通用探索执行 + 自动沉淀
+      if (looksLikeTask(goal)) {
+        const generic = buildGenericScript(role, goal)
+        await runScript(generic.steps, ctx)
+        this.distillAndEmit(goal, collected, role, emit)
+        return
+      }
+
+      // 第三层 B：非任务型 → 角色降级引导（不沉淀）
+      await runScript(FALLBACK_SCRIPTS[role].steps, ctx)
     } catch (err) {
       if ((err as Error)?.name === 'AbortError') {
         emit({ kind: 'done', text: '任务已取消。' })
@@ -24,6 +62,31 @@ export class MockOrchestrator implements AgentProvider {
       }
       console.error('[MockOrchestrator] step failed:', err)
       emit({ kind: 'done', text: '执行中遇到问题，已停止。请重试或换个说法描述你的目标。' })
+    }
+  }
+
+  /** 任务完成后自动沉淀（v0.6：无需人工确认）；失败静默跳过，不阻断任务完成 */
+  private distillAndEmit(
+    goal: string,
+    events: AgentTraceEvent[],
+    role: RoleId,
+    emit: (e: AgentTraceEvent) => void,
+  ): void {
+    try {
+      const store = useSkillStore.getState()
+      const result = distillSkill(goal, events, store.learned, role)
+      if (!result) return
+      if (result.evolved) store.replaceLearned(result.skill)
+      else store.addLearned(result.skill)
+      emit({
+        kind: 'skill_learned',
+        skillId: result.skill.id,
+        name: result.skill.name,
+        version: result.skill.version,
+        evolved: result.evolved,
+      })
+    } catch (err) {
+      console.error('[MockOrchestrator] distill failed:', err)
     }
   }
 }

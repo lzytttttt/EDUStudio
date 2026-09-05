@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ClipboardList, Wrench, ChevronDown, BrainCircuit, CheckCircle2 } from 'lucide-react'
+import { ClipboardList, Wrench, ChevronDown, BrainCircuit, CheckCircle2, Sparkles, GraduationCap } from 'lucide-react'
 import type { AgentTraceEvent } from '../../harness/types'
 import { toolRegistry } from '../../harness/agent'
 import { cn } from '../../lib/cn'
@@ -90,6 +90,42 @@ export default function AgentTraceView({ trace, streaming }: { trace: AgentTrace
             <div key={i} className="animate-fade-up flex items-start gap-2.5 rounded-2xl border border-line bg-surface-2 px-4 py-2.5">
               <BrainCircuit size={13} className="mt-0.5 shrink-0 text-ink-mute" />
               <p className="text-xs leading-relaxed text-ink-soft">{e.text}</p>
+            </div>
+          )
+        }
+        /* ---------- 自进化技能徽标（v0.6 M3②） ---------- */
+        if (e.kind === 'skill_hit') {
+          return (
+            <div key={i} className="animate-fade-up flex items-center gap-2.5 rounded-2xl border border-primary/25 bg-primary-soft px-4 py-2.5">
+              <Sparkles size={13} className="shrink-0 text-primary" />
+              <p className="text-xs text-ink-soft">
+                命中技能 <span className="font-semibold text-primary">{e.name}</span>
+                <span className="ml-1.5 rounded-md bg-primary/15 px-1.5 py-0.5 text-[9px] font-bold text-primary">v{e.version}</span>
+                <span className={cn('ml-1.5 rounded-md px-1.5 py-0.5 text-[9px] font-medium', e.origin === 'learned' ? 'bg-mint-soft text-mint' : 'border border-line text-ink-mute')}>
+                  {e.origin === 'learned' ? '学习沉淀' : '内置'}
+                </span>
+              </p>
+            </div>
+          )
+        }
+        if (e.kind === 'skill_learned') {
+          return (
+            <div key={i} className="animate-fade-up flex items-center gap-2.5 rounded-2xl border border-mint/30 bg-mint-soft px-4 py-2.5">
+              <GraduationCap size={13} className="shrink-0 text-mint" />
+              <p className="text-xs text-ink-soft">
+                {e.evolved ? (
+                  <>
+                    技能已进化 <span className="font-semibold text-mint">{e.name}</span>
+                    <span className="ml-1.5 rounded-md bg-mint/15 px-1.5 py-0.5 text-[9px] font-bold text-mint">v{e.version}</span>
+                  </>
+                ) : (
+                  <>
+                    已沉淀新技能 <span className="font-semibold text-mint">{e.name}</span>
+                    <span className="ml-1.5 rounded-md bg-mint/15 px-1.5 py-0.5 text-[9px] font-bold text-mint">v{e.version}</span>
+                  </>
+                )}
+                <span className="ml-1.5 text-[10px] text-ink-mute">可在侧栏「技能」中查看</span>
+              </p>
             </div>
           )
         }

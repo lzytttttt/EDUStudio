@@ -1,16 +1,17 @@
-import { useEffect, useRef } from 'react'
-import { Sparkles, Zap, CheckCircle2, ArrowLeft, RotateCcw, AlertCircle } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Sparkles, Zap, CheckCircle2, ArrowLeft, RotateCcw, AlertCircle, GraduationCap } from 'lucide-react'
 import { useAuthStore } from '../../stores/authStore'
 import { useChatStore } from '../../stores/chatStore'
 import { useBriefingStore } from '../../stores/briefingStore'
 import { getRolePreset } from '../../harness/roles'
 import AgentTraceView from './AgentTraceView'
 import ChatInput from './ChatInput'
+import DemoWizard from './DemoWizard'
 import { cn } from '../../lib/cn'
 
 const ROLE_CHIP = { teacher: 'bg-mint-soft text-mint', schoolAdmin: 'bg-primary-soft text-primary', bureau: 'bg-coral-soft text-coral' } as const
 
-function EmptyState() {
+function EmptyState({ onStartDemo }: { onStartDemo: () => void }) {
   const role = useAuthStore((s) => s.role)
   const preset = role ? getRolePreset(role) : null
   return (
@@ -29,6 +30,14 @@ function EmptyState() {
           </span>
         ))}
       </div>
+      <button
+        data-testid="demo-entry"
+        onClick={onStartDemo}
+        className="mt-5 inline-flex items-center gap-2 rounded-full bg-primary-soft px-4 py-2 text-xs font-medium text-primary shadow-soft transition-all hover:shadow-pop active:scale-95"
+      >
+        <GraduationCap size={14} />
+        自进化演示 · 三分钟看懂技能沉淀与复用
+      </button>
     </div>
   )
 }
@@ -71,6 +80,7 @@ function BackToBriefingCard() {
 export default function ChatPanel() {
   const { sessions, activeId, streaming, retry } = useChatStore()
   const session = sessions.find((s) => s.id === activeId)
+  const [demoOpen, setDemoOpen] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const entries = session?.entries ?? []
   const lastEntry = entries[entries.length - 1]
@@ -106,7 +116,7 @@ export default function ChatPanel() {
       {/* 消息流（v0.4 M4②：content-visibility 原生虚拟化，长会话跳过屏外渲染） */}
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 md:px-6">
         {!session || session.entries.length === 0 ? (
-          <EmptyState />
+          <EmptyState onStartDemo={() => setDemoOpen(true)} />
         ) : (
           <div className="mx-auto max-w-2xl space-y-5">
             {session.entries.map((entry) =>
@@ -152,6 +162,7 @@ export default function ChatPanel() {
       </div>
 
       <ChatInput />
+      {demoOpen && <DemoWizard onClose={() => setDemoOpen(false)} />}
     </div>
   )
 }

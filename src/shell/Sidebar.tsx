@@ -8,9 +8,11 @@ import { useBriefingStore } from '../stores/briefingStore'
 import { useArtifactStore } from '../stores/artifactStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useNotificationStore, unreadCount } from '../stores/notificationStore'
+import { useSkillStore } from '../stores/skillStore'
 import { getRolePreset } from '../harness/roles'
 import SettingsDialog from '../components/SettingsDialog'
 import GuideDialog from '../components/GuideDialog'
+import SkillsPanel from './SkillsPanel'
 import { cn } from '../lib/cn'
 
 const ROLE_BADGE = { teacher: 'bg-mint-soft text-mint', schoolAdmin: 'bg-primary-soft text-primary', bureau: 'bg-coral-soft text-coral' } as const
@@ -25,11 +27,12 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const docs = useArtifactStore((s) => s.docs)
   const setActiveDoc = useArtifactStore((s) => s.setActive)
   const mode = useSettingsStore((s) => s.mode)
+  const learnedCount = useSkillStore((s) => s.learned.length)
   const unread = useNotificationStore((s) => unreadCount(s.items))
   const openNotifPanel = useNotificationStore((s) => s.openPanel)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [guideOpen, setGuideOpen] = useState(false)
-  const [tab, setTab] = useState<'tasks' | 'fav' | 'docs'>('tasks')
+  const [tab, setTab] = useState<'tasks' | 'fav' | 'docs' | 'skills'>('tasks')
 
   const preset = role ? getRolePreset(role) : null
 
@@ -95,7 +98,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 
       {/* Tab 切换 */}
       <div className="mx-3 mt-4 flex rounded-xl bg-surface-2 p-1 text-xs font-medium">
-        {([['tasks', '任务'], ['fav', '收藏'], ['docs', '文档']] as const).map(([key, label]) => (
+        {([['tasks', '任务'], ['fav', '收藏'], ['docs', '文档'], ['skills', '技能']] as const).map(([key, label]) => (
           <button
             key={key}
             onClick={() => setTab(key)}
@@ -107,6 +110,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
             {label}
             {key === 'fav' && favorites.length > 0 && ` ${favorites.length}`}
             {key === 'docs' && docs.length > 0 && ` ${docs.length}`}
+            {key === 'skills' && learnedCount > 0 && ` ${learnedCount}`}
           </button>
         ))}
       </div>
@@ -199,6 +203,8 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
             ))}
           </>
         )}
+
+        {tab === 'skills' && <SkillsPanel />}
       </div>
 
       {/* 角色徽标 */}

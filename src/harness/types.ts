@@ -83,6 +83,22 @@ export type AgentTraceEvent =
   | { kind: 'artifact_done'; artifactId: string; title: string; docKind: string }
   | { kind: 'text'; text: string }
   | { kind: 'done'; text: string }
+  /* ---------- 自进化技能（v0.6 M1⑤） ---------- */
+  | {
+      kind: 'skill_hit'
+      skillId: string
+      name: string
+      version: number
+      origin: 'builtin' | 'learned'
+    }
+  | {
+      kind: 'skill_learned'
+      skillId: string
+      name: string
+      version: number
+      /** true = 合并进已有技能版本+1（进化）；false = 全新技能 v1 */
+      evolved: boolean
+    }
 
 export interface AgentTaskInput {
   role: RoleId

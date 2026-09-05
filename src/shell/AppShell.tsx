@@ -5,13 +5,15 @@ import ChatPanel from '../apps/chat/ChatPanel'
 import RightPanel from './RightPanel'
 import NotificationPanel from './NotificationPanel'
 import GuideDialog from '../components/GuideDialog'
+import Resizer from './Resizer'
 import { useAuthStore } from '../stores/authStore'
-import { useSettingsStore } from '../stores/settingsStore'
+import { useSettingsStore, DEFAULT_COLUMN_WIDTHS, clampColumnWidth } from '../stores/settingsStore'
 import { useNotificationStore, unreadCount } from '../stores/notificationStore'
 import { t } from '../lib/i18n'
 import { cn } from '../lib/cn'
 
-/** 三栏工作台外壳：<xl 右栏折叠为抽屉，<md 左栏折叠为抽屉 + 底部标签（v0.5 M4②） */
+/** 三栏工作台外壳：<xl 右栏折叠为抽屉，<md 左栏折叠为抽屉 + 底部标签（v0.5 M4②）；
+ *  桌面端左右栏宽度可拖拽调整（v0.6 M4②），分隔条承担边线视觉 */
 export default function AppShell() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [artifactOpen, setArtifactOpen] = useState(false)
@@ -20,6 +22,9 @@ export default function AppShell() {
   const guideSeen = useSettingsStore((s) => s.guideSeen)
   const markGuideSeen = useSettingsStore((s) => s.markGuideSeen)
   const [guideOpen, setGuideOpen] = useState(!guideSeen)
+  // 三栏栏宽（v0.6 M4②）
+  const columnWidths = useSettingsStore((s) => s.columnWidths)
+  const setColumnWidth = useSettingsStore((s) => s.setColumnWidth)
   // 通知中心（v0.5 M2④）
   const panelOpen = useNotificationStore((s) => s.panelOpen)
   const closePanel = useNotificationStore((s) => s.closePanel)
@@ -28,10 +33,19 @@ export default function AppShell() {
 
   return (
     <div className="flex h-full overflow-hidden bg-bg">
-      {/* 左栏：桌面常驻 / 移动抽屉 */}
-      <aside className="hidden md:flex md:w-72 lg:w-80 shrink-0 border-r border-line bg-surface">
+      {/* 左栏：桌面常驻（宽度可拖拽）/ 移动抽屉 */}
+      <aside
+        style={{ width: columnWidths.left }}
+        className="hidden md:flex shrink-0 bg-surface"
+      >
         <Sidebar onNavigate={() => setSidebarOpen(false)} />
       </aside>
+      <Resizer
+        at="md"
+        label="调整任务栏宽度"
+        onMove={(x) => setColumnWidth('left', clampColumnWidth('left', x))}
+        onReset={() => setColumnWidth('left', DEFAULT_COLUMN_WIDTHS.left)}
+      />
       {sidebarOpen && (
         <div className="fixed inset-0 z-40 md:hidden">
           <div className="absolute inset-0 bg-ink/30 backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
@@ -56,8 +70,17 @@ export default function AppShell() {
         <ChatPanel />
       </main>
 
-      {/* 右栏：文档 + 角色增强面板，桌面常驻 / 窄屏抽屉 */}
-      <aside className="hidden xl:flex xl:w-[400px] 2xl:w-[440px] shrink-0 border-l border-line bg-surface">
+      {/* 右栏：文档 + 角色增强面板，桌面常驻（宽度可拖拽）/ 窄屏抽屉 */}
+      <Resizer
+        at="xl"
+        label="调整文档栏宽度"
+        onMove={(x) => setColumnWidth('right', clampColumnWidth('right', window.innerWidth - x))}
+        onReset={() => setColumnWidth('right', DEFAULT_COLUMN_WIDTHS.right)}
+      />
+      <aside
+        style={{ width: columnWidths.right }}
+        className="hidden xl:flex shrink-0 bg-surface"
+      >
         <RightPanel />
       </aside>
       {artifactOpen && (

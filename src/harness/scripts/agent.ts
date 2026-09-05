@@ -250,3 +250,80 @@ export function matchScript(role: RoleId, goal: string): AgentScript {
   const hit = AGENT_SCRIPTS.find((s) => s.roles.includes(role) && s.match.some((k) => g.includes(k)))
   return hit ?? FALLBACK_SCRIPTS[role]
 }
+
+/* ---------- 通用探索剧本（v0.6 M2②：技能/剧本均未命中时的第三层执行路径） ---------- */
+
+/** 角色默认工具链：通用探索时按角色取用，保证任何任务都有实质数据支撑 */
+const GENERIC_TOOLS: Record<RoleId, { tool: string; args: Record<string, unknown> }[]> = {
+  teacher: [
+    { tool: 'searchResources', args: { keyword: '' } },
+    { tool: 'queryClassLearning', args: { className: '高一（3）班' } },
+  ],
+  schoolAdmin: [
+    { tool: 'querySchoolStats', args: {} },
+    { tool: 'searchPolicy', args: { keyword: '' } },
+  ],
+  bureau: [
+    { tool: 'queryRegionData', args: {} },
+    { tool: 'searchPolicy', args: { keyword: '' } },
+  ],
+}
+
+/** 从目标提取检索关键词（前 6 字，容错空目标） */
+function keywordOf(goal: string): string {
+  const cleaned = goal.replace(SEGMENT_SPLIT_RE, ' ').trim()
+  return cleaned.slice(0, 6) || '综合'
+}
+
+const SEGMENT_SPLIT_RE = /[，。！？；、,\.;!?\n（）()【】\[\]]+/g
+
+/** 按目标猜测文档类型 */
+export function guessArtifactKind(goal: string): 'lessonPlan' | 'report' | 'notice' | 'analysis' | 'generic' {
+  if (/教案|课件|备课/.test(goal)) return 'lessonPlan'
+  if (/通知|通报|函|公告/.test(goal)) return 'notice'
+  if (/报告|简报|总结|汇报/.test(goal)) return 'report'
+  if (/分析|诊断|评估|对比/.test(goal)) return 'analysis'
+  return 'generic'
+}
+
+/** 任务型目标启发式（与 API Orchestrator.looksLikeTask 同口径） */
+export function looksLikeTask(goal: string): boolean {
+  return /(查|询|统计|分析|生成|撰写|写|出题|命题|制作|制定|起草|报告|教案|试题|通知|简报|总结|计划|方案|整理|准备|安排|设计|规划|汇编|模板)/.test(goal)
+}
+
+/**
+ * 通用探索剧本：plan 拆解 → 角色默认工具 ×2 → reflect → artifact → done。
+ * 执行完毕后由 MockOrchestrator 触发 distillSkill 自动沉淀（本剧本自身不含沉淀逻辑）。
+ */
+export function buildGenericScript(role: RoleId, goal: string): AgentScript {
+  const tools = GENERIC_TOOLS[role]
+  const kind = guessArtifactKind(goal)
+  const kw = keywordOf(goal)
+  const adapted = tools.map((t) => {
+    const args = { ...t.args }
+    if ('keyword' in args && !args.keyword) args.keyword = kw
+    return { tool: t.tool, args }
+  })
+  return {
+    id: 'generic-exploration',
+    roles: [role],
+    match: [],
+    steps: [
+      {
+        type: 'plan',
+        steps: ['理解目标并拆解关键要点', '调用工具收集所需信息与素材', '整理分析并产出文档'],
+      },
+      { type: 'tool', tool: adapted[0].tool, args: adapted[0].args },
+      { type: 'tool', tool: adapted[1].tool, args: adapted[1].args },
+      {
+        type: 'reflect',
+        text: '工具信息已齐备：结合检索结果与目标要点组织内容结构，可进入文档产出。',
+      },
+      { type: 'artifact', kind },
+      {
+        type: 'done',
+        text: '已完成通用探索执行：信息收集与文档产出齐备。本次执行经验会自动沉淀为技能，下次同类任务可直接复用。',
+      },
+    ],
+  }
+}

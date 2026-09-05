@@ -65,7 +65,7 @@ src/harness/
 ## 数据分层与持久化
 
 Raw（`src/data/seed.ts` 种子数据）→ Aggregated（工具聚合）→ Agent Output（trace / 文档）→ Presentation（渲染）。
-会话、收藏、文档、版本历史、偏好画像、登录态均存 LocalStorage（`edustudio:` 前缀），设置弹层可一键清空。
+会话、收藏、文档、版本历史、偏好画像、登录态、学习技能均存 LocalStorage（`edustudio:` 前缀），设置弹层可一键清空。
 
 v0.5 起数据经 `harness/sources/`（SourceProvider）统一取数：**CSV 导入 > 远端数据平台 > 静态 seed**
 三级优先，远端失败自动降级并在 UI 标注「演示数据」；简报/看板/Agent 工具均标注数据来源与新鲜度（超 7 天提示刷新）。
@@ -83,11 +83,12 @@ v0.3 起支持阅读区字号四档调节（超大档面向高龄用户：20px �
 
 ## 质量保障
 
-`npm test` 运行 Vitest 单测（82 例，覆盖 SSE 解析 / 增量归一化 / Markdown 渲染 / 工具注册 / 剧本与模板匹配 / 存储往返 / 偏好注入 / 导出工具 / CSV 成绩解析 / 数据源降级 / 上下文压缩）；
-`npm run build` 前置执行单测 + tsc 类型检查，双闸门保障交付质量；Playwright 3 条关键路径 E2E + 4 张基线视觉回归（阈值 5%，首月观察期）+ 包体预算门禁 + Lighthouse CI（性能 ≥ 0.85）。
+`npm test` 运行 Vitest 单测（104 例，覆盖 SSE 解析 / 增量归一化 / Markdown 渲染 / 工具注册 / 剧本与模板匹配 / 存储往返 / 偏好注入 / 导出工具 / CSV 成绩解析 / 数据源降级 / 上下文压缩 / 技能提炼与检索）；
+`npm run build` 前置执行单测 + tsc 类型检查，双闸门保障交付质量；Playwright 3 条关键路径 E2E + 2 条自进化演示 E2E + 4 张基线视觉回归（阈值 5%，首月观察期）+ 包体预算门禁 + Lighthouse CI（性能 ≥ 0.85）。
 
 ---
 
+v0.6 · 自进化技能系统（Harness 层 Hermes 式 Self-Evolving Skills：技能发现 → 自动沉淀 → 复用命中 → 版本进化，学习技能 LocalStorage 持久化；API 模式命中技能注入 system prompt，LLM 提炼留接口骨架；执行轨迹「命中技能/已沉淀技能」徽标 + 侧栏技能库面板；一键演示向导三幕走完自进化闭环；桌面三栏拖拽调宽）
 v0.5.1 · 文档清理（去重版本特性块）+ 新增 vercel.json 与 Vercel 部署指南 · 架构模式参考 EduOS-95（仅借鉴模式，未复用代码）
 v0.5 · 真实数据接入与协同深化（SourceProvider 数据源 / CSV 成绩导入 / 分享短链与批注回流 / 任务链跨端同步 / 通知中心 / 课标与跨文档 Agent 工具 / 上下文压缩与 token 预算 / 视觉回归与 Lighthouse / Docker 部署 / Key 生命周期与导出水印）
 v0.4 · 分享协作 + 任务流看板 + e2e 测试 + 数据提供/密钥盒 · 架构模式参考 EduOS-95（仅借鉴模式，未复用代码）

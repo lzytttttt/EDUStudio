@@ -206,7 +206,9 @@ async function runAgentTask(
       case 'plan':
       case 'tool_call':
       case 'tool_result':
-      case 'reflect': {
+      case 'reflect':
+      case 'skill_hit':
+      case 'skill_learned': {
         const entry = get().sessions.find((s) => s.id === sessionId)?.entries.find((x) => x.id === entryId)
         patchEntry(sessionId, entryId, { trace: [...(entry?.trace ?? []), e] })
         return
