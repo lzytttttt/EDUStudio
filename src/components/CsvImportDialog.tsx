@@ -103,7 +103,7 @@ export default function CsvImportDialog({ onClose, onImported }: { onClose: () =
               >
                 {parsing ? <Loader2 size={22} className="animate-spin text-primary" /> : <Upload size={22} className="text-ink-mute" />}
                 <span className="text-sm font-medium text-ink-soft">{parsing ? '解析中…' : '选择成绩 CSV 文件'}</span>
-                <span className="text-[11px] leading-relaxed text-ink-mute">
+                <span className="text-[0.6875rem] leading-relaxed text-ink-mute">
                   支持宽表（姓名,语文,数学…）与长表（班级,科目,分数）两种格式
                 </span>
               </button>
@@ -124,7 +124,7 @@ export default function CsvImportDialog({ onClose, onImported }: { onClose: () =
                   <span>{error}</span>
                 </div>
               )}
-              <div className="mt-4 rounded-xl bg-surface-2 px-3 py-2.5 text-[11px] leading-relaxed text-ink-mute">
+              <div className="mt-4 rounded-xl bg-surface-2 px-3 py-2.5 text-[0.6875rem] leading-relaxed text-ink-mute">
                 <p className="font-medium text-ink-soft">列名自动识别</p>
                 <p className="mt-1">姓名/学生、班级、科目/学科、分数/成绩/平均分、及格率、优秀率、作业完成率均可模糊匹配；无法识别的列会在预览中提示。</p>
               </div>
@@ -143,15 +143,15 @@ export default function CsvImportDialog({ onClose, onImported }: { onClose: () =
                 <div className="grid grid-cols-3 gap-2 text-center">
                   <div className="rounded-xl bg-surface-2 px-2 py-2">
                     <p className="text-base font-semibold text-ink">{preview.rowCount}</p>
-                    <p className="text-[10px] text-ink-mute">数据行</p>
+                    <p className="text-[0.625rem] text-ink-mute">数据行</p>
                   </div>
                   <div className="rounded-xl bg-surface-2 px-2 py-2">
                     <p className="text-base font-semibold text-ink">{preview.scores.length}</p>
-                    <p className="text-[10px] text-ink-mute">科目数</p>
+                    <p className="text-[0.625rem] text-ink-mute">科目数</p>
                   </div>
                   <div className="rounded-xl bg-surface-2 px-2 py-2">
                     <p className="text-base font-semibold text-ink">{preview.homeworkCompletion ?? '-'}</p>
-                    <p className="text-[10px] text-ink-mute">作业完成率</p>
+                    <p className="text-[0.625rem] text-ink-mute">作业完成率</p>
                   </div>
                 </div>
                 <div>
@@ -180,7 +180,7 @@ export default function CsvImportDialog({ onClose, onImported }: { onClose: () =
                   </div>
                 </div>
                 {preview.warnings.length > 0 && (
-                  <div className="rounded-xl bg-amber-50 px-3 py-2.5 text-[11px] leading-relaxed text-amber-700">
+                  <div className="rounded-xl bg-amber-50 px-3 py-2.5 text-[0.6875rem] leading-relaxed text-amber-700">
                     {preview.warnings.slice(0, 5).map((w, i) => (
                       <p key={i}>· {w}</p>
                     ))}

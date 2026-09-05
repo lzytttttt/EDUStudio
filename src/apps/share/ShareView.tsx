@@ -213,12 +213,12 @@ export default function ShareView() {
           </div>
           <div className="min-w-0">
             <h1 className="truncate text-sm font-semibold text-ink">{snapshot.title}</h1>
-            <p className="minor-info truncate text-[10px] text-ink-mute">
+            <p className="minor-info truncate text-[0.625rem] text-ink-mute">
               {snapshot.author ? `${snapshot.author} · ` : ''}
               {fmtTime(snapshot.createdAt)} · 只读分享
             </p>
           </div>
-          <span className="shrink-0 rounded-full bg-primary-soft px-2 py-0.5 text-[10px] font-medium text-primary">
+          <span className="shrink-0 rounded-full bg-primary-soft px-2 py-0.5 text-[0.625rem] font-medium text-primary">
             {KIND_LABEL[snapshot.kind] ?? '文档'}
           </span>
         </div>
@@ -270,13 +270,13 @@ export default function ShareView() {
               <h2 className="flex items-center gap-2 text-sm font-semibold text-ink">
                 <MessageSquare size={14} className="text-primary" />
                 评审批注
-                <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-medium text-ink-mute">
+                <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[0.625rem] font-medium text-ink-mute">
                   {annotations.length}
                 </span>
                 {serverRef && syncState !== 'local' && (
                   <span
                     className={cn(
-                      'rounded-full px-2 py-0.5 text-[10px] font-medium',
+                      'rounded-full px-2 py-0.5 text-[0.625rem] font-medium',
                       syncState === 'synced'
                         ? 'bg-mint-soft text-mint'
                         : syncState === 'fail'
@@ -292,7 +292,7 @@ export default function ShareView() {
                 <button
                   onClick={copyAnnotatedLink}
                   className={cn(
-                    'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-medium transition-all active:scale-95',
+                    'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[0.6875rem] font-medium transition-all active:scale-95',
                     annoLinkState === 'ok'
                       ? 'bg-mint-soft text-mint'
                       : annoLinkState === 'fail'
@@ -325,11 +325,11 @@ export default function ShareView() {
                       <div className="min-w-0">
                         <p className="flex items-center gap-1.5 text-xs font-semibold text-ink">
                           {a.author}
-                          <span className="rounded-full bg-primary-soft px-1.5 py-0.5 text-[9px] font-medium text-primary">
+                          <span className="rounded-full bg-primary-soft px-1.5 py-0.5 text-[0.5625rem] font-medium text-primary">
                             {ROLE_LABEL[a.role] ?? '访客'}
                           </span>
                         </p>
-                        <p className="minor-info mt-0.5 text-[10px] text-ink-mute">{fmtTime(a.createdAt)}</p>
+                        <p className="minor-info mt-0.5 text-[0.625rem] text-ink-mute">{fmtTime(a.createdAt)}</p>
                       </div>
                       <button
                         onClick={() => persistAnnotations(annotations.filter((x) => x.id !== a.id))}
@@ -340,7 +340,7 @@ export default function ShareView() {
                       </button>
                     </div>
                     {a.quote && (
-                      <blockquote className="mt-2 rounded-lg border-l-2 border-primary/40 bg-surface px-3 py-1.5 text-[11px] leading-relaxed text-ink-soft">
+                      <blockquote className="mt-2 rounded-lg border-l-2 border-primary/40 bg-surface px-3 py-1.5 text-[0.6875rem] leading-relaxed text-ink-soft">
                         「{a.quote}」
                       </blockquote>
                     )}
@@ -351,7 +351,7 @@ export default function ShareView() {
             )}
           </section>
 
-          <p className="minor-info mt-4 pb-6 text-center text-[10px] text-ink-mute">
+          <p className="minor-info mt-4 pb-6 text-center text-[0.625rem] text-ink-mute">
             由 EDUStudio 生成 · 内容为分享时的只读快照
           </p>
         </div>
@@ -362,7 +362,7 @@ export default function ShareView() {
         <button
           onClick={openForm}
           style={{ left: selBtn.x, top: selBtn.y }}
-          className="animate-fade-up fixed z-40 -translate-x-1/2 -translate-y-full rounded-full bg-ink px-3 py-1.5 text-[11px] font-medium text-white shadow-lg transition-transform active:scale-95"
+          className="animate-fade-up fixed z-40 -translate-x-1/2 -translate-y-full rounded-full bg-ink px-3 py-1.5 text-[0.6875rem] font-medium text-white shadow-lg transition-transform active:scale-95"
         >
           <span className="inline-flex items-center gap-1">
             <MessageSquarePlus size={12} />
@@ -392,7 +392,7 @@ export default function ShareView() {
               </button>
             </div>
             {formQuote && (
-              <blockquote className="mt-3 rounded-xl border-l-2 border-primary/40 bg-surface-2 px-3 py-2 text-[11px] leading-relaxed text-ink-soft">
+              <blockquote className="mt-3 rounded-xl border-l-2 border-primary/40 bg-surface-2 px-3 py-2 text-[0.6875rem] leading-relaxed text-ink-soft">
                 「{formQuote}」
               </blockquote>
             )}

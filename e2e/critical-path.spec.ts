@@ -26,7 +26,10 @@ async function dismissGuide(page: Page) {
 /** 快捷路径：教师身份经「跳过简报」进入中性工作台（不触发任何任务） */
 async function loginAsTeacher(page: Page) {
   await page.goto('/')
+  await page.getByTestId('login-account').fill('teacher@edustudio.cn')
+  await page.getByTestId('login-password').fill('demo1234')
   await page.getByTestId('role-card-teacher').click()
+  await page.getByTestId('login-submit').click()
   await dismissGuide(page) // 简报页首次引导
   await page.getByRole('button', { name: '跳过简报，直接进入工作台' }).click()
   await expect(page.getByTestId('chat-input')).toBeVisible()
@@ -34,13 +37,18 @@ async function loginAsTeacher(page: Page) {
 
 test('① 登录 → 简报 → 采纳 → 工作台', async ({ page }) => {
   await page.goto('/')
-  // 登录页：三个角色卡片
+  // 登录页：账号密码表单 + 三个身份选项
+  await expect(page.getByTestId('login-account')).toBeVisible()
+  await expect(page.getByTestId('login-password')).toBeVisible()
   await expect(page.getByTestId('role-card-teacher')).toBeVisible()
   await expect(page.getByTestId('role-card-schoolAdmin')).toBeVisible()
   await expect(page.getByTestId('role-card-bureau')).toBeVisible()
 
-  // 选择教师 → 进入简报（首次弹出操作引导）
+  // 填写账号密码、选择教师身份 → 登录进入简报（首次弹出操作引导）
+  await page.getByTestId('login-account').fill('teacher@edustudio.cn')
+  await page.getByTestId('login-password').fill('demo1234')
   await page.getByTestId('role-card-teacher').click()
+  await page.getByTestId('login-submit').click()
   await expect(page.getByTestId('guide-done')).toBeVisible()
   await page.getByTestId('guide-done').click()
   await expect(page.getByTestId('adopt-btn')).toBeVisible()

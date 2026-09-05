@@ -44,7 +44,7 @@ function OptionsPayload({ payload }: { payload: Extract<CardPayload, { kind: 'op
     <div className="mt-4 space-y-2">
       {payload.options.map((o, i) => (
         <div key={i} className="flex items-start gap-3 rounded-2xl border border-line bg-surface-2 px-4 py-3">
-          <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-line text-[10px] font-bold text-ink-mute">
+          <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-line text-[0.625rem] font-bold text-ink-mute">
             {String.fromCharCode(65 + i)}
           </span>
           <div>
@@ -75,7 +75,7 @@ function TodosPayload({ payload }: { payload: Extract<CardPayload, { kind: 'todo
             {t.done && <Check size={12} className="text-mint" />}
           </span>
           <p className={cn('flex-1 text-sm', t.done ? 'text-ink-mute line-through' : '')}>{t.text}</p>
-          {t.meta && <span className="shrink-0 text-[11px] text-ink-mute">{t.meta}</span>}
+          {t.meta && <span className="shrink-0 text-[0.6875rem] text-ink-mute">{t.meta}</span>}
         </div>
       ))}
     </div>
@@ -122,7 +122,7 @@ export default function BriefingCardView({ card }: { card: BriefingCard }) {
           </span>
         </div>
 
-        <h2 className="mt-4 text-[19px] font-bold leading-snug tracking-tight">{card.title}</h2>
+        <h2 className="mt-4 text-[1.1875rem] font-bold leading-snug tracking-tight">{card.title}</h2>
         <p className="mt-2 text-sm leading-relaxed text-ink-soft">{card.body}</p>
 
         {card.payload?.kind === 'chart' && <ChartPayload payload={card.payload} />}
@@ -132,7 +132,7 @@ export default function BriefingCardView({ card }: { card: BriefingCard }) {
         {card.payload?.kind === 'expandable' && <ExpandablePayload payload={card.payload} />}
 
         <div className="minor-info mt-auto pt-4">
-          <p className="text-[11px] text-ink-mute">来源：{card.source}</p>
+          <p className="text-[0.6875rem] text-ink-mute">来源：{card.source}</p>
         </div>
       </div>
     </div>

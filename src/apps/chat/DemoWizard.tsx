@@ -142,7 +142,7 @@ export default function DemoWizard({ onClose }: { onClose: () => void }) {
             )}
           />
         ))}
-        <span className="ml-auto text-[10px] font-medium text-ink-mute">
+        <span className="ml-auto text-[0.625rem] font-medium text-ink-mute">
           自进化演示 {act + 1}/{ACTS.length}
         </span>
         <button onClick={onClose} className="text-ink-mute transition-colors hover:text-ink" aria-label="关闭演示向导">

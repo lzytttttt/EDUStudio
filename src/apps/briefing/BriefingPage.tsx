@@ -162,28 +162,28 @@ export default function BriefingPage() {
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-bg">
-      {/* 顶部进度栏 */}
-      <header className="flex items-center justify-between gap-3 px-6 pt-5 md:px-10">
+      {/* 顶部进度栏（v0.6.1：移动端精简——隐藏日期、按钮缩为图标/短文案，减少 banner 遮挡） */}
+      <header className="flex items-center justify-between gap-2 px-4 pt-4 sm:gap-3 sm:px-6 sm:pt-5 md:px-10">
         <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary text-white">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary text-white">
             <Sparkles size={15} />
           </div>
           <div>
             <p className="text-sm font-semibold leading-tight">今日简报</p>
-            <p className="text-[11px] text-ink-mute">
-              <span className="minor-info">2026 年 9 月 4 日 · </span>
+            <p className="text-[0.6875rem] text-ink-mute">
+              <span className="minor-info hidden sm:inline">2026 年 9 月 4 日 · </span>
               {preset?.name ?? '访客'} · 已处理 {processed}/{total}
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          {/* 数据新鲜度标注（v0.5 M1④）：来源 + 相对时间；超 7 天提示刷新 */}
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          {/* 数据新鲜度标注（v0.5 M1④）：来源 + 相对时间；超 7 天提示刷新（移动端不显示） */}
           {meta && (
             <button
               onClick={handleRefresh}
               title={stale ? '数据已超过 7 天，点击刷新' : '刷新数据'}
               className={cn(
-                'minor-info hidden items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] transition-colors sm:flex',
+                'minor-info hidden items-center gap-1.5 rounded-full border px-2.5 py-1 text-[0.625rem] transition-colors sm:flex',
                 stale ? 'border-amber/60 bg-amber-50 text-amber-700 hover:border-amber' : 'border-line bg-surface text-ink-mute hover:border-primary/40 hover:text-primary',
               )}
             >
@@ -196,23 +196,25 @@ export default function BriefingPage() {
           {canImport && (
             <button
               onClick={() => setImportOpen(true)}
-              className="flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1.5 text-xs font-medium text-ink-soft transition-colors hover:border-primary/50 hover:text-primary"
+              className="flex items-center gap-1.5 rounded-full border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-ink-soft transition-colors hover:border-primary/50 hover:text-primary sm:px-3"
               title="导入班级成绩 CSV，简报将基于真实数据生成"
+              aria-label="导入成绩"
             >
               <FileSpreadsheet size={13} />
-              导入成绩
+              <span className="hidden sm:inline">导入成绩</span>
             </button>
           )}
           <button
             onClick={() => setStage('workbench')}
-            className="flex items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 py-1.5 text-xs font-medium text-ink-soft transition-colors hover:border-primary/50 hover:text-primary"
+            className="flex items-center gap-1.5 rounded-full border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-ink-soft transition-colors hover:border-primary/50 hover:text-primary sm:px-3.5"
           >
             <LayoutDashboard size={13} />
-            跳过简报，直接进入工作台
+            <span className="hidden sm:inline">跳过简报，直接进入工作台</span>
+            <span className="sm:hidden">工作台</span>
           </button>
         </div>
       </header>
-      <div className="mx-6 mt-3 h-1 overflow-hidden rounded-full bg-line md:mx-10">
+      <div className="mx-4 mt-3 h-1 overflow-hidden rounded-full bg-line sm:mx-6 md:mx-10">
         <div
           className="h-full rounded-full bg-primary transition-all duration-500"
           style={{ width: `${total ? (processed / total) * 100 : 0}%` }}
@@ -325,7 +327,7 @@ export default function BriefingPage() {
               <span className="flex h-[52px] w-[52px] items-center justify-center rounded-full border border-line bg-surface text-ink-soft shadow-soft transition-all group-hover:-rotate-12 group-hover:border-coral/50 group-hover:text-coral group-active:scale-90">
                 <X size={20} />
               </span>
-              <span className="text-[11px] text-ink-mute">跳过</span>
+              <span className="text-[0.6875rem] text-ink-mute">跳过</span>
             </button>
             <button
               onClick={() => handleDecide('up')}
@@ -335,7 +337,7 @@ export default function BriefingPage() {
               <span className="flex h-[58px] w-[58px] items-center justify-center rounded-full border border-line bg-surface text-amber shadow-soft transition-all group-hover:-translate-y-1 group-hover:border-amber/60 group-active:scale-90">
                 <Star size={22} />
               </span>
-              <span className="text-[11px] text-ink-mute">收藏</span>
+              <span className="text-[0.6875rem] text-ink-mute">收藏</span>
             </button>
             <button
               onClick={() => handleDecide('right')}
@@ -346,10 +348,10 @@ export default function BriefingPage() {
               <span className="flex h-[58px] w-[58px] items-center justify-center rounded-full bg-primary text-white shadow-pop transition-all group-hover:translate-y-0.5 group-hover:bg-primary-deep group-active:scale-90">
                 <Check size={22} />
               </span>
-              <span className="text-[11px] font-medium text-primary">采纳执行</span>
+              <span className="text-[0.6875rem] font-medium text-primary">采纳执行</span>
             </button>
           </div>
-          <p className="minor-info mt-4 flex items-center justify-center gap-3 text-[11px] text-ink-mute">
+          <p className="minor-info mt-4 flex items-center justify-center gap-3 text-[0.6875rem] text-ink-mute">
             <span className="inline-flex items-center gap-1"><ArrowLeft size={11} /> 跳过</span>
             <span className="inline-flex items-center gap-1"><ArrowUp size={11} /> 收藏</span>
             <span className="inline-flex items-center gap-1"><ArrowRight size={11} /> 采纳</span>

@@ -17,7 +17,10 @@ test.beforeEach(async ({ page }) => {
 /** 快捷路径：教师身份经「跳过简报」进入中性工作台 */
 async function loginAsTeacher(page: Page) {
   await page.goto('/')
+  await page.getByTestId('login-account').fill('teacher@edustudio.cn')
+  await page.getByTestId('login-password').fill('demo1234')
   await page.getByTestId('role-card-teacher').click()
+  await page.getByTestId('login-submit').click()
   await page.getByTestId('guide-done').click({ timeout: 4000 }).catch(() => {})
   await page.getByRole('button', { name: '跳过简报，直接进入工作台' }).click()
   await expect(page.getByTestId('chat-input')).toBeVisible()

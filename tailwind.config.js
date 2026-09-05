@@ -59,6 +59,24 @@ export default {
           '0%': { opacity: '1', transform: 'translateY(0) scale(1)' },
           '100%': { opacity: '0', transform: 'translateY(-10px) scale(0.99)' },
         },
+        /* 登录页背景动效（v0.6.1）：简报卡片漂浮 + 光斑漂移 + 点击迸裂（评审修订） */
+        'float': {
+          '0%, 100%': { transform: 'translateY(0) rotate(0deg)' },
+          '50%': { transform: 'translateY(-16px) rotate(1.2deg)' },
+        },
+        'drift': {
+          '0%, 100%': { transform: 'translate(0, 0) scale(1)' },
+          '33%': { transform: 'translate(26px, -20px) scale(1.07)' },
+          '66%': { transform: 'translate(-20px, 16px) scale(0.95)' },
+        },
+        'burst-ring': {
+          '0%': { transform: 'scale(0.15)', opacity: '0.9' },
+          '100%': { transform: 'scale(1)', opacity: '0' },
+        },
+        'burst-bit': {
+          '0%': { transform: 'translate(0, 0) scale(1) rotate(0deg)', opacity: '1' },
+          '100%': { transform: 'translate(var(--bx, 0px), var(--by, 0px)) scale(0.3) rotate(200deg)', opacity: '0' },
+        },
       },
       animation: {
         'fade-up': 'fade-up 0.45s cubic-bezier(0.22,1,0.36,1) both',
@@ -67,6 +85,10 @@ export default {
         'card-enter': 'card-enter 0.4s cubic-bezier(0.22,1,0.36,1) both',
         'stage-in': 'stage-in 0.42s cubic-bezier(0.22,1,0.36,1) both',
         'stage-out': 'stage-out 0.2s ease-in both',
+        'float': 'float 7s ease-in-out infinite',
+        'drift': 'drift 20s ease-in-out infinite',
+        'burst-ring': 'burst-ring 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards',
+        'burst-bit': 'burst-bit 0.65s cubic-bezier(0.22, 1, 0.36, 1) forwards',
       },
     },
   },

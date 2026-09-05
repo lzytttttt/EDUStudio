@@ -1,22 +1,101 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { X, Eye, EyeOff, RotateCcw, Trash2, User, Type, Database, ShieldCheck, Stamp } from 'lucide-react'
-import { useSettingsStore, maskKey, clampPref, PREF_MAX_LEN, type FontSize } from '../stores/settingsStore'
+import {
+  useSettingsStore, maskKey, clampPref, PREF_MAX_LEN,
+  FONT_SIZE_MIN, FONT_SIZE_MAX, FONT_SIZE_DEFAULT,
+} from '../stores/settingsStore'
 import { checkApiKey, type KeyCheckResult } from '../lib/keyCheck'
 import { cn } from '../lib/cn'
 import { useDialogA11y } from '../lib/useDialogA11y'
 
-const FONT_OPTIONS: { value: FontSize; label: string; sample: string }[] = [
-  { value: 'small', label: '小', sample: 'A' },
-  { value: 'medium', label: '标准', sample: 'A' },
-  { value: 'large', label: '大', sample: 'A' },
-  { value: 'xlarge', label: '超大', sample: 'A' },
-]
+/** 字号档位称呼（仅用于展示）：≤13 小 / 14–15 标准 / 16–17 大 / ≥18 超大 */
+function sizeLabel(px: number): string {
+  if (px <= 13) return '小'
+  if (px <= 15) return '标准'
+  if (px <= 17) return '大'
+  return '超大'
+}
 
-const FONT_SAMPLE_SIZE: Record<FontSize, string> = {
-  small: 'text-[13px]',
-  medium: 'text-[15px]',
-  large: 'text-[17px]',
-  xlarge: 'text-[20px]',
+/**
+ * 字号拖拽滑杆（v0.6.1）：Pointer Events 零依赖，复刻 Resizer 交互范式。
+ * 点击/拖拽轨道调值，方向键微调，双击重置默认；拖拽中禁选文本。
+ */
+function FontSizeSlider({ value, onChange, onReset }: { value: number; onChange: (px: number) => void; onReset: () => void }) {
+  const trackRef = useRef<HTMLDivElement>(null)
+  const draggingRef = useRef(false)
+
+  const valueFromClientX = (clientX: number): number => {
+    const rect = trackRef.current?.getBoundingClientRect()
+    if (!rect || rect.width === 0) return value
+    const ratio = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width))
+    return Math.round(FONT_SIZE_MIN + ratio * (FONT_SIZE_MAX - FONT_SIZE_MIN))
+  }
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    draggingRef.current = true
+    e.currentTarget.setPointerCapture(e.pointerId)
+    document.body.style.userSelect = 'none'
+    onChange(valueFromClientX(e.clientX))
+  }
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!draggingRef.current) return
+    onChange(valueFromClientX(e.clientX))
+  }
+  const endDrag = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!draggingRef.current) return
+    draggingRef.current = false
+    e.currentTarget.releasePointerCapture(e.pointerId)
+    document.body.style.userSelect = ''
+  }
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') onChange(value - 1)
+    else if (e.key === 'ArrowRight' || e.key === 'ArrowUp') onChange(value + 1)
+    else if (e.key === 'Home') onChange(FONT_SIZE_MIN)
+    else if (e.key === 'End') onChange(FONT_SIZE_MAX)
+    else return
+    e.preventDefault()
+  }
+
+  const pct = ((value - FONT_SIZE_MIN) / (FONT_SIZE_MAX - FONT_SIZE_MIN)) * 100
+
+  return (
+    <div className="flex items-center gap-3">
+      <span className="w-4 text-center text-[0.6875rem] font-semibold text-ink-mute" aria-hidden>A</span>
+      <div
+        ref={trackRef}
+        role="slider"
+        tabIndex={0}
+        aria-label="界面字号"
+        aria-valuemin={FONT_SIZE_MIN}
+        aria-valuemax={FONT_SIZE_MAX}
+        aria-valuenow={value}
+        aria-valuetext={`${value} 像素，${sizeLabel(value)}`}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+        onDoubleClick={onReset}
+        onKeyDown={handleKeyDown}
+        title={`拖拽调整字号（${FONT_SIZE_MIN}–${FONT_SIZE_MAX}px）· 双击重置`}
+        className="relative flex h-8 flex-1 cursor-ew-resize touch-none items-center outline-none focus-visible:ring-2 focus-visible:ring-primary/50 rounded-full"
+      >
+        {/* 轨道 + 已填充段 */}
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-line">
+          <div className="h-full rounded-full bg-primary transition-[width] duration-75" style={{ width: `${pct}%` }} />
+        </div>
+        {/* 滑块 */}
+        <div
+          className="pointer-events-none absolute top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-primary bg-white shadow-soft"
+          style={{ left: `${pct}%` }}
+        />
+      </div>
+      <span className="w-4 text-center text-[0.9375rem] font-bold text-ink" aria-hidden>A</span>
+      <span className="w-[68px] shrink-0 text-right text-xs font-medium tabular-nums text-primary">
+        {value}px · {sizeLabel(value)}
+      </span>
+    </div>
+  )
 }
 
 export default function SettingsDialog({ onClose }: { onClose: () => void }) {
@@ -62,7 +141,7 @@ export default function SettingsDialog({ onClose }: { onClose: () => void }) {
           <div className="mb-3 flex items-center gap-2">
             <User size={14} className="text-primary" />
             <h3 className="text-sm font-semibold text-ink">偏好画像</h3>
-            <span className="rounded-full bg-primary-soft px-2 py-0.5 text-[10px] text-primary">API 模式生效</span>
+            <span className="rounded-full bg-primary-soft px-2 py-0.5 text-[0.625rem] text-primary">API 模式生效</span>
           </div>
           <p className="mb-3 text-xs leading-relaxed text-ink-mute">
             让 AI 记住你的称呼、背景与表达偏好，注入到每次对话的 system prompt（仅存本机，最长 {PREF_MAX_LEN} 字）。
@@ -101,32 +180,29 @@ export default function SettingsDialog({ onClose }: { onClose: () => void }) {
           </div>
         </section>
 
-        {/* ── 界面：字号 ── */}
+        {/* ── 界面外观：字号拖拽（v0.6.1 评审修订：全局生效，字体设置已按评审移除） ── */}
         <section className="mb-6">
           <div className="mb-3 flex items-center gap-2">
             <Type size={14} className="text-primary" />
             <h3 className="text-sm font-semibold text-ink">界面字号</h3>
           </div>
           <p className="mb-3 text-xs leading-relaxed text-ink-mute">
-            调整对话与文档阅读区的字号，即时生效。超大档适合高龄用户：自动隐藏时间戳、来源等次要信息，聚焦核心内容。
+            拖拽调整界面字号（{FONT_SIZE_MIN}–{FONT_SIZE_MAX}px，双击重置），全局即时生效：
+            侧边栏、顶栏、对话、文档、底部导航等所有文字同步缩放。
+            拖到 18px 及以上进入超大档：自动隐藏时间戳、来源等次要信息，适合高龄用户。
           </p>
-          <div className="flex gap-2">
-            {FONT_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                onClick={() => s.setFontSize(opt.value)}
-                className={cn(
-                  'flex flex-1 flex-col items-center gap-1 rounded-2xl border px-3 py-3 transition-all',
-                  s.fontSize === opt.value
-                    ? 'border-primary bg-primary-soft text-primary'
-                    : 'border-line bg-surface-2 text-ink-soft hover:border-primary/40',
-                )}
-              >
-                <span className={cn('font-semibold', FONT_SAMPLE_SIZE[opt.value])}>{opt.sample}</span>
-                <span className="text-[11px]">{opt.label}</span>
-              </button>
-            ))}
-          </div>
+          <FontSizeSlider
+            value={s.fontSize}
+            onChange={(px) => s.setFontSize(px)}
+            onReset={() => s.setFontSize(FONT_SIZE_DEFAULT)}
+          />
+          {/* 实时预览：与界面同字号 */}
+          <p
+            className="mt-3 rounded-2xl border border-line bg-surface-2 px-4 py-3 leading-relaxed text-ink"
+            style={{ fontSize: 'var(--content-fs)' }}
+          >
+            预览：今日教学简报已生成，3 条待办等你处理。
+          </p>
         </section>
 
         {/* ── 模型接入 ── */}
@@ -141,7 +217,7 @@ export default function SettingsDialog({ onClose }: { onClose: () => void }) {
               )}
             >
               <p className={cn('text-sm font-medium', s.mode === 'mock' ? 'text-primary' : 'text-ink')}>演示模式</p>
-              <p className="mt-0.5 text-[11px] text-ink-mute">内置剧本，无需联网</p>
+              <p className="mt-0.5 text-[0.6875rem] text-ink-mute">内置剧本，无需联网</p>
             </button>
             <button
               onClick={() => s.update({ mode: 'api' })}
@@ -151,7 +227,7 @@ export default function SettingsDialog({ onClose }: { onClose: () => void }) {
               )}
             >
               <p className={cn('text-sm font-medium', s.mode === 'api' ? 'text-primary' : 'text-ink')}>API 模式</p>
-              <p className="mt-0.5 text-[11px] text-ink-mute">OpenAI 兼容接口</p>
+              <p className="mt-0.5 text-[0.6875rem] text-ink-mute">OpenAI 兼容接口</p>
             </button>
           </div>
 
@@ -217,7 +293,7 @@ export default function SettingsDialog({ onClose }: { onClose: () => void }) {
                       {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
                     </button>
                   </div>
-                  {s.apiKey && <p className="mt-1 text-[11px] text-ink-mute">已保存：{maskKey(s.apiKey)}</p>}
+                  {s.apiKey && <p className="mt-1 text-[0.6875rem] text-ink-mute">已保存：{maskKey(s.apiKey)}</p>}
                   {/* Key 有效性检测（v0.5 M5②） */}
                   <div className="mt-2 flex items-center gap-2">
                     <button
@@ -229,7 +305,7 @@ export default function SettingsDialog({ onClose }: { onClose: () => void }) {
                       {keyChecking ? '检测中…' : '检测 Key 有效性'}
                     </button>
                     {keyCheck && (
-                      <span className={cn('text-[11px]', keyCheck.ok ? 'text-mint' : 'text-coral')}>
+                      <span className={cn('text-[0.6875rem]', keyCheck.ok ? 'text-mint' : 'text-coral')}>
                         {keyCheck.message}
                         {!keyCheck.ok && s.apiKey && /401|无效/.test(keyCheck.message) && '（已自动清空）'}
                       </span>
@@ -248,9 +324,9 @@ export default function SettingsDialog({ onClose }: { onClose: () => void }) {
                   onChange={(e) => s.update({ tokenBudget: Math.max(0, Number(e.target.value) || 0) })}
                   className="w-full rounded-xl border border-line bg-surface-2 px-3 py-2 text-sm text-ink outline-none transition-colors focus:border-primary"
                 />
-                <p className="mt-1 text-[11px] text-ink-mute">超出后 Agent 提前收尾以保证成本可控；0 表示不限制。</p>
+                <p className="mt-1 text-[0.6875rem] text-ink-mute">超出后 Agent 提前收尾以保证成本可控；0 表示不限制。</p>
               </div>
-              <p className="rounded-xl bg-amber-50 px-3 py-2 text-[11px] leading-relaxed text-amber-700">
+              <p className="rounded-xl bg-amber-50 px-3 py-2 text-[0.6875rem] leading-relaxed text-amber-700">
                 ⚠️ Key 仅存本机浏览器。生产环境请使用轻后端代理（proxy/ 目录），避免 Key 暴露。
               </p>
             </div>
@@ -275,7 +351,7 @@ export default function SettingsDialog({ onClose }: { onClose: () => void }) {
               )}
             >
               <p className={cn('text-sm font-medium', s.dataSource === 'seed' ? 'text-primary' : 'text-ink')}>演示数据</p>
-              <p className="mt-0.5 text-[11px] text-ink-mute">内置数据 + CSV 导入，离线可用</p>
+              <p className="mt-0.5 text-[0.6875rem] text-ink-mute">内置数据 + CSV 导入，离线可用</p>
             </button>
             <button
               onClick={() => s.update({ dataSource: 'remote' })}
@@ -285,7 +361,7 @@ export default function SettingsDialog({ onClose }: { onClose: () => void }) {
               )}
             >
               <p className={cn('text-sm font-medium', s.dataSource === 'remote' ? 'text-primary' : 'text-ink')}>远端数据平台</p>
-              <p className="mt-0.5 text-[11px] text-ink-mute">经轻后端拉取，失败自动降级</p>
+              <p className="mt-0.5 text-[0.6875rem] text-ink-mute">经轻后端拉取，失败自动降级</p>
             </button>
           </div>
           {s.dataSource === 'remote' && (
@@ -297,7 +373,7 @@ export default function SettingsDialog({ onClose }: { onClose: () => void }) {
                 placeholder="http://localhost:8787/api/sources"
                 className="w-full rounded-xl border border-line bg-surface-2 px-3 py-2 text-sm text-ink outline-none transition-colors placeholder:text-ink-mute focus:border-primary"
               />
-              <p className="mt-1 text-[11px] text-ink-mute">轻后端需提供 /classes、/region、/school 三个只读端点（见 proxy/）。</p>
+              <p className="mt-1 text-[0.6875rem] text-ink-mute">轻后端需提供 /classes、/region、/school 三个只读端点（见 proxy/）。</p>
             </div>
           )}
         </section>

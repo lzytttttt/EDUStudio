@@ -47,15 +47,15 @@ export default function AlertBoard() {
         <div className="flex items-center gap-2">
           <TrendingUp size={15} className="shrink-0 text-ink-mute" />
           <h2 className="text-sm font-semibold">校情驾驶舱</h2>
-          <span className="rounded-full bg-primary-soft px-2 py-0.5 text-[10px] font-medium text-primary">实验一中</span>
+          <span className="rounded-full bg-primary-soft px-2 py-0.5 text-[0.625rem] font-medium text-primary">实验一中</span>
         </div>
-        <span className="text-[10px] text-ink-mute">近 8 周</span>
+        <span className="text-[0.625rem] text-ink-mute">近 8 周</span>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
         {/* 数据来源与新鲜度（v0.5 M1④） */}
         {meta && (
-          <div className="mb-3 flex flex-wrap items-center gap-2 text-[10px] text-ink-mute">
+          <div className="mb-3 flex flex-wrap items-center gap-2 text-[0.625rem] text-ink-mute">
             <span className="inline-flex items-center gap-1 rounded-full border border-line bg-surface-2 px-2 py-0.5">
               <Clock size={9} />
               {meta.label} · {formatAge(meta.fetchedAt)}
@@ -90,7 +90,7 @@ export default function AlertBoard() {
           <>
             {/* 趋势图 */}
             <div className="rounded-2xl border border-line bg-surface-2 p-3">
-              <p className="mb-1 text-[11px] font-medium text-ink-soft">教学质量周趋势</p>
+              <p className="mb-1 text-[0.6875rem] font-medium text-ink-soft">教学质量周趋势</p>
               <div className="h-44 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={trend} margin={{ top: 8, right: 8, bottom: 0, left: -18 }}>
@@ -114,7 +114,7 @@ export default function AlertBoard() {
             <div className="mt-4">
               <div className="mb-2 flex items-center gap-1.5">
                 <Siren size={13} className="text-danger" />
-                <p className="text-[11px] font-semibold text-ink-soft">教学质量预警（{alerts.length}）</p>
+                <p className="text-[0.6875rem] font-semibold text-ink-soft">教学质量预警（{alerts.length}）</p>
               </div>
               <ul className="space-y-2">
                 {alerts.map((a) => {
@@ -131,20 +131,20 @@ export default function AlertBoard() {
                       >
                         <div className="flex items-center gap-2">
                           <span className={cn('h-2 w-2 shrink-0 rounded-full', style.dot)} />
-                          <span className={cn('shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-semibold', style.cls)}>
+                          <span className={cn('shrink-0 rounded-md px-1.5 py-0.5 text-[0.625rem] font-semibold', style.cls)}>
                             {style.label}
                           </span>
                           <span className="truncate text-xs font-medium text-ink">{a.title}</span>
                         </div>
                         {active && (
-                          <p className="mt-2 pl-4 text-[11px] leading-relaxed text-ink-soft">{a.detail}</p>
+                          <p className="mt-2 pl-4 text-[0.6875rem] leading-relaxed text-ink-soft">{a.detail}</p>
                         )}
                       </button>
                     </li>
                   )
                 })}
               </ul>
-              <p className="mt-3 text-[10px] leading-relaxed text-ink-mute">
+              <p className="mt-3 text-[0.625rem] leading-relaxed text-ink-mute">
                 提示：在左侧对话发送「生成本月学校治理简报」，预警明细会自动写入报告。
               </p>
             </div>

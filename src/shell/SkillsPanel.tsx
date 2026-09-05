@@ -43,13 +43,13 @@ function SkillCard({ skill }: { skill: Skill }) {
         <Sparkles size={13} className={cn('mt-0.5 shrink-0', isLearned ? 'text-mint' : 'text-ink-mute')} />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
-            <p className={cn('truncate text-[13px] font-medium leading-tight', !skill.enabled && 'text-ink-mute line-through')}>
+            <p className={cn('truncate text-[0.8125rem] font-medium leading-tight', !skill.enabled && 'text-ink-mute line-through')}>
               {skill.name}
             </p>
-            <span className="shrink-0 rounded-md bg-primary-soft px-1 text-[9px] font-bold text-primary">v{skill.version}</span>
+            <span className="shrink-0 rounded-md bg-primary-soft px-1 text-[0.5625rem] font-bold text-primary">v{skill.version}</span>
             <span
               className={cn(
-                'shrink-0 rounded-md px-1 text-[9px] font-medium',
+                'shrink-0 rounded-md px-1 text-[0.5625rem] font-medium',
                 isLearned ? 'bg-mint-soft text-mint' : 'border border-line text-ink-mute',
               )}
             >
@@ -58,13 +58,13 @@ function SkillCard({ skill }: { skill: Skill }) {
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-1">
             {skill.triggers.slice(0, 4).map((t) => (
-              <span key={t} className="rounded-md bg-primary-soft px-1.5 py-0.5 text-[10px] text-primary">
+              <span key={t} className="rounded-md bg-primary-soft px-1.5 py-0.5 text-[0.625rem] text-primary">
                 {t}
               </span>
             ))}
-            {skill.triggers.length > 4 && <span className="text-[10px] text-ink-mute">+{skill.triggers.length - 4}</span>}
+            {skill.triggers.length > 4 && <span className="text-[0.625rem] text-ink-mute">+{skill.triggers.length - 4}</span>}
           </div>
-          <p className="minor-info mt-1 text-[10px] text-ink-mute">
+          <p className="minor-info mt-1 text-[0.625rem] text-ink-mute">
             使用 {stats.usageCount} 次{successRate !== null && ` · 成功率 ${successRate}%`}
             {stats.lastUsedAt > 0 && ` · ${relTime(stats.lastUsedAt)}`}
           </p>
@@ -74,7 +74,7 @@ function SkillCard({ skill }: { skill: Skill }) {
 
       {open && (
         <div className="mt-2 space-y-2.5 border-t border-line pt-2">
-          <p className="text-[11px] leading-relaxed text-ink-soft">{skill.description}</p>
+          <p className="text-[0.6875rem] leading-relaxed text-ink-soft">{skill.description}</p>
 
           {/* 触发词编辑（仅学习技能） */}
           {isLearned &&
@@ -84,7 +84,7 @@ function SkillCard({ skill }: { skill: Skill }) {
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
                   autoFocus
-                  className="min-w-0 flex-1 rounded-lg border border-primary/40 bg-surface-2 px-2 py-1 text-[11px] outline-none focus:border-primary"
+                  className="min-w-0 flex-1 rounded-lg border border-primary/40 bg-surface-2 px-2 py-1 text-[0.6875rem] outline-none focus:border-primary"
                   placeholder="触发词用顿号分隔"
                 />
                 <button
@@ -105,7 +105,7 @@ function SkillCard({ skill }: { skill: Skill }) {
             ) : (
               <button
                 onClick={startEdit}
-                className="flex items-center gap-1 rounded-lg px-1.5 py-1 text-[10px] text-ink-mute transition-colors hover:bg-surface-2 hover:text-ink"
+                className="flex items-center gap-1 rounded-lg px-1.5 py-1 text-[0.625rem] text-ink-mute transition-colors hover:bg-surface-2 hover:text-ink"
               >
                 <Pencil size={11} /> 编辑触发词
               </button>
@@ -113,15 +113,15 @@ function SkillCard({ skill }: { skill: Skill }) {
 
           {/* 进化时间线 */}
           <div>
-            <p className="text-[10px] font-semibold text-ink-mute">进化记录</p>
+            <p className="text-[0.625rem] font-semibold text-ink-mute">进化记录</p>
             <div className="mt-1.5 space-y-1.5 border-l border-mint/40 pl-2.5">
               {[...skill.evolution].reverse().map((e, i) => (
                 <div key={`${e.at}-${i}`} className="relative">
                   <span className="absolute -left-[13px] top-1 h-1.5 w-1.5 rounded-full bg-mint" />
-                  <p className="text-[10px] leading-snug text-ink-soft">
+                  <p className="text-[0.625rem] leading-snug text-ink-soft">
                     v{e.version} · {EVOLUTION_LABEL[e.kind]} · {relTime(e.at)}
                   </p>
-                  <p className="text-[10px] leading-snug text-ink-mute">{e.note}</p>
+                  <p className="text-[0.625rem] leading-snug text-ink-mute">{e.note}</p>
                 </div>
               ))}
             </div>
@@ -134,7 +134,7 @@ function SkillCard({ skill }: { skill: Skill }) {
               disabled={!isLearned}
               title={isLearned ? undefined : '内置技能不可停用'}
               className={cn(
-                'flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] transition-colors',
+                'flex items-center gap-1 rounded-lg px-2 py-1 text-[0.625rem] transition-colors',
                 isLearned ? 'text-ink-soft hover:bg-surface-2' : 'cursor-not-allowed text-ink-mute/50',
               )}
             >
@@ -143,7 +143,7 @@ function SkillCard({ skill }: { skill: Skill }) {
             {isLearned && (
               <button
                 onClick={() => removeLearned(skill.id)}
-                className="flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] text-danger transition-colors hover:bg-danger/10"
+                className="flex items-center gap-1 rounded-lg px-2 py-1 text-[0.625rem] text-danger transition-colors hover:bg-danger/10"
               >
                 <Trash2 size={11} /> 删除
               </button>
@@ -164,7 +164,7 @@ export default function SkillsPanel() {
 
   return (
     <div className="space-y-1.5">
-      <p className="rounded-xl bg-mint-soft px-3 py-2 text-[10px] leading-relaxed text-mint">
+      <p className="rounded-xl bg-mint-soft px-3 py-2 text-[0.625rem] leading-relaxed text-mint">
         完成任务后，Agent 会自动复盘沉淀技能；同类任务将直接命中复用。
       </p>
       {skills.map((s) => (
@@ -173,20 +173,20 @@ export default function SkillsPanel() {
       {learned.length > 0 &&
         (confirmClear ? (
           <div className="flex items-center justify-between rounded-xl border border-danger/30 bg-danger/5 px-3 py-2">
-            <p className="text-[10px] text-danger">清空 {learned.length} 条学习技能？</p>
+            <p className="text-[0.625rem] text-danger">清空 {learned.length} 条学习技能？</p>
             <div className="flex gap-1">
               <button
                 onClick={() => {
                   clearLearned()
                   setConfirmClear(false)
                 }}
-                className="rounded-lg bg-danger px-2 py-1 text-[10px] font-medium text-white"
+                className="rounded-lg bg-danger px-2 py-1 text-[0.625rem] font-medium text-white"
               >
                 确认
               </button>
               <button
                 onClick={() => setConfirmClear(false)}
-                className="rounded-lg px-2 py-1 text-[10px] text-ink-mute hover:bg-surface-2"
+                className="rounded-lg px-2 py-1 text-[0.625rem] text-ink-mute hover:bg-surface-2"
               >
                 取消
               </button>
@@ -195,7 +195,7 @@ export default function SkillsPanel() {
         ) : (
           <button
             onClick={() => setConfirmClear(true)}
-            className="flex w-full items-center justify-center gap-1 rounded-xl border border-line px-3 py-2 text-[10px] text-ink-mute transition-colors hover:border-danger/40 hover:text-danger"
+            className="flex w-full items-center justify-center gap-1 rounded-xl border border-line px-3 py-2 text-[0.625rem] text-ink-mute transition-colors hover:border-danger/40 hover:text-danger"
           >
             <Trash2 size={11} /> 清空学习技能（{learned.length}）
           </button>

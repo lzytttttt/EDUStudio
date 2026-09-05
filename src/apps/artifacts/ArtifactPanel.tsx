@@ -170,7 +170,7 @@ export default function ArtifactPanel() {
           <FileText size={15} className="shrink-0 text-ink-mute" />
           <h2 className="truncate text-sm font-semibold">{doc?.title ?? '文档工作区'}</h2>
           {doc && (
-            <span className="shrink-0 rounded-full bg-primary-soft px-2 py-0.5 text-[10px] font-medium text-primary">
+            <span className="shrink-0 rounded-full bg-primary-soft px-2 py-0.5 text-[0.625rem] font-medium text-primary">
               {KIND_LABEL[doc.kind] ?? '文档'}
             </span>
           )}
@@ -233,7 +233,7 @@ export default function ArtifactPanel() {
                         className="flex w-full items-center justify-between px-3 py-2.5 text-left transition-colors hover:bg-surface-2"
                       >
                         <span className="text-xs font-medium text-ink">{item.label}</span>
-                        <span className="minor-info text-[10px] text-ink-mute">{item.hint}</span>
+                        <span className="minor-info text-[0.625rem] text-ink-mute">{item.hint}</span>
                       </button>
                     ))}
                   </div>
@@ -250,7 +250,7 @@ export default function ArtifactPanel() {
             >
               <History size={15} />
               {docRevisions.length > 0 && (
-                <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-primary px-0.5 text-[9px] font-medium text-white">
+                <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-primary px-0.5 text-[0.5625rem] font-medium text-white">
                   {docRevisions.length}
                 </span>
               )}
@@ -287,7 +287,7 @@ export default function ArtifactPanel() {
               >
                 <span>
                   <span className="block text-xs font-semibold text-ink group-hover:text-primary">{t.name}</span>
-                  <span className="mt-0.5 block text-[10px] text-ink-mute">{t.desc}</span>
+                  <span className="mt-0.5 block text-[0.625rem] text-ink-mute">{t.desc}</span>
                 </span>
                 <Plus size={14} className="shrink-0 text-ink-mute group-hover:text-primary" />
               </button>
@@ -318,7 +318,7 @@ export default function ArtifactPanel() {
 
       {/* 底部元信息（超大字号档隐藏） */}
       {doc && (
-        <footer className="minor-info flex items-center justify-between border-t border-line px-4 py-2 text-[10px] text-ink-mute">
+        <footer className="minor-info flex items-center justify-between border-t border-line px-4 py-2 text-[0.625rem] text-ink-mute">
           <span>{doc.source === 'agent' ? 'Agent 生成' : doc.source === 'manual' ? '手动创建' : '简报采纳'}</span>
           <span>{doc.content.length} 字 · 可编辑 / 导出</span>
         </footer>
@@ -360,7 +360,7 @@ export default function ArtifactPanel() {
                     readOnly
                     value={shareUrl}
                     onFocus={(e) => e.target.select()}
-                    className="min-w-0 flex-1 bg-transparent text-[11px] text-ink-soft outline-none"
+                    className="min-w-0 flex-1 bg-transparent text-[0.6875rem] text-ink-soft outline-none"
                     aria-label="分享链接"
                   />
                 </div>
@@ -379,7 +379,7 @@ export default function ArtifactPanel() {
                 {shareRefs[doc.id] && (
                   <div className="mt-4 rounded-2xl border border-line bg-surface-2 px-3 py-3">
                     <div className="flex items-center justify-between">
-                      <p className="flex items-center gap-1.5 text-[11px] font-semibold text-ink">
+                      <p className="flex items-center gap-1.5 text-[0.6875rem] font-semibold text-ink">
                         <MessageSquare size={12} className="text-primary" />
                         收到的批注
                         <span className="font-normal text-ink-mute">（{annoList.length}）</span>
@@ -387,31 +387,31 @@ export default function ArtifactPanel() {
                       <button
                         onClick={() => void fetchAnnotations()}
                         disabled={annoLoading}
-                        className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] text-primary transition-colors hover:bg-primary-soft disabled:opacity-40"
+                        className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[0.625rem] text-primary transition-colors hover:bg-primary-soft disabled:opacity-40"
                       >
                         <RefreshCw size={10} className={cn(annoLoading && 'animate-spin')} />
                         刷新
                       </button>
                     </div>
                     {annoLoading ? (
-                      <p className="mt-2 text-[10px] text-ink-mute">正在拉取批注…</p>
+                      <p className="mt-2 text-[0.625rem] text-ink-mute">正在拉取批注…</p>
                     ) : annoList.length === 0 ? (
-                      <p className="mt-2 text-[10px] leading-relaxed text-ink-mute">
+                      <p className="mt-2 text-[0.625rem] leading-relaxed text-ink-mute">
                         暂无批注。评审人在分享页添加批注后会回传到这里，点击「刷新」即可查看。
                       </p>
                     ) : (
                       <ul className="mt-2 max-h-44 space-y-1.5 overflow-y-auto">
                         {annoList.map((a) => (
                           <li key={a.id} className="rounded-xl bg-surface px-2.5 py-2">
-                            <p className="text-[10px] text-ink-mute">
+                            <p className="text-[0.625rem] text-ink-mute">
                               {a.author} · {fmtTime(a.createdAt)}
                             </p>
-                            {a.quote && <p className="mt-0.5 truncate text-[10px] text-ink-soft">「{a.quote}」</p>}
+                            {a.quote && <p className="mt-0.5 truncate text-[0.625rem] text-ink-soft">「{a.quote}」</p>}
                             <div className="mt-0.5 flex items-start justify-between gap-2">
-                              <p className="text-[11px] leading-relaxed text-ink">{a.text}</p>
+                              <p className="text-[0.6875rem] leading-relaxed text-ink">{a.text}</p>
                               <button
                                 onClick={() => locateInEditor(a.quote)}
-                                className="inline-flex shrink-0 items-center gap-0.5 text-[10px] text-primary hover:underline"
+                                className="inline-flex shrink-0 items-center gap-0.5 text-[0.625rem] text-primary hover:underline"
                                 title="跳到编辑器对应位置"
                               >
                                 <Crosshair size={10} />
@@ -430,7 +430,7 @@ export default function ArtifactPanel() {
             {shareState === 'too-long' && (
               <div className="mt-4 rounded-2xl bg-amber-soft px-4 py-3">
                 <p className="text-xs font-medium text-ink">文档过长，无法生成链接</p>
-                <p className="mt-1 text-[11px] leading-relaxed text-ink-soft">
+                <p className="mt-1 text-[0.6875rem] leading-relaxed text-ink-soft">
                   分享链接有长度限制，建议改用「导出 Word / PDF」后通过文件分享。
                 </p>
               </div>
@@ -454,13 +454,13 @@ export default function ArtifactPanel() {
               <div className="flex items-center gap-2">
                 <History size={14} className="text-primary" />
                 <h3 className="text-sm font-semibold text-ink">版本历史</h3>
-                <span className="text-[10px] text-ink-mute">{docRevisions.length}/20</span>
+                <span className="text-[0.625rem] text-ink-mute">{docRevisions.length}/20</span>
               </div>
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => saveRevision(doc.id)}
                   disabled={!doc.content}
-                  className="inline-flex items-center gap-1 rounded-lg bg-primary-soft px-2.5 py-1.5 text-[11px] font-medium text-primary transition-colors hover:bg-primary/15 disabled:opacity-40"
+                  className="inline-flex items-center gap-1 rounded-lg bg-primary-soft px-2.5 py-1.5 text-[0.6875rem] font-medium text-primary transition-colors hover:bg-primary/15 disabled:opacity-40"
                 >
                   <Save size={11} />
                   保存当前版本
@@ -490,17 +490,17 @@ export default function ArtifactPanel() {
                         <p className="flex items-center gap-1.5 text-xs font-medium text-ink">
                           {rev.label}
                           {idx === 0 && (
-                            <span className="rounded-full bg-mint/15 px-1.5 py-0.5 text-[9px] font-medium text-mint">最新</span>
+                            <span className="rounded-full bg-mint/15 px-1.5 py-0.5 text-[0.5625rem] font-medium text-mint">最新</span>
                           )}
                         </p>
-                        <p className="minor-info mt-0.5 text-[10px] text-ink-mute">
+                        <p className="minor-info mt-0.5 text-[0.625rem] text-ink-mute">
                           {fmtTime(rev.createdAt)} · {rev.content.length} 字
                         </p>
                       </div>
                       <div className="flex shrink-0 items-center gap-1">
                         <button
                           onClick={() => restoreRevision(doc.id, rev.id)}
-                          className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] text-primary transition-colors hover:bg-primary-soft"
+                          className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[0.6875rem] text-primary transition-colors hover:bg-primary-soft"
                           title="恢复此版本（当前内容会先自动保存）"
                         >
                           <RotateCcw size={11} />

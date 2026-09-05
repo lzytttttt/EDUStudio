@@ -71,7 +71,7 @@ export default function ChatInput() {
           <button
             key={s}
             onClick={() => { setText(s); inputRef.current?.focus() }}
-            className="shrink-0 rounded-full border border-line bg-surface-2 px-3 py-1.5 text-[11px] text-ink-soft transition-all hover:border-primary/50 hover:bg-primary-soft hover:text-primary"
+            className="shrink-0 rounded-full border border-line bg-surface-2 px-3 py-1.5 text-[0.6875rem] text-ink-soft transition-all hover:border-primary/50 hover:bg-primary-soft hover:text-primary"
           >
             {s}
           </button>
@@ -80,7 +80,7 @@ export default function ChatInput() {
           <button
             onClick={() => setManaging((v) => !v)}
             className={cn(
-              'inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1.5 text-[11px] transition-all',
+              'inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1.5 text-[0.6875rem] transition-all',
               managing
                 ? 'border-primary/50 bg-primary-soft text-primary'
                 : 'border-dashed border-line text-ink-mute hover:border-primary/50 hover:text-primary',
@@ -97,13 +97,13 @@ export default function ChatInput() {
       {managing && role && (
         <div className="animate-fade-up mb-2.5 rounded-2xl border border-line bg-surface-2 p-3">
           <div className="flex items-center justify-between">
-            <p className="text-[11px] font-semibold text-ink-soft">
+            <p className="text-[0.6875rem] font-semibold text-ink-soft">
               自定义快捷指令（{scenes.length}/{MAX_SCENES}）
             </p>
             {custom && custom.length > 0 && (
               <button
                 onClick={() => updatePreferences({ scenes: { ...preferences.scenes, [role]: [] } })}
-                className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] text-ink-mute transition-colors hover:bg-surface hover:text-ink-soft"
+                className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[0.6875rem] text-ink-mute transition-colors hover:bg-surface hover:text-ink-soft"
               >
                 <RotateCcw size={11} />
                 恢复默认
@@ -114,7 +114,7 @@ export default function ChatInput() {
             {scenes.map((s) => (
               <span
                 key={s}
-                className="inline-flex items-center gap-1 rounded-full border border-line bg-surface py-1 pl-2.5 pr-1 text-[11px] text-ink-soft"
+                className="inline-flex items-center gap-1 rounded-full border border-line bg-surface py-1 pl-2.5 pr-1 text-[0.6875rem] text-ink-soft"
               >
                 {s}
                 <button
@@ -126,7 +126,7 @@ export default function ChatInput() {
                 </button>
               </span>
             ))}
-            {scenes.length === 0 && <p className="text-[11px] text-ink-mute">已清空，可添加常用指令或恢复默认</p>}
+            {scenes.length === 0 && <p className="text-[0.6875rem] text-ink-mute">已清空，可添加常用指令或恢复默认</p>}
           </div>
           <div className="mt-2.5 flex gap-2">
             <input
@@ -140,12 +140,12 @@ export default function ChatInput() {
               }}
               maxLength={40}
               placeholder="输入常用指令，如「生成期中考试质量分析」"
-              className="min-w-0 flex-1 rounded-xl border border-line bg-surface px-3 py-1.5 text-[11px] text-ink outline-none transition-colors placeholder:text-ink-mute focus:border-primary"
+              className="min-w-0 flex-1 rounded-xl border border-line bg-surface px-3 py-1.5 text-[0.6875rem] text-ink outline-none transition-colors placeholder:text-ink-mute focus:border-primary"
             />
             <button
               onClick={addScene}
               disabled={!draft.trim() || scenes.length >= MAX_SCENES}
-              className="inline-flex shrink-0 items-center gap-1 rounded-xl bg-primary px-3 py-1.5 text-[11px] font-medium text-white transition-all hover:bg-primary-deep disabled:opacity-40"
+              className="inline-flex shrink-0 items-center gap-1 rounded-xl bg-primary px-3 py-1.5 text-[0.6875rem] font-medium text-white transition-all hover:bg-primary-deep disabled:opacity-40"
             >
               <Plus size={11} />
               添加

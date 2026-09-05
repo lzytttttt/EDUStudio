@@ -2,20 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── 阅读区字号缩放（v0.3 UI 专项：设置 → 界面字号） ──
-   仅作用于对话气泡 / Markdown 文档 / 编辑器等阅读内容，不影响布局骨架
-   xlarge（超大档）面向高龄用户：20px 阅读字号 + 隐藏次要信息（.minor-info） */
+/* ── 界面字号（v0.3 UI 专项；v0.6.1 评审修订：全局生效） ──
+   main.tsx 将 settingsStore.fontSize 换算为根字号（html font-size = 16 × 档位/14），
+   全部 rem 类文字随动；阅读区另经内联 --content-fs 精确到档位 px。
+   此处 :root 仅作 JS 执行前的兜底默认。
+   ≥18px 时 main.tsx 记 <html data-font="xlarge">：隐藏次要信息（.minor-info）聚焦核心内容 */
 :root {
-  --content-fs: 0.875rem; /* 标准 14px */
-}
-html[data-font='small'] {
-  --content-fs: 0.8125rem; /* 小 13px */
-}
-html[data-font='large'] {
-  --content-fs: 1rem; /* 大 16px */
-}
-html[data-font='xlarge'] {
-  --content-fs: 1.25rem; /* 超大 20px */
+  --content-fs: 0.875rem; /* 兜底 14px */
+  /* 移动端底部标签栏高度（AppShell 中栏让位用；rem 计随全局字号缩放，v0.6.1） */
+  --tabbar-h: 3.25rem;
 }
 
 /* 超大档简化：次要信息（时间戳 / 来源 / 字数 / 键盘提示等）统一隐藏 */
@@ -49,6 +44,13 @@ html[data-font='xlarge'] .agent-trace pre {
   @media (pointer: coarse) {
     .chat-input {
       font-size: max(var(--content-fs), 16px);
+    }
+  }
+  /* 减弱动效偏好：关闭登录页背景漂浮/漂移动画 */
+  @media (prefers-reduced-motion: reduce) {
+    .animate-float,
+    .animate-drift {
+      animation: none !important;
     }
   }
 }

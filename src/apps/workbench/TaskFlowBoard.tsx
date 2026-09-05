@@ -79,12 +79,12 @@ export default function TaskFlowBoard() {
           <Send size={15} className="text-ink-mute" />
           <h2 className="text-sm font-semibold">下发任务</h2>
           {pendingCount > 0 && (
-            <span className="rounded-full bg-amber-soft px-2 py-0.5 text-[10px] font-medium text-amber-600">
+            <span className="rounded-full bg-amber-soft px-2 py-0.5 text-[0.625rem] font-medium text-amber-600">
               {pendingCount} 待处理
             </span>
           )}
           <span
-            className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium', SYNC_STYLE[syncState])}
+            className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.625rem] font-medium', SYNC_STYLE[syncState])}
             title="任务链跨端同步状态（v0.5 M2③）"
           >
             <RefreshCw size={9} className={cn(syncState === 'syncing' && 'animate-spin')} />
@@ -162,8 +162,8 @@ function FlowCard({
       <button onClick={onToggle} className="flex w-full items-start gap-2.5 px-4 py-3 text-left transition-colors hover:bg-surface-2">
         <ChevronRight size={14} className={cn('mt-0.5 shrink-0 text-ink-mute transition-transform', expanded && 'rotate-90')} />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[13px] font-semibold leading-tight text-ink">{flow.title}</p>
-          <p className="minor-info mt-1 text-[10px] text-ink-mute">
+          <p className="truncate text-[0.8125rem] font-semibold leading-tight text-ink">{flow.title}</p>
+          <p className="minor-info mt-1 text-[0.625rem] text-ink-mute">
             {flow.from} · {fmtTime(flow.issuedAt)} 发出 · 截止 {flow.deadline}
           </p>
           {/* 回执进度 */}
@@ -174,11 +174,11 @@ function FlowCard({
                 style={{ width: `${flow.receipts.length ? (done / flow.receipts.length) * 100 : 0}%` }}
               />
             </div>
-            <span className="minor-info text-[10px] text-ink-mute">
+            <span className="minor-info text-[0.625rem] text-ink-mute">
               {done}/{flow.receipts.length} 已回执
             </span>
             {mine && (
-              <span className={cn('rounded-full px-1.5 py-0.5 text-[9px] font-medium', STATUS_STYLE[mine.status])}>
+              <span className={cn('rounded-full px-1.5 py-0.5 text-[0.5625rem] font-medium', STATUS_STYLE[mine.status])}>
                 我的：{TASK_FLOW_STATUS_LABEL[mine.status]}
               </span>
             )}
@@ -214,18 +214,18 @@ function FlowCard({
                   <div className="min-w-0 flex-1">
                     <p className="flex items-center gap-1.5 text-xs font-medium text-ink">
                       {r.target}
-                      {isMine && <span className="rounded bg-primary-soft px-1 py-0.5 text-[9px] text-primary">我</span>}
+                      {isMine && <span className="rounded bg-primary-soft px-1 py-0.5 text-[0.5625rem] text-primary">我</span>}
                     </p>
-                    {r.note && <p className="minor-info mt-0.5 truncate text-[10px] text-ink-mute">{r.note}</p>}
+                    {r.note && <p className="minor-info mt-0.5 truncate text-[0.625rem] text-ink-mute">{r.note}</p>}
                   </div>
-                  <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium', STATUS_STYLE[r.status])}>
+                  <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[0.625rem] font-medium', STATUS_STYLE[r.status])}>
                     {TASK_FLOW_STATUS_LABEL[r.status]}
                   </span>
                   {/* 接收方操作 */}
                   {isMine && r.status === 'pending' && (
                     <button
                       onClick={() => onAcknowledge(r.id)}
-                      className="shrink-0 rounded-full bg-primary px-2.5 py-1 text-[10px] font-medium text-white transition-all hover:bg-primary-deep active:scale-95"
+                      className="shrink-0 rounded-full bg-primary px-2.5 py-1 text-[0.625rem] font-medium text-white transition-all hover:bg-primary-deep active:scale-95"
                     >
                       确认接收
                     </button>
@@ -236,7 +236,7 @@ function FlowCard({
                         const note = window.prompt('成果说明（可选）：') ?? undefined
                         onSubmit(r.id, note)
                       }}
-                      className="shrink-0 rounded-full bg-mint px-2.5 py-1 text-[10px] font-medium text-white transition-all hover:opacity-90 active:scale-95"
+                      className="shrink-0 rounded-full bg-mint px-2.5 py-1 text-[0.625rem] font-medium text-white transition-all hover:opacity-90 active:scale-95"
                     >
                       提交成果
                     </button>
@@ -315,7 +315,7 @@ function IssueForm({
           className="mt-2 w-full rounded-xl border border-line bg-surface-2 px-3 py-2 text-xs outline-none transition-colors focus:border-primary/50"
         />
 
-        <p className="mt-3 flex items-center gap-1.5 text-[11px] font-medium text-ink-soft">
+        <p className="mt-3 flex items-center gap-1.5 text-[0.6875rem] font-medium text-ink-soft">
           <Users size={12} />
           选择接收方（{role === 'bureau' ? '学校' : '教师'}）
         </p>

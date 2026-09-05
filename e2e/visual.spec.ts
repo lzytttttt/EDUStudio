@@ -10,6 +10,14 @@ import { expect, test, type Page } from '@playwright/test'
  * - 全局阈值 5%（playwright.config.ts expect.toHaveScreenshot）。
  */
 
+/** 账号密码登录（v0.6.1 登录页改版）：填表 → 选身份 → 提交 */
+async function loginAs(page: Page, role: 'teacher' | 'schoolAdmin' | 'bureau') {
+  await page.getByTestId('login-account').fill('demo@edustudio.cn')
+  await page.getByTestId('login-password').fill('demo1234')
+  await page.getByTestId(`role-card-${role}`).click()
+  await page.getByTestId('login-submit').click()
+}
+
 const SHOTS: { name: string; setup: (page: Page) => Promise<void> }[] = [
   {
     name: 'login',
@@ -18,7 +26,7 @@ const SHOTS: { name: string; setup: (page: Page) => Promise<void> }[] = [
   {
     name: 'briefing',
     setup: async (page) => {
-      await page.getByTestId('role-card-teacher').click()
+      await loginAs(page, 'teacher')
       await page.getByTestId('guide-done').click({ timeout: 4000 }).catch(() => {})
       await expect(page.getByTestId('adopt-btn')).toBeVisible()
     },
@@ -26,7 +34,7 @@ const SHOTS: { name: string; setup: (page: Page) => Promise<void> }[] = [
   {
     name: 'workbench',
     setup: async (page) => {
-      await page.getByTestId('role-card-teacher').click()
+      await loginAs(page, 'teacher')
       await page.getByTestId('guide-done').click({ timeout: 4000 }).catch(() => {})
       await page.getByRole('button', { name: '跳过简报，直接进入工作台' }).click()
       await expect(page.getByTestId('chat-input')).toBeVisible()
@@ -35,7 +43,7 @@ const SHOTS: { name: string; setup: (page: Page) => Promise<void> }[] = [
   {
     name: 'board-school',
     setup: async (page) => {
-      await page.getByTestId('role-card-schoolAdmin').click()
+      await loginAs(page, 'schoolAdmin')
       await page.getByTestId('guide-done').click({ timeout: 4000 }).catch(() => {})
       await page.getByRole('button', { name: '跳过简报，直接进入工作台' }).click()
       await expect(page.getByTestId('chat-input')).toBeVisible()

@@ -57,7 +57,7 @@ export default function GuideDialog({ stage, onClose }: { stage: GuideStage; onC
               </span>
               <span className="min-w-0">
                 <span className="flex items-center gap-1.5 text-sm font-semibold text-ink">
-                  <span className="text-[10px] font-bold text-ink-mute">{i + 1}</span>
+                  <span className="text-[0.625rem] font-bold text-ink-mute">{i + 1}</span>
                   {s.title}
                 </span>
                 <span className="mt-0.5 block text-xs leading-relaxed text-ink-mute">{s.desc}</span>

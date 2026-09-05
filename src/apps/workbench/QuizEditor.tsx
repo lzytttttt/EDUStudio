@@ -61,7 +61,7 @@ export default function QuizEditor() {
           <ClipboardList size={15} className="shrink-0 text-ink-mute" />
           <h2 className="truncate text-sm font-semibold">出题工作台</h2>
           {knowledgePoint && (
-            <span className="shrink-0 rounded-full bg-primary-soft px-2 py-0.5 text-[10px] font-medium text-primary">
+            <span className="shrink-0 rounded-full bg-primary-soft px-2 py-0.5 text-[0.625rem] font-medium text-primary">
               {knowledgePoint}
             </span>
           )}
@@ -69,7 +69,7 @@ export default function QuizEditor() {
         <div className="flex shrink-0 items-center gap-1">
           <button
             onClick={() => addItem('single')}
-            className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] text-ink-mute transition-colors hover:bg-surface-2 hover:text-ink"
+            className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-[0.6875rem] text-ink-mute transition-colors hover:bg-surface-2 hover:text-ink"
             title="手动添加试题"
           >
             <Plus size={12} />
@@ -79,7 +79,7 @@ export default function QuizEditor() {
             onClick={insertToDoc}
             disabled={!items.length}
             className={cn(
-              'inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-colors disabled:opacity-40',
+              'inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[0.6875rem] font-medium transition-colors disabled:opacity-40',
               inserted ? 'bg-mint/15 text-mint' : 'bg-primary-soft text-primary hover:bg-primary/15',
             )}
             title="将试题组追加到当前文档"
@@ -98,7 +98,7 @@ export default function QuizEditor() {
               <ClipboardList size={22} />
             </div>
             <p className="mt-3 text-xs font-medium text-ink-soft">试题工作台为空</p>
-            <p className="mt-1.5 max-w-[220px] text-[11px] leading-relaxed text-ink-mute">
+            <p className="mt-1.5 max-w-[220px] text-[0.6875rem] leading-relaxed text-ink-mute">
               在左侧对话中发送「围绕××知识点出题」，Agent 命制的试题会自动出现在这里，可直接编辑后插入文档
             </p>
           </div>
@@ -113,7 +113,7 @@ export default function QuizEditor() {
                     className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left transition-colors hover:bg-surface"
                   >
                     <span className="flex min-w-0 items-center gap-2">
-                      <span className="shrink-0 rounded-md bg-primary-soft px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                      <span className="shrink-0 rounded-md bg-primary-soft px-1.5 py-0.5 text-[0.625rem] font-medium text-primary">
                         {idx + 1} · {QUIZ_TYPE_LABEL[it.type]}
                       </span>
                       <span className="truncate text-xs text-ink-soft">{it.stem || '（点击展开编辑）'}</span>
@@ -127,13 +127,13 @@ export default function QuizEditor() {
                         <select
                           value={it.type}
                           onChange={(e) => updateItem(it.id, { type: e.target.value as QuizItem['type'] })}
-                          className="rounded-lg border border-line bg-surface px-2 py-1.5 text-[11px] text-ink outline-none focus:border-primary"
+                          className="rounded-lg border border-line bg-surface px-2 py-1.5 text-[0.6875rem] text-ink outline-none focus:border-primary"
                         >
                           {TYPES.map((t) => (
                             <option key={t} value={t}>{QUIZ_TYPE_LABEL[t]}题</option>
                           ))}
                         </select>
-                        <label className="flex flex-1 items-center gap-2 text-[11px] text-ink-mute">
+                        <label className="flex flex-1 items-center gap-2 text-[0.6875rem] text-ink-mute">
                           难度
                           <input
                             type="range"
@@ -163,7 +163,7 @@ export default function QuizEditor() {
                               <button
                                 onClick={() => updateItem(it.id, { answer: String.fromCharCode(65 + oi) })}
                                 className={cn(
-                                  'flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-[11px] font-medium transition-colors',
+                                  'flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-[0.6875rem] font-medium transition-colors',
                                   it.answer === String.fromCharCode(65 + oi)
                                     ? 'bg-primary text-white'
                                     : 'bg-surface text-ink-mute hover:bg-primary-soft hover:text-primary',
@@ -179,7 +179,7 @@ export default function QuizEditor() {
                                   options[oi] = e.target.value
                                   updateItem(it.id, { options })
                                 }}
-                                className="min-w-0 flex-1 rounded-lg border border-line bg-surface px-2.5 py-1.5 text-[11px] text-ink outline-none focus:border-primary"
+                                className="min-w-0 flex-1 rounded-lg border border-line bg-surface px-2.5 py-1.5 text-[0.6875rem] text-ink outline-none focus:border-primary"
                               />
                             </div>
                           ))}
@@ -203,7 +203,7 @@ export default function QuizEditor() {
                       <div className="flex justify-end">
                         <button
                           onClick={() => removeItem(it.id)}
-                          className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] text-ink-mute transition-colors hover:bg-danger/10 hover:text-danger"
+                          className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[0.6875rem] text-ink-mute transition-colors hover:bg-danger/10 hover:text-danger"
                         >
                           <Trash2 size={11} />
                           删除本题
@@ -219,7 +219,7 @@ export default function QuizEditor() {
       </div>
 
       {items.length > 0 && (
-        <div className="flex items-center justify-between border-t border-line px-4 py-2 text-[10px] text-ink-mute">
+        <div className="flex items-center justify-between border-t border-line px-4 py-2 text-[0.625rem] text-ink-mute">
           <span>共 {items.length} 题 · 单选 {items.filter((i) => i.type === 'single').length} / 填空 {items.filter((i) => i.type === 'blank').length} / 解答 {items.filter((i) => i.type === 'solve').length}</span>
           <button onClick={clear} className="transition-colors hover:text-danger">清空</button>
         </div>

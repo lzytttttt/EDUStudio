@@ -38,9 +38,25 @@ export interface UserPreferences {
 
 export const EMPTY_PREFERENCES: UserPreferences = { nickname: '', stage: '', style: '', scenes: {} }
 
-/** 界面字号档位：作用于对话气泡 / Markdown 文档 / 编辑器等阅读区
- *  xlarge（超大）面向高龄用户：阅读区 20px，并隐藏次要信息（时间戳/来源/字数等）聚焦核心内容 */
-export type FontSize = 'small' | 'medium' | 'large' | 'xlarge'
+/** 界面字号（v0.6.1 评审修订）：12–22px 连续可调（设置面板拖拽滑杆）。
+ *  v0.6.1 起全局生效：main.tsx 按档位缩放根字号（html font-size = 16 × 档位/14），
+ *  全部 rem 类文字（侧边栏/顶栏/底部抽屉/徽标等）随动，阅读区经 --content-fs 精确到档位值。
+ *  ≥18px 视为「超大档」：并隐藏次要信息（时间戳/来源/字数等）聚焦核心内容 */
+export const FONT_SIZE_MIN = 12
+export const FONT_SIZE_MAX = 22
+export const FONT_SIZE_DEFAULT = 14
+
+/** 旧版四档枚举 → px 映射（v0.3 遗留持久化数据兼容） */
+const LEGACY_FONT_SIZE: Record<string, number> = { small: 13, medium: 14, large: 16, xlarge: 20 }
+
+/** 字号归一：数值 clamp 到 [12, 22]；旧版字符串档位映射为 px；非法值回退默认 */
+export function normalizeFontSize(v: unknown): number {
+  if (typeof v === 'number' && Number.isFinite(v)) {
+    return Math.min(FONT_SIZE_MAX, Math.max(FONT_SIZE_MIN, Math.round(v)))
+  }
+  if (typeof v === 'string' && LEGACY_FONT_SIZE[v] !== undefined) return LEGACY_FONT_SIZE[v]
+  return FONT_SIZE_DEFAULT
+}
 
 /** 导出水印设置（v0.5 M5③）：导出 Word/PDF 时在页脚附加「机构 · 人员 · 日期」水印 */
 export interface WatermarkSettings {
@@ -83,7 +99,8 @@ export const DEFAULT_LLM_SETTINGS: LLMSettings = {
 
 interface PersistedSettings extends LLMSettings {
   preferences?: UserPreferences
-  fontSize?: FontSize
+  /** v0.6.1 起为 px 数值；历史数据为 'small'|'medium'|'large'|'xlarge' 字符串，读回时经 normalizeFontSize 迁移 */
+  fontSize?: number | string
   guideSeen?: boolean
   tokenBudget?: number
   watermark?: WatermarkSettings
@@ -103,7 +120,8 @@ export function clampPref(value: string): string {
 
 interface SettingsState extends LLMSettings {
   preferences: UserPreferences
-  fontSize: FontSize
+  /** 界面字号（px，12–22），全局缩放根字号 */
+  fontSize: number
   /** 操作引导是否已看过（首次进入简报/工作台时展示） */
   guideSeen: boolean
   /** 单任务 token 预算（v0.5 M3③） */
@@ -114,7 +132,7 @@ interface SettingsState extends LLMSettings {
   columnWidths: ColumnWidths
   update: (patch: Partial<LLMSettings> & { tokenBudget?: number }) => void
   updatePreferences: (patch: Partial<UserPreferences>) => void
-  setFontSize: (size: FontSize) => void
+  setFontSize: (px: number) => void
   setWatermark: (patch: Partial<WatermarkSettings>) => void
   setColumnWidth: (side: 'left' | 'right', width: number) => void
   markGuideSeen: () => void
@@ -144,7 +162,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   ...DEFAULT_LLM_SETTINGS,
   ...persisted,
   preferences: { ...EMPTY_PREFERENCES, ...persisted.preferences },
-  fontSize: persisted.fontSize ?? 'medium',
+  fontSize: normalizeFontSize(persisted.fontSize),
   guideSeen: persisted.guideSeen ?? false,
   tokenBudget: persisted.tokenBudget ?? DEFAULT_TOKEN_BUDGET,
   watermark: { ...DEFAULT_WATERMARK, ...persisted.watermark },
@@ -160,8 +178,8 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     set({ preferences: { ...useSettingsStore.getState().preferences, ...patch } })
     persist(useSettingsStore.getState())
   },
-  setFontSize: (size) => {
-    set({ fontSize: size })
+  setFontSize: (px) => {
+    set({ fontSize: normalizeFontSize(px) })
     persist(useSettingsStore.getState())
   },
   setWatermark: (patch) => {
@@ -186,7 +204,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     set({
       ...DEFAULT_LLM_SETTINGS,
       preferences: { ...EMPTY_PREFERENCES },
-      fontSize: 'medium',
+      fontSize: FONT_SIZE_DEFAULT,
       guideSeen: false,
       tokenBudget: DEFAULT_TOKEN_BUDGET,
       watermark: { ...DEFAULT_WATERMARK },

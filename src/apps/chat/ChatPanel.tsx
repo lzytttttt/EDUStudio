@@ -25,7 +25,7 @@ function EmptyState({ onStartDemo }: { onStartDemo: () => void }) {
       </p>
       <div className="mt-4 flex flex-wrap justify-center gap-1.5">
         {preset?.tools.map((t) => (
-          <span key={t} className={cn('rounded-full px-2.5 py-1 text-[11px] font-medium', ROLE_CHIP[role ?? 'teacher'])}>
+          <span key={t} className={cn('rounded-full px-2.5 py-1 text-[0.6875rem] font-medium', ROLE_CHIP[role ?? 'teacher'])}>
             {t}
           </span>
         ))}
@@ -99,13 +99,13 @@ export default function ChatPanel() {
           <div className="flex min-w-0 items-center gap-2.5">
             <h1 className="truncate text-sm font-semibold">{session.title}</h1>
             {session.role && (
-              <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium', ROLE_CHIP[session.role])}>
+              <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[0.625rem] font-medium', ROLE_CHIP[session.role])}>
                 {getRolePreset(session.role).name}
               </span>
             )}
           </div>
           {streaming && (
-            <span className="flex shrink-0 items-center gap-1.5 text-[11px] font-medium text-primary">
+            <span className="flex shrink-0 items-center gap-1.5 text-[0.6875rem] font-medium text-primary">
               <Zap size={12} className="animate-pulse" />
               Agent 执行中
             </span>

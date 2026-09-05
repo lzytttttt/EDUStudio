@@ -55,8 +55,8 @@ export default function AppShell() {
         </div>
       )}
 
-      {/* 中栏：对话流 */}
-      <main className="relative flex min-w-0 flex-1 flex-col pb-[52px] md:pb-0">
+      {/* 中栏：对话流（移动端为底部标签栏 + iOS 安全区让位，v0.6.1 修复输入框被遮挡） */}
+      <main className="relative flex min-w-0 flex-1 flex-col pb-[calc(var(--tabbar-h)+env(safe-area-inset-bottom))] md:pb-0">
         {/* 移动端顶栏：品牌入口（导航由底部标签承担，v0.5 M4②） */}
         <div className="flex items-center justify-center border-b border-line bg-surface px-3 py-2 md:hidden">
           <button
@@ -101,11 +101,11 @@ export default function AppShell() {
         </div>
       )}
 
-      {/* 移动端底部标签（v0.5 M4②）：列表 / 会话 / 文档 */}
-      <nav className="fixed inset-x-0 bottom-0 z-30 flex items-stretch border-t border-line bg-surface/95 backdrop-blur md:hidden">
+      {/* 移动端底部标签（v0.5 M4②）：列表 / 会话 / 文档；含 iOS 安全区避让（v0.6.1） */}
+      <nav className="fixed inset-x-0 bottom-0 z-30 flex items-stretch border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
         <button
           onClick={() => setSidebarOpen(true)}
-          className="relative flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] text-ink-soft transition-colors hover:text-ink"
+          className="relative flex flex-1 flex-col items-center gap-0.5 py-2 text-[0.625rem] text-ink-soft transition-colors hover:text-ink"
           aria-label="打开任务列表"
         >
           <LayoutList size={18} />
@@ -117,7 +117,7 @@ export default function AppShell() {
             setSidebarOpen(false)
             setArtifactOpen(false)
           }}
-          className="flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] text-primary"
+          className="flex flex-1 flex-col items-center gap-0.5 py-2 text-[0.625rem] text-primary"
           aria-label="回到会话"
         >
           <MessageSquare size={18} />
@@ -125,7 +125,7 @@ export default function AppShell() {
         </button>
         <button
           onClick={() => setArtifactOpen(true)}
-          className="flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] text-ink-soft transition-colors hover:text-ink"
+          className="flex flex-1 flex-col items-center gap-0.5 py-2 text-[0.625rem] text-ink-soft transition-colors hover:text-ink"
           aria-label="打开文档面板"
         >
           <FileText size={18} />

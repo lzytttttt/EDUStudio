@@ -10,13 +10,13 @@ function JsonPeek({ payload }: { payload: unknown }) {
     <div className="minor-info mt-1.5">
       <button
         onClick={() => setOpen(!open)}
-        className="inline-flex items-center gap-1 text-[10px] font-medium text-mint hover:underline"
+        className="inline-flex items-center gap-1 text-[0.625rem] font-medium text-mint hover:underline"
       >
         查看返回数据
         <ChevronDown size={11} className={cn('transition-transform', open && 'rotate-180')} />
       </button>
       {open && (
-        <pre className="mt-1.5 max-h-44 overflow-auto rounded-lg bg-ink/90 p-2.5 font-mono text-[10px] leading-relaxed text-mint-soft">
+        <pre className="mt-1.5 max-h-44 overflow-auto rounded-lg bg-ink/90 p-2.5 font-mono text-[0.625rem] leading-relaxed text-mint-soft">
           {JSON.stringify(payload, null, 2)}
         </pre>
       )}
@@ -35,14 +35,14 @@ export default function AgentTraceView({ trace, streaming }: { trace: AgentTrace
         if (e.kind === 'plan') {
           return (
             <div key={i} className="animate-fade-up rounded-2xl border border-primary/20 bg-primary-soft px-4 py-3">
-              <p className="flex items-center gap-1.5 text-[11px] font-bold text-primary">
+              <p className="flex items-center gap-1.5 text-[0.6875rem] font-bold text-primary">
                 <ClipboardList size={12} />
                 执行计划
               </p>
               <ol className="mt-1.5 space-y-1">
                 {e.steps.map((s, j) => (
                   <li key={j} className="flex items-start gap-2 text-xs text-ink-soft">
-                    <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-white">
+                    <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-primary text-[0.5625rem] font-bold text-white">
                       {j + 1}
                     </span>
                     {s}
@@ -60,7 +60,7 @@ export default function AgentTraceView({ trace, streaming }: { trace: AgentTrace
               <p className="text-xs text-ink-soft">
                 调用工具 <span className="font-semibold text-ink">{label}</span>
                 {e.group && (
-                  <span className="ml-1.5 rounded-md bg-amber/15 px-1.5 py-0.5 text-[9px] font-semibold text-amber-600">并行组</span>
+                  <span className="ml-1.5 rounded-md bg-amber/15 px-1.5 py-0.5 text-[0.5625rem] font-semibold text-amber-600">并行组</span>
                 )}
                 {streaming && isLast && <span className="ml-1.5 inline-block h-3 w-1.5 animate-pulse rounded-sm bg-amber align-middle" />}
               </p>
@@ -76,7 +76,7 @@ export default function AgentTraceView({ trace, streaming }: { trace: AgentTrace
                 <span>
                   <span className="font-semibold text-ink">{label}</span>
                   {e.group && (
-                    <span className="ml-1.5 rounded-md bg-mint/15 px-1.5 py-0.5 text-[9px] font-semibold text-mint">并行组</span>
+                    <span className="ml-1.5 rounded-md bg-mint/15 px-1.5 py-0.5 text-[0.5625rem] font-semibold text-mint">并行组</span>
                   )}{' '}
                   · {e.summary}
                 </span>
@@ -100,8 +100,8 @@ export default function AgentTraceView({ trace, streaming }: { trace: AgentTrace
               <Sparkles size={13} className="shrink-0 text-primary" />
               <p className="text-xs text-ink-soft">
                 命中技能 <span className="font-semibold text-primary">{e.name}</span>
-                <span className="ml-1.5 rounded-md bg-primary/15 px-1.5 py-0.5 text-[9px] font-bold text-primary">v{e.version}</span>
-                <span className={cn('ml-1.5 rounded-md px-1.5 py-0.5 text-[9px] font-medium', e.origin === 'learned' ? 'bg-mint-soft text-mint' : 'border border-line text-ink-mute')}>
+                <span className="ml-1.5 rounded-md bg-primary/15 px-1.5 py-0.5 text-[0.5625rem] font-bold text-primary">v{e.version}</span>
+                <span className={cn('ml-1.5 rounded-md px-1.5 py-0.5 text-[0.5625rem] font-medium', e.origin === 'learned' ? 'bg-mint-soft text-mint' : 'border border-line text-ink-mute')}>
                   {e.origin === 'learned' ? '学习沉淀' : '内置'}
                 </span>
               </p>
@@ -116,15 +116,15 @@ export default function AgentTraceView({ trace, streaming }: { trace: AgentTrace
                 {e.evolved ? (
                   <>
                     技能已进化 <span className="font-semibold text-mint">{e.name}</span>
-                    <span className="ml-1.5 rounded-md bg-mint/15 px-1.5 py-0.5 text-[9px] font-bold text-mint">v{e.version}</span>
+                    <span className="ml-1.5 rounded-md bg-mint/15 px-1.5 py-0.5 text-[0.5625rem] font-bold text-mint">v{e.version}</span>
                   </>
                 ) : (
                   <>
                     已沉淀新技能 <span className="font-semibold text-mint">{e.name}</span>
-                    <span className="ml-1.5 rounded-md bg-mint/15 px-1.5 py-0.5 text-[9px] font-bold text-mint">v{e.version}</span>
+                    <span className="ml-1.5 rounded-md bg-mint/15 px-1.5 py-0.5 text-[0.5625rem] font-bold text-mint">v{e.version}</span>
                   </>
                 )}
-                <span className="ml-1.5 text-[10px] text-ink-mute">可在侧栏「技能」中查看</span>
+                <span className="ml-1.5 text-[0.625rem] text-ink-mute">可在侧栏「技能」中查看</span>
               </p>
             </div>
           )

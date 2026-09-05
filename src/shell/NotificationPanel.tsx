@@ -51,7 +51,7 @@ export default function NotificationPanel({ onClose }: { onClose: () => void }) 
             <Bell size={14} className="text-primary" />
             {t('notif.title')}
             {unread > 0 && (
-              <span className="rounded-full bg-coral-soft px-2 py-0.5 text-[10px] font-medium text-coral">
+              <span className="rounded-full bg-coral-soft px-2 py-0.5 text-[0.625rem] font-medium text-coral">
                 {t('notif.unread', { count: unread })}
               </span>
             )}
@@ -90,7 +90,7 @@ export default function NotificationPanel({ onClose }: { onClose: () => void }) 
             <p className="flex flex-col items-center gap-2 px-2 py-10 text-center text-xs text-ink-mute">
               <BellOff size={20} />
               {t('notif.empty')}
-              <span className="text-[10px] leading-relaxed">{t('notif.emptyHint')}</span>
+              <span className="text-[0.625rem] leading-relaxed">{t('notif.emptyHint')}</span>
             </p>
           )}
           {items.map((n) => {
@@ -110,8 +110,8 @@ export default function NotificationPanel({ onClose }: { onClose: () => void }) 
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-xs font-medium text-ink">{n.title}</p>
-                  {n.body && <p className="mt-0.5 line-clamp-2 text-[10px] leading-relaxed text-ink-mute">{n.body}</p>}
-                  <p className="minor-info mt-0.5 text-[10px] text-ink-mute">
+                  {n.body && <p className="mt-0.5 line-clamp-2 text-[0.625rem] leading-relaxed text-ink-mute">{n.body}</p>}
+                  <p className="minor-info mt-0.5 text-[0.625rem] text-ink-mute">
                     {t(`notif.kind.${n.kind}` as const)} · {fmtTime(n.createdAt)}
                   </p>
                 </div>
