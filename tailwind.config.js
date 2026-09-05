@@ -77,6 +77,25 @@ export default {
           '0%': { transform: 'translate(0, 0) scale(1) rotate(0deg)', opacity: '1' },
           '100%': { transform: 'translate(var(--bx, 0px), var(--by, 0px)) scale(0.3) rotate(200deg)', opacity: '0' },
         },
+        /* 真实落章动效（v0.7）：高空砸下 → 过冲压扁 → 弹性回震 → 微倾定格 */
+        'stamp-slam': {
+          '0%': { transform: 'scale(2.1) rotate(-16deg)', opacity: '0' },
+          '55%': { transform: 'scale(0.9) rotate(4deg)', opacity: '1' },
+          '75%': { transform: 'scale(1.06) rotate(-9deg)' },
+          '100%': { transform: 'scale(1) rotate(-6deg)', opacity: '1' },
+        },
+        /* 印泥晕圈：落章瞬间扩散淡出（复用 burst-ring 模式） */
+        'stamp-ink': {
+          '0%': { transform: 'scale(0.4)', opacity: '0.5' },
+          '100%': { transform: 'scale(1.7)', opacity: '0' },
+        },
+        /* 专注模式指示器：计数变化弹跳（v0.7） */
+        'bounce-soft': {
+          '0%': { transform: 'scale(1)' },
+          '35%': { transform: 'scale(1.22)' },
+          '70%': { transform: 'scale(0.96)' },
+          '100%': { transform: 'scale(1)' },
+        },
       },
       animation: {
         'fade-up': 'fade-up 0.45s cubic-bezier(0.22,1,0.36,1) both',
@@ -89,6 +108,9 @@ export default {
         'drift': 'drift 20s ease-in-out infinite',
         'burst-ring': 'burst-ring 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards',
         'burst-bit': 'burst-bit 0.65s cubic-bezier(0.22, 1, 0.36, 1) forwards',
+        'stamp-slam': 'stamp-slam 0.45s cubic-bezier(0.22, 1, 0.36, 1) both',
+        'stamp-ink': 'stamp-ink 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards',
+        'bounce-soft': 'bounce-soft 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
       },
     },
   },

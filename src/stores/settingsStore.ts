@@ -105,6 +105,8 @@ interface PersistedSettings extends LLMSettings {
   tokenBudget?: number
   watermark?: WatermarkSettings
   columnWidths?: ColumnWidths
+  /** 专注模式（v0.7）：采纳简报后台执行，批示完成后统一处理 */
+  focusMode?: boolean
 }
 
 const persisted = loadJSON<Partial<PersistedSettings>>('settings', {})
@@ -130,11 +132,14 @@ interface SettingsState extends LLMSettings {
   watermark: WatermarkSettings
   /** 三栏栏宽（v0.6 M4③） */
   columnWidths: ColumnWidths
+  /** 专注模式（v0.7）：默认开启；关闭时采纳简报立即跳工作台（原行为） */
+  focusMode: boolean
   update: (patch: Partial<LLMSettings> & { tokenBudget?: number }) => void
   updatePreferences: (patch: Partial<UserPreferences>) => void
   setFontSize: (px: number) => void
   setWatermark: (patch: Partial<WatermarkSettings>) => void
   setColumnWidth: (side: 'left' | 'right', width: number) => void
+  setFocusMode: (enabled: boolean) => void
   markGuideSeen: () => void
   resetLLMSettings: () => void
   clearAllData: () => void
@@ -155,6 +160,7 @@ function persist(s: SettingsState): void {
     tokenBudget: s.tokenBudget,
     watermark: s.watermark,
     columnWidths: s.columnWidths,
+    focusMode: s.focusMode,
   })
 }
 
@@ -169,6 +175,11 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   columnWidths: {
     left: clampColumnWidth('left', persisted.columnWidths?.left ?? DEFAULT_COLUMN_WIDTHS.left),
     right: clampColumnWidth('right', persisted.columnWidths?.right ?? DEFAULT_COLUMN_WIDTHS.right),
+  },
+  focusMode: persisted.focusMode ?? true,
+  setFocusMode: (enabled) => {
+    set({ focusMode: enabled })
+    persist(useSettingsStore.getState())
   },
   update: (patch) => {
     set(patch)
@@ -209,6 +220,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       tokenBudget: DEFAULT_TOKEN_BUDGET,
       watermark: { ...DEFAULT_WATERMARK },
       columnWidths: { ...DEFAULT_COLUMN_WIDTHS },
+      focusMode: true,
     })
     window.location.reload()
   },

@@ -47,10 +47,20 @@ export type CardType = 'insight' | 'decision' | 'creation' | 'todo' | 'data' | '
 
 export type CardPayload =
   | { kind: 'chart'; title: string; bars: { label: string; value: number; display?: string; peak?: boolean }[] }
-  | { kind: 'options'; options: { text: string; sub?: string }[] }
+  | { kind: 'options'; options: { text: string; sub?: string }[]; /** 用户选中的选项下标（v0.7 交互态） */ selected?: number }
   | { kind: 'editable'; text: string }
   | { kind: 'todos'; todos: { text: string; meta?: string; done?: boolean }[] }
   | { kind: 'expandable'; title: string; content: string }
+
+/** 卡片跳转链接（v0.7）：与 action 的「采纳」语义分离，点击直达关联位置 */
+export type CardLinkKind = 'source' | 'task' | 'favorite'
+export interface CardLink {
+  kind: CardLinkKind
+  /** 链接展示文案 */
+  label: string
+  /** kind=task 时可选：跳转后新建任务的目标（缺省仅进入工作台） */
+  goal?: string
+}
 
 export interface BriefingCard {
   id: string
@@ -65,10 +75,38 @@ export interface BriefingCard {
   source: string
   /** 采纳后注入工作台的任务目标 */
   action?: { kind: 'openTask'; goal: string }
+  /** 卡片跳转链接（v0.7）：source=数据源 / task=工作台任务 / favorite=收藏夹 */
+  link?: CardLink
 }
 
+/* ---------- 简报生成上下文（v0.7 个性化） ---------- */
+
+/** 历史决策（跨会话持久化），供个性化排序与 LLM 提示 */
+export type BriefingDecision = 'skip' | 'fav' | 'accept'
+
+export interface BriefingGenContext {
+  /** 卡片 id → 历史决策 */
+  decisions: Record<string, BriefingDecision>
+  /** 收藏过的卡片（个性化前置依据） */
+  favorites: BriefingCard[]
+  /** 生成时间（测试注入用，缺省 Date.now()） */
+  now?: number
+}
+
+/** 用户交互产生的 payload 覆盖（v0.7），按卡片 id 持久化到 localStorage */
+export type PayloadPatch =
+  | { kind: 'options'; selected: number }
+  | { kind: 'todos'; done: boolean[] }
+  | { kind: 'editable'; text: string }
+
 export interface BriefingProvider {
-  getDeck(role: RoleId): BriefingCard[]
+  /** ctx 可选：Mock 个性化排序 / API 生成上下文；现有调用点零破坏 */
+  getDeck(role: RoleId, ctx?: BriefingGenContext): BriefingCard[]
+  /**
+   * 可选异步生成（v0.7 API 骨架）：LLM 结构化生成 + 逐卡校验，失败回退 getDeck。
+   * Mock 实现无需提供；调用方（briefingStore）存在即优先使用。
+   */
+  getDeckAsync?(role: RoleId, ctx?: BriefingGenContext): Promise<BriefingCard[]>
 }
 
 /* ---------- Agent 编排 ---------- */

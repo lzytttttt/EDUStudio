@@ -38,7 +38,7 @@ function buildProviders(s: {
   return {
     llm: getLLMProvider(s.mode, 'teacher', config),
     agent: getAgentProvider(s.mode, config),
-    briefing: getBriefingProvider(s.mode),
+    briefing: getBriefingProvider(s.mode, config),
     artifacts: getArtifactProvider(s.mode, config),
   }
 }

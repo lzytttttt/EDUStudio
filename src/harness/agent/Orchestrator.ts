@@ -47,14 +47,14 @@ interface PendingToolCall {
 export class Orchestrator implements AgentProvider {
   private llm: DeepSeekAdapter
   private artifacts: ArtifactApiAdapter
-  /** LLM 驱动的技能提炼（v0.6 M2③：接口骨架，默认 no-op，接入点见 runTask 尾部） */
+  /** LLM 驱动的技能提炼（v0.8 M4 落地：复盘 → 技能 JSON → 校验去重 → 入库） */
   private distiller: SkillDistiller
 
   constructor(config?: DeepSeekConfig) {
     const conf = config ?? { baseUrl: 'https://api.deepseek.com/v1', apiKey: '', model: 'deepseek-chat' }
     this.llm = new DeepSeekAdapter(conf)
     this.artifacts = new ArtifactApiAdapter(conf)
-    this.distiller = new LlmSkillDistiller()
+    this.distiller = new LlmSkillDistiller(this.llm)
   }
 
   async runTask(input: AgentTaskInput, emit: (e: AgentTraceEvent) => void): Promise<void> {
@@ -86,8 +86,22 @@ export class Orchestrator implements AgentProvider {
       }
       await this.runFunctionCallingLoop(messages, input, ctx)
       if (skill) skillStore.recordUsage(skill.id, skill.origin)
-      // v0.6 M2③：LLM 驱动技能提炼接入点（当前 no-op；实现后自动沉淀新技能/进化）
-      await this.distiller.distill({ goal, events: collected, role })
+      // v0.8 M4：LLM 复盘提炼（未命中技能且任务型才提炼，控制成本）→ 结果入库并广播
+      if (!skill && this.looksLikeTask(goal)) {
+        const result = await this.distiller.distill({ goal, events: collected, role })
+        if (result) {
+          const store = useSkillStore.getState()
+          if (result.evolved) store.replaceLearned(result.skill)
+          else store.addLearned(result.skill)
+          emit({
+            kind: 'skill_learned',
+            skillId: result.skill.id,
+            name: result.skill.name,
+            version: result.skill.version,
+            evolved: result.evolved,
+          })
+        }
+      }
     } catch (err) {
       if ((err as Error)?.name === 'AbortError') {
         emit({ kind: 'done', text: '任务已取消。' })

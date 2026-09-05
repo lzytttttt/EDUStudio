@@ -8,6 +8,8 @@ import { expect, test, type Page } from '@playwright/test'
  *   下载后放入本目录提交，之后即为真实对比；
  * - CI 上字体渲染差异可能造成误报（首月观察期，job 允许失败）；
  * - 全局阈值 5%（playwright.config.ts expect.toHaveScreenshot）。
+ * - v0.7：简报页堆叠卡视差（缩放/透明度内联化）与卡片动效调整影响 briefing 基线，
+ *   合并后需执行 --update-snapshots 重新生成 briefing.png（其余页面不受影响）。
  */
 
 /** 账号密码登录（v0.6.1 登录页改版）：填表 → 选身份 → 提交 */

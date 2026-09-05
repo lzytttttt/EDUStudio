@@ -2,6 +2,8 @@ import type { AgentTraceEvent, RoleId } from '../types'
 import type { ScriptStep } from '../scripts/agent'
 import type { Skill } from './types'
 import { MAX_TRIGGERS } from './types'
+import { DeepSeekAdapter } from '../llm/adapter'
+import { useSkillStore } from '../../stores/skillStore'
 
 /** 提炼结果：evolved=true 表示合并进已有技能（版本+1），false 表示全新技能 */
 export interface DistillResult {
@@ -191,22 +193,208 @@ export function distillSkill(
   return { skill, evolved: false }
 }
 
-/* ---------- API 模式 LLM 提炼接口（骨架，v0.6 M2③） ---------- */
+/* ---------- API 模式 LLM 提炼（v0.8 M4 落地） ---------- */
 
 /**
  * SkillDistiller —— API 模式下由 LLM 驱动的技能提炼接口。
- * v0.6 仅落地契约与 Mock 确定性实现；LLM 实现（复盘 → 结构化技能 JSON → 校验入库）留待后续版本，
- * 接入点：Orchestrator 任务完成后调用 distill（当前 no-op 返回 null）。
+ * LLM 复盘执行轨迹 → 结构化技能 JSON → 校验 → 与现有技能去重（进化/新建）。
  */
 export interface SkillDistiller {
-  /** LLM 复盘执行轨迹并产出技能；未实现或提炼失败返回 null（静默跳过，不阻断任务） */
+  /** LLM 复盘执行轨迹并产出技能；提炼失败返回 null（静默跳过，不阻断任务） */
   distill(input: { goal: string; events: AgentTraceEvent[]; role: RoleId }): Promise<DistillResult | null>
 }
 
-export class LlmSkillDistiller implements SkillDistiller {
-  // TODO(v0.7+): 组装复盘 prompt（goal + trace 摘要 + 现有技能清单）→ LLM 输出技能 JSON →
-  // 校验（触发词/步骤合法性）→ 与现有技能去重 → 返回 DistillResult。
-  async distill(): Promise<DistillResult | null> {
+/** 提炼超时护栏：任务已完成，提炼不应拖住会话太久 */
+const DISTILL_TIMEOUT_MS = 10_000
+/** trace 摘要事件上限（控制 token 成本） */
+const MAX_TRACE_LINES = 40
+
+/**
+ * trace 摘要：仅保留可沉淀事件（plan/tool_call/tool_result/artifact_meta），
+ * text/done/reflect 属一次性话术不进入复盘。导出供单测。
+ */
+export function summarizeTrace(events: AgentTraceEvent[]): string {
+  const lines: string[] = []
+  for (const e of events) {
+    if (e.kind === 'plan') {
+      lines.push(`plan: ${e.steps.join(' → ')}`)
+    } else if (e.kind === 'tool_call') {
+      lines.push(`tool: ${e.tool} ${JSON.stringify(e.args).slice(0, 120)}`)
+    } else if (e.kind === 'tool_result') {
+      lines.push(`result: ${e.summary.slice(0, 120)}`)
+    } else if (e.kind === 'artifact_meta') {
+      lines.push(`artifact: ${e.docKind}《${e.title}》`)
+    }
+  }
+  return lines.slice(0, MAX_TRACE_LINES).join('\n')
+}
+
+const SKILL_SCHEMA_PROMPT = `你是智能体技能提炼器。复盘一次任务执行轨迹，判断是否沉淀出可复用技能。
+只输出一个 JSON 对象（禁止 markdown 代码块与任何解释文字），格式：
+{"action":"create|evolve|none","name":"技能名(≤14字)","description":"一句话说明","triggers":["触发词"],"steps":[{"type":"tool","tool":"工具名","args":{}}]}
+规则：
+- 轨迹中没有工具调用或文档产出（纯寒暄/纯文字回答）→ {"action":"none"}
+- 能力与「现有技能」重叠（触发词语义相近）→ action=evolve，系统会自动合并触发词并版本+1
+- 全新可复用能力 → action=create
+- triggers：2-12 字的名词短语，≤8 个，来自任务目标关键词
+- steps：2~6 步，type 仅限 tool/text/artifact；工具名必须来自轨迹中出现过的工具；artifact 的 kind 取 lessonPlan|report|notice|analysis|generic`
+
+/** 从模型输出提取技能 JSON（容忍代码块包裹与前后噪声） */
+function extractSkillJson(text: string): Record<string, unknown> | null {
+  if (!text.trim()) return null
+  const cleaned = text.replace(/```(?:json)?/g, '')
+  const start = cleaned.indexOf('{')
+  const end = cleaned.lastIndexOf('}')
+  if (start < 0 || end <= start) return null
+  try {
+    return JSON.parse(cleaned.slice(start, end + 1)) as Record<string, unknown>
+  } catch {
     return null
+  }
+}
+
+/** 校验后的技能候选 */
+export interface SkillCandidate {
+  name: string
+  description: string
+  triggers: string[]
+  steps: ScriptStep[]
+}
+
+const ARTIFACT_KINDS = ['lessonPlan', 'report', 'notice', 'analysis', 'generic']
+
+/**
+ * 校验 LLM 技能 JSON（纯函数，导出供单测）：
+ * - name/triggers 必须有效（触发词 2-12 字、去重、≤8）
+ * - steps 仅保留合法类型（tool/text/artifact），无实质步骤（无 tool/artifact）→ null
+ */
+export function validateSkillCandidate(raw: unknown): SkillCandidate | null {
+  if (!raw || typeof raw !== 'object') return null
+  const obj = raw as Record<string, unknown>
+  const name = typeof obj.name === 'string' ? obj.name.trim().slice(0, 14) : ''
+  const description = typeof obj.description === 'string' ? obj.description.trim().slice(0, 80) : ''
+  const rawTriggers = Array.isArray(obj.triggers) ? obj.triggers : []
+  const triggers: string[] = []
+  for (const t of rawTriggers) {
+    if (typeof t !== 'string') continue
+    const trimmed = t.trim()
+    if (trimmed.length >= TRIGGER_MIN && trimmed.length <= TRIGGER_MAX && !triggers.includes(trimmed)) {
+      triggers.push(trimmed)
+    }
+    if (triggers.length >= MAX_TRIGGERS) break
+  }
+  if (!name || triggers.length === 0) return null
+
+  const rawSteps = Array.isArray(obj.steps) ? obj.steps : []
+  const steps: ScriptStep[] = []
+  for (const s of rawSteps.slice(0, MAX_SKILL_STEPS)) {
+    if (!s || typeof s !== 'object') continue
+    const st = s as Record<string, unknown>
+    if (st.type === 'tool' && typeof st.tool === 'string' && st.tool.trim()) {
+      steps.push({ type: 'tool', tool: st.tool.trim(), args: (st.args as Record<string, unknown>) ?? {} })
+    } else if (st.type === 'text' && typeof st.text === 'string' && st.text.trim()) {
+      steps.push({ type: 'text', text: st.text })
+    } else if (st.type === 'artifact' && typeof st.kind === 'string') {
+      const kind = ARTIFACT_KINDS.includes(st.kind) ? st.kind : 'generic'
+      steps.push({ type: 'artifact', kind: kind as 'lessonPlan' | 'report' | 'notice' | 'analysis' | 'generic' })
+    }
+  }
+  const hasSubstance = steps.some((s) => s.type === 'tool' || s.type === 'artifact')
+  if (!hasSubstance) return null
+  return { name, description: description || `LLM 沉淀：${name}`, triggers, steps }
+}
+
+/**
+ * 候选 → DistillResult（纯函数，导出供单测）：
+ * 与现有学习技能触发词重叠 → 合并进最相关技能（版本+1，触发词并集截断，保留原步骤）；
+ * 否则新建 v1 技能。无可合并且候选无效时返回 null。
+ */
+export function mergeSkillCandidate(
+  cand: SkillCandidate,
+  existing: Skill[],
+  role: RoleId,
+  now = Date.now(),
+): DistillResult | null {
+  const candidates = existing.filter((s) => s.roles.includes(role) && triggersOverlap(cand.triggers, s.triggers))
+  if (candidates.length > 0) {
+    const target = [...candidates].sort((a, b) => {
+      const oa = cand.triggers.filter((t) => triggersOverlap([t], a.triggers)).length
+      const ob = cand.triggers.filter((t) => triggersOverlap([t], b.triggers)).length
+      return ob - oa
+    })[0]
+    const mergedTriggers = [...new Set([...target.triggers, ...cand.triggers])].slice(0, MAX_TRIGGERS)
+    const version = target.version + 1
+    const evolved: Skill = {
+      ...target,
+      triggers: mergedTriggers,
+      version,
+      updatedAt: now,
+      evolution: [
+        ...target.evolution,
+        { at: now, version, kind: 'refined', note: `LLM 复盘扩充触发词：${cand.triggers.join('、')}` },
+      ],
+    }
+    return { skill: evolved, evolved: true }
+  }
+
+  const skill: Skill = {
+    id: `learned-${now.toString(36)}-${Math.floor(Math.random() * 1e4).toString(36)}`,
+    name: cand.name,
+    description: cand.description,
+    roles: [role],
+    triggers: cand.triggers,
+    steps: cand.steps,
+    origin: 'learned',
+    version: 1,
+    enabled: true,
+    stats: { usageCount: 0, successCount: 0, lastUsedAt: 0 },
+    evolution: [{ at: now, version: 1, kind: 'created', note: `LLM 复盘任务轨迹自动沉淀` }],
+    createdAt: now,
+    updatedAt: now,
+  }
+  return { skill, evolved: false }
+}
+
+/** LLM 驱动的技能提炼（v0.8 M4）：复盘 → 技能 JSON → 校验 → 去重进化；失败静默 null */
+export class LlmSkillDistiller implements SkillDistiller {
+  constructor(private llm: DeepSeekAdapter) {}
+
+  async distill(input: { goal: string; events: AgentTraceEvent[]; role: RoleId }): Promise<DistillResult | null> {
+    try {
+      const trace = summarizeTrace(input.events)
+      if (!trace) return null
+      const existing = useSkillStore.getState().learned.filter((s) => s.roles.includes(input.role))
+      const skillList =
+        existing.map((s) => `- ${s.name}（v${s.version}）：${s.triggers.join('、')}`).join('\n') || '（暂无）'
+
+      const controller = new AbortController()
+      const timer = setTimeout(() => controller.abort(), DISTILL_TIMEOUT_MS)
+      let full = ''
+      try {
+        for await (const delta of this.llm.streamChat(
+          [
+            { role: 'system', content: SKILL_SCHEMA_PROMPT },
+            {
+              role: 'user',
+              content: `任务目标：${input.goal}\n\n执行轨迹：\n${trace}\n\n现有技能：\n${skillList}`,
+            },
+          ],
+          controller.signal,
+        )) {
+          full += delta
+        }
+      } finally {
+        clearTimeout(timer)
+      }
+
+      const obj = extractSkillJson(full)
+      if (!obj || obj.action === 'none') return null
+      const cand = validateSkillCandidate(obj)
+      if (!cand) return null
+      return mergeSkillCandidate(cand, existing, input.role)
+    } catch (err) {
+      console.warn('[distill] LLM 技能提炼失败（静默跳过）：', (err as Error)?.message ?? String(err))
+      return null
+    }
   }
 }

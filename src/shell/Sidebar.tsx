@@ -9,6 +9,7 @@ import { useArtifactStore } from '../stores/artifactStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useNotificationStore, unreadCount } from '../stores/notificationStore'
 import { useSkillStore } from '../stores/skillStore'
+import { useUiStore, type SidebarTab } from '../stores/uiStore'
 import { getRolePreset } from '../harness/roles'
 import SettingsDialog from '../components/SettingsDialog'
 import GuideDialog from '../components/GuideDialog'
@@ -32,7 +33,9 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const openNotifPanel = useNotificationStore((s) => s.openPanel)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [guideOpen, setGuideOpen] = useState(false)
-  const [tab, setTab] = useState<'tasks' | 'fav' | 'docs' | 'skills'>('tasks')
+  /* tab 受控于 uiStore（v0.7）：简报页「收藏夹」跳转链接可先定位 tab 再进入工作台 */
+  const tab = useUiStore((s) => s.sidebarTab)
+  const setTab = (key: SidebarTab) => useUiStore.getState().setSidebarTab(key)
 
   const preset = role ? getRolePreset(role) : null
 

@@ -2,11 +2,11 @@ import { expect, test, type Page } from '@playwright/test'
 
 /**
  * v0.4 M3①：3 条关键路径 E2E（Mock 模式，离线可跑）。
- * ① 登录 → 简报 → 采纳 → 工作台（采纳自动触发 Agent 执行）
+ * ① 登录 → 简报 → 采纳（专注模式后台执行）→ 批示完成 → 统一处理 → 工作台（v0.7 改写）
  * ② 对话出题 → 出题工作台联动
  * ③ 文档新建 → 导出下载
  *
- * 注意：简报「采纳」会自动下发任务并执行；需要中性工作台时用「跳过简报」入口。
+ * 注意：v0.7 专注模式默认开启，采纳不再立即跳工作台；需要中性工作台时用「跳过简报」入口。
  */
 
 test.beforeEach(async ({ page }) => {
@@ -35,7 +35,7 @@ async function loginAsTeacher(page: Page) {
   await expect(page.getByTestId('chat-input')).toBeVisible()
 }
 
-test('① 登录 → 简报 → 采纳 → 工作台', async ({ page }) => {
+test('① 登录 → 简报 → 采纳（后台执行）→ 批示完成 → 统一处理 → 工作台', async ({ page }) => {
   await page.goto('/')
   // 登录页：账号密码表单 + 三个身份选项
   await expect(page.getByTestId('login-account')).toBeVisible()
@@ -53,8 +53,23 @@ test('① 登录 → 简报 → 采纳 → 工作台', async ({ page }) => {
   await page.getByTestId('guide-done').click()
   await expect(page.getByTestId('adopt-btn')).toBeVisible()
 
-  // 采纳卡片 → 进入工作台，Agent 自动开始执行（对话输入可见）
+  // 专注模式（v0.7）：采纳第一张卡 → 任务转入后台执行，浮动指示器出现，不跳工作台
   await page.getByTestId('adopt-btn').click()
+  await expect(page.getByTestId('focus-indicator')).toBeVisible({ timeout: 5_000 })
+  await expect(page.getByTestId('adopt-btn')).toBeVisible() // 仍在简报页
+
+  // 依次批示完剩余卡片（教师剧本共 8 张，全部采纳）
+  for (let i = 2; i <= 8; i++) {
+    await page.getByTestId('adopt-btn').click()
+    await expect(page.getByText(`已处理 ${i}/8`)).toBeVisible({ timeout: 5_000 })
+  }
+
+  // 全部批示完成 → 「批示完成」总结层（任务清单 + 统一处理入口）
+  await expect(page.getByTestId('focus-enter-workbench')).toBeVisible({ timeout: 5_000 })
+  await expect(page.getByTestId('focus-task-list')).toBeVisible()
+
+  // 一键「统一处理」→ 进入工作台
+  await page.getByTestId('focus-enter-workbench').click()
   await expect(page.getByTestId('chat-input')).toBeVisible({ timeout: 10_000 })
 })
 

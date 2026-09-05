@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import {
-  Lightbulb, Scale, PenLine, ListTodo, BarChart3, HelpCircle, ChevronDown, Check,
+  Lightbulb, Scale, PenLine, ListTodo, BarChart3, HelpCircle, ChevronDown, Check, ArrowRight, Pencil,
 } from 'lucide-react'
-import type { BriefingCard, CardPayload, CardType } from '../../harness/types'
+import type { BriefingCard, CardLink, CardPayload, CardType } from '../../harness/types'
 import { cn } from '../../lib/cn'
 
 const TYPE_META: Record<CardType, { label: string; icon: typeof Lightbulb; chip: string; bar: string }> = {
@@ -13,6 +13,17 @@ const TYPE_META: Record<CardType, { label: string; icon: typeof Lightbulb; chip:
   data: { label: '数据', icon: BarChart3, chip: 'bg-primary-soft text-primary', bar: 'bg-primary' },
   question: { label: '提问', icon: HelpCircle, chip: 'bg-coral-soft text-coral', bar: 'bg-coral' },
 }
+
+/** 交互回调（v0.7）：全部可选，缺省 no-op 保持只读消费方（ShareView 等）兼容 */
+export interface BriefingCardCallbacks {
+  onSelectOption?: (cardId: string, index: number) => void
+  onToggleTodo?: (cardId: string, index: number) => void
+  onEditText?: (cardId: string, text: string) => void
+  onOpenLink?: (link: CardLink) => void
+}
+
+/** 卡内交互元素统一阻止 pointer 冒泡，避免与滑卡拖拽抢占指针 */
+const stopPointer = (e: React.PointerEvent) => e.stopPropagation()
 
 function ChartPayload({ payload }: { payload: Extract<CardPayload, { kind: 'chart' }> }) {
   const max = Math.max(...payload.bars.map((b) => b.value), 1)
@@ -39,45 +50,129 @@ function ChartPayload({ payload }: { payload: Extract<CardPayload, { kind: 'char
   )
 }
 
-function OptionsPayload({ payload }: { payload: Extract<CardPayload, { kind: 'options' }> }) {
+function OptionsPayload({
+  cardId, payload, onSelect,
+}: { cardId: string; payload: Extract<CardPayload, { kind: 'options' }>; onSelect?: (cardId: string, index: number) => void }) {
   return (
     <div className="mt-4 space-y-2">
-      {payload.options.map((o, i) => (
-        <div key={i} className="flex items-start gap-3 rounded-2xl border border-line bg-surface-2 px-4 py-3">
-          <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-line text-[0.625rem] font-bold text-ink-mute">
-            {String.fromCharCode(65 + i)}
-          </span>
-          <div>
-            <p className="text-sm font-medium leading-snug">{o.text}</p>
-            {o.sub && <p className="mt-0.5 text-xs text-ink-mute">{o.sub}</p>}
-          </div>
-        </div>
-      ))}
+      {payload.options.map((o, i) => {
+        const active = payload.selected === i
+        return (
+          <button
+            key={i}
+            type="button"
+            onClick={() => onSelect?.(cardId, i)}
+            onPointerDown={stopPointer}
+            aria-pressed={active}
+            className={cn(
+              'flex w-full items-start gap-3 rounded-2xl border px-4 py-3 text-left transition-all hover:-translate-y-0.5',
+              active ? 'border-primary bg-primary-soft shadow-soft' : 'border-line bg-surface-2 hover:border-primary/40',
+            )}
+          >
+            <span
+              className={cn(
+                'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 text-[0.625rem] font-bold',
+                active ? 'border-primary bg-primary text-white' : 'border-line text-ink-mute',
+              )}
+            >
+              {active ? <Check size={11} /> : String.fromCharCode(65 + i)}
+            </span>
+            <div>
+              <p className={cn('text-sm font-medium leading-snug', active && 'text-primary')}>{o.text}</p>
+              {o.sub && <p className="mt-0.5 text-xs text-ink-mute">{o.sub}</p>}
+            </div>
+          </button>
+        )
+      })}
     </div>
   )
 }
 
-function EditablePayload({ payload }: { payload: Extract<CardPayload, { kind: 'editable' }> }) {
+function EditablePayload({
+  cardId, text, onSave,
+}: { cardId: string; text: string; onSave?: (cardId: string, text: string) => void }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(text)
+  if (editing) {
+    return (
+      <div className="mt-4 rounded-2xl border-2 border-primary/60 bg-surface p-3 shadow-soft">
+        <textarea
+          autoFocus
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={() => {
+            setEditing(false)
+            if (draft !== text) onSave?.(cardId, draft)
+          }}
+          onPointerDown={stopPointer}
+          rows={6}
+          className="w-full resize-none bg-transparent text-xs leading-relaxed text-ink outline-none"
+        />
+        <p className="mt-1 text-right text-[0.625rem] text-ink-mute">失焦自动保存</p>
+      </div>
+    )
+  }
   return (
-    <div className="mt-4 max-h-36 overflow-hidden rounded-2xl bg-surface-2 p-4">
-      <pre className="whitespace-pre-wrap font-sans text-xs leading-relaxed text-ink-soft">{payload.text}</pre>
-      <div className="pointer-events-none -mt-6 h-6 bg-gradient-to-t from-surface-2 to-transparent" />
-    </div>
+    <button
+      type="button"
+      onClick={() => {
+        setDraft(text)
+        setEditing(true)
+      }}
+      onPointerDown={stopPointer}
+      className="relative mt-4 block w-full rounded-2xl bg-surface-2 p-4 text-left transition-colors hover:bg-line/50"
+      aria-label="点击编辑正文"
+    >
+      <pre className="max-h-32 overflow-hidden whitespace-pre-wrap font-sans text-xs leading-relaxed text-ink-soft">{text}</pre>
+      <div className="pointer-events-none absolute inset-x-4 bottom-9 h-6 bg-gradient-to-t from-surface-2 to-transparent" />
+      <span className="mt-2 inline-flex items-center gap-1 text-[0.625rem] font-medium text-primary">
+        <Pencil size={10} />
+        点击编辑
+      </span>
+    </button>
   )
 }
 
-function TodosPayload({ payload }: { payload: Extract<CardPayload, { kind: 'todos' }> }) {
+function TodosPayload({
+  cardId, payload, onToggle,
+}: { cardId: string; payload: Extract<CardPayload, { kind: 'todos' }>; onToggle?: (cardId: string, index: number) => void }) {
+  const doneCount = payload.todos.filter((t) => t.done).length
+  const all = payload.todos.length
   return (
-    <div className="mt-4 space-y-2">
-      {payload.todos.map((t, i) => (
-        <div key={i} className="flex items-center gap-3 rounded-xl border border-line px-3.5 py-2.5">
-          <span className="flex h-4.5 w-4.5 h-[18px] w-[18px] shrink-0 items-center justify-center rounded-md border-2 border-line">
-            {t.done && <Check size={12} className="text-mint" />}
-          </span>
-          <p className={cn('flex-1 text-sm', t.done ? 'text-ink-mute line-through' : '')}>{t.text}</p>
-          {t.meta && <span className="shrink-0 text-[0.6875rem] text-ink-mute">{t.meta}</span>}
-        </div>
-      ))}
+    <div className="mt-4">
+      <div className="mb-2 flex items-center justify-between text-[0.6875rem] text-ink-mute">
+        <span>完成进度</span>
+        <span className={cn('font-semibold', doneCount === all && all > 0 && 'text-mint')}>
+          {doneCount}/{all}
+        </span>
+      </div>
+      <div className="space-y-2">
+        {payload.todos.map((t, i) => (
+          <button
+            key={i}
+            type="button"
+            onClick={() => onToggle?.(cardId, i)}
+            onPointerDown={stopPointer}
+            role="checkbox"
+            aria-checked={t.done ?? false}
+            className={cn(
+              'flex w-full items-center gap-3 rounded-xl border px-3.5 py-2.5 text-left transition-colors',
+              t.done ? 'border-mint/40 bg-mint-soft/40' : 'border-line hover:border-mint/50',
+            )}
+          >
+            <span
+              className={cn(
+                'flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-md border-2 transition-colors',
+                t.done ? 'border-mint bg-mint' : 'border-line',
+              )}
+            >
+              {t.done && <Check size={12} className="text-white" />}
+            </span>
+            <p className={cn('flex-1 text-sm', t.done ? 'text-ink-mute line-through' : '')}>{t.text}</p>
+            {t.meta && <span className="shrink-0 text-[0.6875rem] text-ink-mute">{t.meta}</span>}
+          </button>
+        ))}
+      </div>
     </div>
   )
 }
@@ -87,7 +182,9 @@ function ExpandablePayload({ payload }: { payload: Extract<CardPayload, { kind: 
   return (
     <div className="mt-4 rounded-2xl border border-line">
       <button
+        type="button"
         onClick={() => setOpen(!open)}
+        onPointerDown={stopPointer}
         className="flex w-full items-center justify-between px-4 py-3 text-left text-xs font-medium text-ink-soft hover:bg-surface-2"
       >
         {payload.title}
@@ -103,7 +200,27 @@ function ExpandablePayload({ payload }: { payload: Extract<CardPayload, { kind: 
   )
 }
 
-export default function BriefingCardView({ card }: { card: BriefingCard }) {
+function CardLinkRow({ link, onOpen }: { link: CardLink; onOpen?: (link: CardLink) => void }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onOpen?.(link)}
+      onPointerDown={stopPointer}
+      className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary underline-offset-2 transition-colors hover:text-primary-deep hover:underline"
+    >
+      <ArrowRight size={12} />
+      {link.label}
+    </button>
+  )
+}
+
+export default function BriefingCardView({
+  card,
+  onSelectOption,
+  onToggleTodo,
+  onEditText,
+  onOpenLink,
+}: { card: BriefingCard } & BriefingCardCallbacks) {
   const meta = TYPE_META[card.type]
   const Icon = meta.icon
   return (
@@ -126,12 +243,19 @@ export default function BriefingCardView({ card }: { card: BriefingCard }) {
         <p className="mt-2 text-sm leading-relaxed text-ink-soft">{card.body}</p>
 
         {card.payload?.kind === 'chart' && <ChartPayload payload={card.payload} />}
-        {card.payload?.kind === 'options' && <OptionsPayload payload={card.payload} />}
-        {card.payload?.kind === 'editable' && <EditablePayload payload={card.payload} />}
-        {card.payload?.kind === 'todos' && <TodosPayload payload={card.payload} />}
+        {card.payload?.kind === 'options' && (
+          <OptionsPayload cardId={card.id} payload={card.payload} onSelect={onSelectOption} />
+        )}
+        {card.payload?.kind === 'editable' && (
+          <EditablePayload cardId={card.id} text={card.payload.text} onSave={onEditText} />
+        )}
+        {card.payload?.kind === 'todos' && (
+          <TodosPayload cardId={card.id} payload={card.payload} onToggle={onToggleTodo} />
+        )}
         {card.payload?.kind === 'expandable' && <ExpandablePayload payload={card.payload} />}
 
         <div className="minor-info mt-auto pt-4">
+          {card.link && <CardLinkRow link={card.link} onOpen={onOpenLink} />}
           <p className="text-[0.6875rem] text-ink-mute">来源：{card.source}</p>
         </div>
       </div>

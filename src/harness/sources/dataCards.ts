@@ -46,6 +46,7 @@ function teacherCard(): BriefingCard | null {
     payload: { kind: 'chart', title: '各科均分（导入数据）', bars },
     source: metaSource({ fetchedAt: p.importedAt, kind: 'csv', label: `本地导入 · ${p.fileName}` }),
     action: { kind: 'openTask', goal: `针对${p.className}${weakest ? `「${weakest.subject}」` : ''}薄弱点，设计一节分层练习课` },
+    link: { kind: 'source', label: '查看成绩数据来源' },
   })
 }
 
@@ -71,6 +72,7 @@ function schoolAdminCard(): BriefingCard | null {
       },
       source: metaSource({ fetchedAt: p.importedAt, kind: 'csv', label: `本地导入 · ${p.fileName}` }),
       action: { kind: 'openTask', goal: `起草${p.className}教学质量诊断与帮扶方案` },
+      link: { kind: 'source', label: '查看成绩数据来源' },
     })
   }
   // 多班：按各班总均分排名
@@ -96,6 +98,7 @@ function schoolAdminCard(): BriefingCard | null {
     },
     source: metaSource({ fetchedAt: lowest.p.importedAt, kind: 'csv', label: '本地导入' }),
     action: { kind: 'openTask', goal: `基于导入数据起草${lowest.p.className}教学质量分析报告` },
+    link: { kind: 'source', label: '查看成绩数据来源' },
   })
 }
 
@@ -128,6 +131,7 @@ export async function buildDataCards(role: RoleId): Promise<BriefingCard[]> {
             body: top.detail,
             source: metaSource(meta),
             action: { kind: 'openTask', goal: `针对「${top.title}」起草帮扶方案` },
+            link: { kind: 'source', label: '查看校情数据来源' },
           }),
         )
       }
@@ -156,6 +160,7 @@ export async function buildDataCards(role: RoleId): Promise<BriefingCard[]> {
           },
           source: metaSource(meta),
           action: { kind: 'openTask', goal: '基于区域平台最新指标起草本季度教学质量分析报告' },
+          link: { kind: 'source', label: '查看区域数据来源' },
         }),
       )
     }

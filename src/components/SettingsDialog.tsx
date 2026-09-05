@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { X, Eye, EyeOff, RotateCcw, Trash2, User, Type, Database, ShieldCheck, Stamp } from 'lucide-react'
+import { X, Eye, EyeOff, RotateCcw, Trash2, User, Type, Database, ShieldCheck, Stamp, Focus } from 'lucide-react'
 import {
   useSettingsStore, maskKey, clampPref, PREF_MAX_LEN,
   FONT_SIZE_MIN, FONT_SIZE_MAX, FONT_SIZE_DEFAULT,
@@ -412,6 +412,27 @@ export default function SettingsDialog({ onClose }: { onClose: () => void }) {
               />
             </div>
           )}
+        </section>
+
+        {/* ── 专注模式（v0.7） ── */}
+        <section className="mb-6">
+          <div className="mb-3 flex items-center gap-2">
+            <Focus size={14} className="text-primary" />
+            <h3 className="text-sm font-semibold text-ink">专注模式</h3>
+          </div>
+          <p className="mb-3 text-xs leading-relaxed text-ink-mute">
+            开启后，采纳简报不跳转工作台，任务转入后台执行并有动效提示；全部卡片批示完成后统一处理。关闭则保持原行为（采纳即进入工作台）。
+          </p>
+          <label className="flex cursor-pointer items-center gap-2 text-xs text-ink-soft">
+            <input
+              type="checkbox"
+              checked={s.focusMode}
+              onChange={(e) => s.setFocusMode(e.target.checked)}
+              data-testid="focus-mode-toggle"
+              className="h-4 w-4 accent-[var(--color-primary)]"
+            />
+            启用专注模式（默认开启）
+          </label>
         </section>
 
         {/* ── 数据 ── */}

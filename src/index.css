@@ -46,10 +46,13 @@ html[data-font='xlarge'] .agent-trace pre {
       font-size: max(var(--content-fs), 16px);
     }
   }
-  /* 减弱动效偏好：关闭登录页背景漂浮/漂移动画 */
+  /* 减弱动效偏好：关闭登录页背景漂浮/漂移与落章动画（v0.7） */
   @media (prefers-reduced-motion: reduce) {
     .animate-float,
-    .animate-drift {
+    .animate-drift,
+    .animate-stamp-slam,
+    .animate-stamp-ink,
+    .animate-bounce-soft {
       animation: none !important;
     }
   }

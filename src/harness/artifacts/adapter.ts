@@ -3,6 +3,7 @@ import { DeepSeekAdapter, type DeepSeekConfig } from '../llm/adapter'
 import { getRolePreset, buildSystemPrompt } from '../roles'
 import { matchTemplate } from '../scripts/artifacts'
 import { useSettingsStore } from '../../stores/settingsStore'
+import { buildDataContext } from '../sources/dataContext'
 
 const KIND_LABEL: Record<ArtifactKind, string> = {
   lessonPlan: '教案（含教学目标/重难点/教学过程/板书设计/作业布置）',
@@ -14,7 +15,8 @@ const KIND_LABEL: Record<ArtifactKind, string> = {
 
 /**
  * ArtifactApiAdapter —— 真实 LLM 流式生成文档。
- * 结构化 prompt（角色 systemPrompt + 文档类型要求）→ streamChat 逐块 onChunk。
+ * 结构化 prompt（角色 systemPrompt + 文档类型要求 + 真实数据上下文）→ streamChat 逐块 onChunk。
+ * v0.8 M3：注入 buildDataContext 真实数据，文档引用具体数字时以数据上下文为准，禁止编造。
  */
 export class ArtifactApiAdapter implements ArtifactProvider {
   constructor(private config: DeepSeekConfig) {}
@@ -35,7 +37,12 @@ export class ArtifactApiAdapter implements ArtifactProvider {
       `3. 直接输出 Markdown 正文，不要代码块包裹，不要任何解释性前后缀；\n` +
       `4. 内容具体可落地，结构完整，语言符合角色身份。`
 
-    const user = `请围绕以下目标产出文档：${input.goal}`
+    // v0.8 M3：聚合真实数据上下文（内部容错，失败返回空串则跳过数据段）
+    const dataText = await buildDataContext(input.role)
+    const dataSection = dataText
+      ? `\n\n【真实数据上下文】（引用具体数字必须以此为准并注明来源，禁止编造）\n${dataText}`
+      : ''
+    const user = `请围绕以下目标产出文档：${input.goal}${dataSection}`
 
     const llm = new DeepSeekAdapter(this.config)
     let full = ''

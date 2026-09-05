@@ -37,7 +37,8 @@ interface ChatState {
   setActive: (id: string) => void
   newSession: (role: RoleId, title?: string) => string
   removeSession: (id: string) => void
-  sendMessage: (goal: string) => Promise<void>
+  /** 发送任务：返回 assistant 条目 id（v0.7 专注模式追踪用；单飞占用/参数非法时返回 null） */
+  sendMessage: (goal: string) => Promise<string | null>
   /** 失败重试（v0.4 M1④）：清空失败条目并按原目标重新执行 */
   retry: (entryId: string) => Promise<void>
   abort: () => void
@@ -117,9 +118,9 @@ export const useChatStore = create<ChatState>((set, get) => {
 
     sendMessage: async (goal) => {
       const role = useAuthStore.getState().role
-      if (!role || get().streaming) return
+      if (!role || get().streaming) return null
       const trimmed = goal.trim()
-      if (!trimmed) return
+      if (!trimmed) return null
 
       const sessionId = get().ensureSession(role, trimmed.slice(0, 18))
       const entryId = nextId('asst')
@@ -137,6 +138,7 @@ export const useChatStore = create<ChatState>((set, get) => {
       persist(get().sessions)
 
       await runAgentTask(set, get, patchEntry, sessionId, entryId, trimmed)
+      return entryId
     },
 
     retry: async (entryId) => {

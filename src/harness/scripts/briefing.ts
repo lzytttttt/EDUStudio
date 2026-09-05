@@ -77,6 +77,33 @@ const teacherDeck: BriefingCard[] = [
     confidence: 1, source: '主动建议 · 现在',
     action: { kind: 'openTask', goal: '基于高一（3）班月考成绩生成家长会讲稿' },
   },
+  {
+    id: 't7', role: 'teacher', type: 'decision', tag: '决策',
+    title: '本周分层作业按什么比例布置？',
+    body: '上周基础题正确率 74%，提高题仅 52%。教研组建议动态调整两层比例，选定后自动生成作业单：',
+    extra: 'options',
+    payload: {
+      kind: 'options',
+      options: [
+        { text: '基础 70% + 提高 30%', sub: '巩固为主，适合正确率下滑周' },
+        { text: '基础 50% + 提高 50%', sub: '均衡推进，适合状态平稳期' },
+        { text: '基础 40% + 提高 60%', sub: '拔高优先，需配合课后答疑' },
+      ],
+    },
+    confidence: 2, source: '作业分析 · 本周',
+    action: { kind: 'openTask', goal: '按选定比例生成分层作业单' },
+    link: { kind: 'task', label: '查看上周作业任务', goal: '回顾上周分层作业完成情况并生成对比小结' },
+  },
+  {
+    id: 't8', role: 'teacher', type: 'creation', tag: '创作',
+    title: '家长会发言提纲草稿已备好，可直接修改',
+    body: '按「成绩概览 → 进步亮点 → 分层建议 → 家校配合」四段生成，引用班级真实成绩数据，点击正文即可编辑。',
+    extra: 'editable',
+    payload: { kind: 'editable', text: '各位家长：\n\n本次月考班级均分 82.4，较上次提升 1.8 分…\n\n一、整体情况\n二、进步亮点\n三、分层建议\n四、家校配合' },
+    confidence: 2, source: 'AI 生成 · 基于月考数据',
+    action: { kind: 'openTask', goal: '完善家长会发言稿并生成配套 PPT 大纲' },
+    link: { kind: 'source', label: '查看成绩数据来源' },
+  },
 ]
 
 const schoolAdminDeck: BriefingCard[] = [
@@ -152,6 +179,30 @@ const schoolAdminDeck: BriefingCard[] = [
     body: '将汇总教学质量、教师发展、异常预警三部分，预警项附证据链与建议动作，可直接用于行政会。',
     confidence: 1, source: '主动建议 · 现在',
     action: { kind: 'openTask', goal: '生成本月学校治理简报（含预警与建议）' },
+  },
+  {
+    id: 'a7', role: 'schoolAdmin', type: 'todo', tag: '待办',
+    title: '教研帮扶跟进清单（3 项）',
+    body: '上周例会布置的跟进事项，勾选后状态自动保存：',
+    extra: 'todos',
+    payload: {
+      kind: 'todos',
+      todos: [
+        { text: '确认高一（7）班物理帮扶教师人选', meta: '教研处 · 本周', done: false },
+        { text: '收集帮扶方案初稿意见', meta: '截止周四', done: false },
+        { text: '安排帮扶效果首次周测', meta: '教务系统', done: false },
+      ],
+    },
+    confidence: 3, source: '例会纪要 · 上周',
+    link: { kind: 'task', label: '打开帮扶方案任务', goal: '跟进高一（7）班物理教学质量帮扶方案执行情况' },
+  },
+  {
+    id: 'a8', role: 'schoolAdmin', type: 'insight', tag: '洞察',
+    title: '作业完成率低于校线的班级增至 4 个',
+    body: '较上周新增 1 个。作业平台数据显示主因是布置量与难度梯度失衡，建议结合分层作业模板整改。',
+    confidence: 3, source: '作业平台 · 本周',
+    action: { kind: 'openTask', goal: '起草作业完成率整改通知与分层作业模板' },
+    link: { kind: 'source', label: '查看校情数据来源' },
   },
 ]
 
@@ -230,6 +281,35 @@ const bureauDeck: BriefingCard[] = [
     body: '我会按申报材料完整性、建设基础、方案可行性三个维度打分并排序，输出评审意见表。',
     confidence: 1, source: '主动建议 · 现在',
     action: { kind: 'openTask', goal: '汇总各校 AI 试点申报材料并生成评审意见' },
+  },
+  {
+    id: 'b7', role: 'bureau', type: 'decision', tag: '决策',
+    title: '下月督导检查优先排哪个专项？',
+    body: '体质健康下滑与作业超量两条线索均已具备证据链，督导室只能承接一个专项，选定后自动生成督导方案：',
+    extra: 'options',
+    payload: {
+      kind: 'options',
+      options: [
+        { text: '体质健康专项督导', sub: '连续两季下滑，涉及 3 所学校' },
+        { text: '作业管理专项督导', sub: '超量投诉环比 +40%，家长关注度高' },
+      ],
+    },
+    confidence: 2, source: '督导台账 · 刚刚',
+    action: { kind: 'openTask', goal: '按选定专项起草督导检查实施方案' },
+    link: { kind: 'favorite', label: '回看收藏的相关卡片' },
+  },
+  {
+    id: 'b8', role: 'bureau', type: 'data', tag: '数据',
+    title: '区域师资达标率 88.2%，距 2027 目标还差 6.8 个百分点',
+    body: '缺口集中在音体美与信息科技学科，12 所学校中 5 所存在结构性缺编，建议纳入编制动态调整测算。',
+    extra: 'expandable',
+    payload: {
+      kind: 'expandable', title: '查看缺编学校明细',
+      content: '• 城北实验学校：信息科技缺 2 人<br>• 朝阳小学：音乐缺 1 人<br>• 育才中学：体育缺 1 人<br>• 建议：优先通过区域走教与银龄讲学补缺口',
+    },
+    confidence: 3, source: '师资台账 · 本月',
+    action: { kind: 'openTask', goal: '起草区域师资缺口补充方案' },
+    link: { kind: 'source', label: '查看区域数据来源' },
   },
 ]
 

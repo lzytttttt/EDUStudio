@@ -12,7 +12,9 @@ const BUDGET = {
   mainChunkKB: 110, // 主 chunk gzip 上限
   // v0.6 校准：v0.5.2 基线实测 238.6KB（recharts 懒加载 chunk 即占 105KB），230KB 阈值自 v0.4 沿袭未随
   // vendor 拆分与图表库引入重校，属存量潜伏超限；按基线 + v0.6 增量（约 7KB）+ 余量校准为 250KB
-  totalJsKB: 250, // 全部 JS gzip 上限
+  // v0.8 校准：v0.7 简报交互/落章/专注模式 + v0.8 数据上下文层与 LLM 技能提炼（合计约 +9KB 业务代码，
+  // 无新依赖，recharts 懒加载 chunk 不变），按实测 258.6KB + 余量校准为 260KB
+  totalJsKB: 260, // 全部 JS gzip 上限
 }
 
 const dist = 'dist/assets'
