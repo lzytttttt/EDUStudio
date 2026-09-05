@@ -14,7 +14,9 @@ import { formatAge, isStale } from '../../harness/sources'
 import type { CardLink } from '../../harness/types'
 import CsvImportDialog from '../../components/CsvImportDialog'
 import BriefingCardView from './BriefingCardView'
-import StampMark, { type StampDecision } from './StampMark'
+import StampMark, { STAMP_POSITION, type StampDecision } from './StampMark'
+import KeptBriefingCards, { type KeptCardItem } from './KeptBriefingCards'
+import BriefingIntro from './BriefingIntro'
 import FocusSummary from './FocusSummary'
 import FocusTaskSheet from './FocusTaskSheet'
 import GuideDialog from '../../components/GuideDialog'
@@ -28,6 +30,11 @@ const DRAG_START_THRESHOLD = 6
 const TILT_FACTOR = 0.07
 const PICKUP_SCALE = 1.03
 
+/** 简报首次切入动画（v0.8.3）：每次页面会话至多播一次；首次使用者先看操作引导（guideSeen=false 不播），弱动效偏好跳过 */
+const INTRO_ELIGIBLE =
+  !window.matchMedia('(prefers-reduced-motion: reduce)').matches && useSettingsStore.getState().guideSeen
+let introPlayed = false
+
 /** 飞出位移：在当前拖拽位置基础上继续飞出舞台，避免先弹回中心再飞出的跳变 */
 const EXIT_OFFSET: Record<Direction, { x: number; y: number; rotate: number }> = {
   left: { x: -560, y: 70, rotate: -18 },
@@ -35,13 +42,29 @@ const EXIT_OFFSET: Record<Direction, { x: number; y: number; rotate: number }> =
   up: { x: 0, y: -660, rotate: 0 },
 }
 
-const STAMP_META: Record<Direction, { decision: StampDecision; position: string }> = {
-  left: { decision: 'skip', position: 'left-5 top-5' },
-  up: { decision: 'fav', position: 'left-1/2 top-6 -translate-x-1/2' },
-  right: { decision: 'accept', position: 'right-5 top-5' },
+const STAMP_META: Record<Direction, StampDecision> = {
+  left: 'skip',
+  up: 'fav',
+  right: 'accept',
+}
+
+/** 桌面端断点（对齐 Tailwind md：<768px 为移动端，保留卡物理动效仅在桌面启用） */
+function useIsDesktop(): boolean {
+  const [desktop, setDesktop] = useState(
+    () => typeof window === 'undefined' || window.matchMedia('(min-width: 768px)').matches,
+  )
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 768px)')
+    const onChange = (e: MediaQueryListEvent) => setDesktop(e.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
+  return desktop
 }
 
 const clamp01 = (v: number) => Math.min(Math.max(v, 0), 1)
+/** 区间随机（保留卡甩飞初速度抖动，v0.8.2） */
+const rand = (a: number, b: number) => a + Math.random() * (b - a)
 
 /** 拖拽力度 → 阴影插值（shadow-card → shadow-pop），营造「拿起」手感 */
 function dragShadow(strength: number): string {
@@ -53,19 +76,29 @@ function dragShadow(strength: number): string {
 export default function BriefingPage() {
   const role = useAuthStore((s) => s.role)
   const setStage = useAuthStore((s) => s.setStage)
-  const { cards, decisions, processed, meta, loading, loadDeck, decide, resetDeck } = useBriefingStore()
+  const { cards, decisions, processed, meta, loading, loadDeck, decide, revertDecision, resetDeck } = useBriefingStore()
   const sendMessage = useChatStore((s) => s.sendMessage)
   const focusMode = useSettingsStore((s) => s.focusMode)
   const focusTasks = useFocusStore((s) => s.tasks)
   const clearTasks = useFocusStore((s) => s.clearTasks)
+  const isDesktop = useIsDesktop()
 
   const [exiting, setExiting] = useState<Direction | null>(null)
   const [drag, setDrag] = useState({ x: 0, y: 0 })
   const [dragging, setDragging] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
+  /* 已处理卡片保留层（v0.8.2 桌面端）：盖章后甩飞物理停留，可拖回重新批阅 */
+  const [kept, setKept] = useState<KeptCardItem[]>([])
+  /* 拖回的卡片优先作为当前卡展示（不受卡组顺序影响） */
+  const [pinnedId, setPinnedId] = useState<string | null>(null)
   // 后台任务浮层（v0.8.1）：批示过程中点击指示器随时查看任务明细
   const [taskSheetOpen, setTaskSheetOpen] = useState(false)
+  // 首次进入简报：卡牌生成切入动画（v0.8.3，仅会话首进且已看过引导时播放）
+  const [intro, setIntro] = useState(() => INTRO_ELIGIBLE && !introPlayed)
+  useEffect(() => {
+    if (intro) introPlayed = true
+  }, [intro])
   // 首次进入简报：自动弹出操作说明（v0.3 UI 专项）
   const guideSeen = useSettingsStore((s) => s.guideSeen)
   const markGuideSeen = useSettingsStore((s) => s.markGuideSeen)
@@ -88,9 +121,19 @@ export default function BriefingPage() {
   const canImport = role === 'teacher' || role === 'schoolAdmin'
 
   const visible = cards.filter((c) => !decisions[c.id])
-  const current = visible[0]
+  const current = (pinnedId ? visible.find((c) => c.id === pinnedId) : undefined) ?? visible[0]
   const total = cards.length
   const activeTasks = focusTasks.filter((t) => t.status === 'queued' || t.status === 'running').length
+
+  /* 取回保留卡（v0.8.2）：撤回决策 → 卡片回到未批示态并置顶展示，可修改内容后重新批阅 */
+  const handleReturn = useCallback(
+    (cardId: string) => {
+      revertDecision(cardId)
+      setPinnedId(cardId)
+      setKept((prev) => prev.filter((k) => k.card.id !== cardId))
+    },
+    [revertDecision],
+  )
 
   /* 卡片跳转分发（v0.7）：source→数据源 / task→工作台任务 / favorite→收藏夹 */
   const handleLink = useCallback(
@@ -111,14 +154,33 @@ export default function BriefingPage() {
 
   const handleDecide = useCallback(
     (direction: Direction) => {
-      if (!current || exiting) return
+      if (!current || exiting || intro) return
       setExiting(direction)
       const card = current
+      const dragAt = { ...drag }
       window.setTimeout(() => {
         const decided = decide(card.id, direction === 'up' ? 'fav' : direction === 'right' ? 'accept' : 'skip')
         setExiting(null)
+        setPinnedId(null)
         setDrag({ x: 0, y: 0 })
         setDragging(false)
+        /* 保留卡（v0.8.2 桌面端）：以离场终点为起点、沿甩飞方向继续物理运动，与离场动画无缝衔接 */
+        if (isDesktop && decided) {
+          const off = EXIT_OFFSET[direction]
+          setKept((prev) => [
+            ...prev.slice(-7),
+            {
+              card: decided,
+              decision: direction === 'up' ? 'fav' : direction === 'right' ? 'accept' : 'skip',
+              x0: dragAt.x + off.x,
+              y0: dragAt.y + off.y,
+              rot0: dragAt.x * 0.02,
+              vx: direction === 'right' ? rand(620, 900) : direction === 'left' ? -rand(620, 900) : rand(-260, 260),
+              vy: direction === 'up' ? -rand(680, 920) : rand(40, 180),
+              spin: direction === 'left' ? -rand(30, 110) : direction === 'right' ? rand(30, 110) : rand(-120, 120),
+            },
+          ])
+        }
         if (direction === 'right' && decided?.action?.kind === 'openTask') {
           /* 采纳联动（v0.7）：卡片带选中选项时，选择结果注入任务目标 */
           const selected =
@@ -136,7 +198,7 @@ export default function BriefingPage() {
         }
       }, EXIT_MS)
     },
-    [current, exiting, decide, focusMode, sendMessage, setStage],
+    [current, exiting, drag, decide, isDesktop, focusMode, sendMessage, setStage, intro],
   )
 
   /* 键盘：← 跳过 / ↑ 收藏 / → 采纳 */
@@ -303,6 +365,8 @@ export default function BriefingPage() {
 
       {/* 卡片舞台 */}
       <main className="relative flex flex-1 items-center justify-center overflow-hidden px-4 py-6">
+        {/* 已处理保留层（v0.8.2 桌面端）：盖章卡甩飞物理停留，置于卡组之下、点击/拖拽可取回重批 */}
+        {isDesktop && kept.length > 0 && <KeptBriefingCards items={kept} onReturn={handleReturn} />}
         {/* 专注模式：后台执行浮动指示器（v0.7），计数变化时弹跳；v0.8.1 起可点击查看任务明细（移动端收进顶栏） */}
         {focusMode && activeTasks > 0 && current && (
           <button
@@ -318,7 +382,10 @@ export default function BriefingPage() {
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-mint" />
           </button>
         )}
-        {!current ? (
+        {intro ? (
+          /* 首次进入简报：卡牌生成切入动画（v0.8.3），卡组就绪后淡出交棒给真实卡组入场 */
+          <BriefingIntro ready={!loading} onDone={() => setIntro(false)} />
+        ) : !current ? (
           loading ? (
             /* 卡组加载中：卡片形骨架屏，避免闪现「已读完」空状态 */
             <div className="h-full max-h-[560px] w-full max-w-[420px] animate-pulse">
@@ -342,6 +409,8 @@ export default function BriefingPage() {
               onEnterWorkbench={() => setStage('workbench')}
               onReplay={() => {
                 clearTasks()
+                setKept([])
+                setPinnedId(null)
                 resetDeck()
                 if (role) void loadDeck(role)
               }}
@@ -363,6 +432,8 @@ export default function BriefingPage() {
                 </button>
                 <button
                   onClick={() => {
+                    setKept([])
+                    setPinnedId(null)
                     resetDeck()
                     if (role) void loadDeck(role)
                   }}
@@ -417,14 +488,13 @@ export default function BriefingPage() {
                   const raw = dir === 'right' ? drag.x : dir === 'left' ? -drag.x : -drag.y
                   const strength = exiting === dir ? 1 : clamp01(raw / DECIDE_THRESHOLD)
                   if (strength <= 0) return null
-                  const stamp = STAMP_META[dir]
                   return (
                     <StampMark
                       key={dir}
-                      decision={stamp.decision}
+                      decision={STAMP_META[dir]}
                       strength={strength}
                       slamming={exiting === dir}
-                      className={stamp.position}
+                      className={STAMP_POSITION[STAMP_META[dir]]}
                     />
                   )
                 })}
@@ -434,8 +504,8 @@ export default function BriefingPage() {
         )}
       </main>
 
-      {/* 决策栏 */}
-      {current && (
+      {/* 决策栏（切入动画期间不渲染，避免批示到未展示的卡） */}
+      {current && !intro && (
         <footer className="pb-[max(28px,env(safe-area-inset-bottom))]">
           <div className="flex items-center justify-center gap-8">
             <button
@@ -477,6 +547,7 @@ export default function BriefingPage() {
             <span className="inline-flex items-center gap-1"><ArrowUp size={11} /> 收藏</span>
             <span className="inline-flex items-center gap-1"><ArrowRight size={11} /> 采纳</span>
             <span>· 支持拖拽滑卡</span>
+            <span className="hidden md:inline">· 点击已盖章卡片可拖回重批</span>
           </p>
         </footer>
       )}

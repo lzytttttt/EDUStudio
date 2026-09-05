@@ -36,6 +36,8 @@ interface BriefingState {
   /** 保存可编辑文本（v0.7） */
   editCardText: (cardId: string, text: string) => void
   removeFavorite: (cardId: string) => void
+  /** 撤回决策（v0.8.2）：拖回已处理卡片重新批阅——移除决策、收藏联动移除、processed 回退 */
+  revertDecision: (cardId: string) => void
   resetDeck: () => void
 }
 
@@ -165,6 +167,16 @@ export const useBriefingStore = create<BriefingState>((set, get) => ({
     const next = get().favorites.filter((f) => f.id !== cardId)
     set({ favorites: next })
     persist({ decisions: get().decisions, favorites: next, payloads: get().payloads })
+  },
+  /** 撤回决策（v0.8.2）：卡片回到未批示状态，可修改内容后重新批阅 */
+  revertDecision: (cardId) => {
+    const { decisions, favorites, processed } = get()
+    if (!decisions[cardId]) return
+    const nextDecisions = { ...decisions }
+    delete nextDecisions[cardId]
+    const nextFavorites = favorites.filter((f) => f.id !== cardId)
+    set({ decisions: nextDecisions, favorites: nextFavorites, processed: Math.max(0, processed - 1) })
+    persist({ decisions: nextDecisions, favorites: nextFavorites, payloads: get().payloads })
   },
   /** 重置卡组与决策（收藏保留，交互覆盖层清空），配合 loadDeck 可重新过一遍简报 */
   resetDeck: () => {

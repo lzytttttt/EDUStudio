@@ -101,6 +101,37 @@ describe('briefingStore 决策回归', () => {
     expect(useBriefingStore.getState().processed).toBe(1)
   })
 
+  it('revertDecision：撤回决策、收藏联动移除、processed 回退（v0.8.2 拖回重批）', async () => {
+    await useBriefingStore.getState().loadDeck('teacher')
+    const store = useBriefingStore.getState()
+    const [a, b] = store.cards
+    store.decide(a.id, 'fav')
+    store.decide(b.id, 'skip')
+
+    useBriefingStore.getState().revertDecision(a.id)
+    let next = useBriefingStore.getState()
+    expect(next.decisions[a.id]).toBeUndefined()
+    expect(next.favorites.map((f) => f.id)).not.toContain(a.id)
+    expect(next.processed).toBe(1)
+
+    useBriefingStore.getState().revertDecision(b.id)
+    next = useBriefingStore.getState()
+    expect(next.decisions).toEqual({})
+    expect(next.processed).toBe(0)
+    // 持久化同步：localStorage 中决策已移除
+    const persisted = loadJSON<Required<PersistedBriefing>>('briefing', { decisions: {}, favorites: [], payloads: {} })
+    expect(persisted.decisions).toEqual({})
+  })
+
+  it('revertDecision：未批示卡片为 no-op', async () => {
+    await useBriefingStore.getState().loadDeck('teacher')
+    const before = useBriefingStore.getState()
+    useBriefingStore.getState().revertDecision('nonexistent')
+    const after = useBriefingStore.getState()
+    expect(after.decisions).toEqual(before.decisions)
+    expect(after.processed).toBe(before.processed)
+  })
+
   it('resetDeck：清空决策与覆盖层，保留收藏', async () => {
     await useBriefingStore.getState().loadDeck('teacher')
     const store = useBriefingStore.getState()

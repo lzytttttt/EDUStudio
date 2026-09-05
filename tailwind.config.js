@@ -96,6 +96,37 @@ export default {
           '70%': { transform: 'scale(0.96)' },
           '100%': { transform: 'scale(1)' },
         },
+        /* 简报首次切入 · 卡牌生成动画（v0.8.3）：卡牌自右下飞入落叠（终态旋转角经 --intro-rot 注入） */
+        'intro-deal': {
+          '0%': { opacity: '0', transform: 'translate3d(42%, 78%, 0) rotate(24deg) scale(0.58)' },
+          '70%': { opacity: '1' },
+          '100%': { opacity: '1', transform: 'translate3d(0, 0, 0) rotate(var(--intro-rot, 0deg)) scale(1)' },
+        },
+        /* 生成微光：卡面内斜向扫过，表达「内容正在生成」（可循环直至卡组就绪） */
+        'intro-shimmer': {
+          '0%': { transform: 'translateX(-170%) skewX(-14deg)' },
+          '100%': { transform: 'translateX(170%) skewX(-14deg)' },
+        },
+        /* 生成完成：整体微缩淡出，交棒给真实卡组入场 */
+        'intro-out': {
+          '0%': { opacity: '1', transform: 'scale(1)' },
+          '100%': { opacity: '0', transform: 'scale(0.985)' },
+        },
+        /* 落卡迸光：光斑扩散淡出（backwards 填充 0% 透明，延迟期内不可见） */
+        'intro-spark': {
+          '0%': { transform: 'scale(0.15)', opacity: '0' },
+          '45%': { opacity: '0.9' },
+          '100%': { transform: 'scale(1)', opacity: '0' },
+        },
+        /* 落卡碎粒：沿 --intro-bx/--intro-by 飞散淡出 */
+        'intro-bit': {
+          '0%': { transform: 'translate(0, 0) scale(0.4) rotate(0deg)', opacity: '0' },
+          '30%': { opacity: '1' },
+          '100%': {
+            transform: 'translate(var(--intro-bx, 0px), var(--intro-by, 0px)) scale(0.2) rotate(160deg)',
+            opacity: '0',
+          },
+        },
       },
       animation: {
         'fade-up': 'fade-up 0.45s cubic-bezier(0.22,1,0.36,1) both',
@@ -111,6 +142,11 @@ export default {
         'stamp-slam': 'stamp-slam 0.45s cubic-bezier(0.22, 1, 0.36, 1) both',
         'stamp-ink': 'stamp-ink 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards',
         'bounce-soft': 'bounce-soft 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
+        'intro-deal': 'intro-deal 0.56s cubic-bezier(0.22, 1, 0.36, 1) both',
+        'intro-shimmer': 'intro-shimmer 1.3s cubic-bezier(0.45, 0, 0.55, 1) infinite',
+        'intro-out': 'intro-out 0.3s ease both',
+        'intro-spark': 'intro-spark 0.6s cubic-bezier(0.22, 1, 0.36, 1) both',
+        'intro-bit': 'intro-bit 0.62s cubic-bezier(0.22, 1, 0.36, 1) both',
       },
     },
   },

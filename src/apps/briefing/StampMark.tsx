@@ -15,6 +15,13 @@ const STAMP_COLOR: Record<StampDecision, { text: string; border: string; rgb: st
 /** 定格倾角：真实盖章不会完全水平，微倾更自然 */
 const REST_ROTATE: Record<StampDecision, number> = { skip: -8, fav: -3, accept: 8 }
 
+/** 印面落位（v0.8.2）：决策 → 印章在卡片上的位置；BriefingPage 与 KeptBriefingCards 共用 */
+export const STAMP_POSITION: Record<StampDecision, string> = {
+  skip: 'left-5 top-5',
+  fav: 'left-1/2 top-6 -translate-x-1/2',
+  accept: 'right-5 top-5',
+}
+
 interface StampMarkProps {
   decision: StampDecision
   /** 拖拽预览强度 0-1（slamming 时忽略） */

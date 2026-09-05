@@ -23,6 +23,9 @@
 | [v0.7-briefing-interaction-stamp.md](./v0.7-briefing-interaction-stamp.md) | — | v0.7 智能简报：生成增强、卡片交互、落章动效、专注模式 |
 | [v0.8-roadmap.md](./v0.8-roadmap.md) | — | v0.8 路线图总览：API 模式数据驱动闭环、LLM 技能提炼落地 |
 | [v0.8-01-focus-mobile-doc-nav.md](./v0.8-01-focus-mobile-doc-nav.md) | 增量 | v0.8.1 小型优化：专注模式移动端操作、工作台多文档跳转 |
+| [v0.8-02-briefing-kept-cards-physics.md](./v0.8-02-briefing-kept-cards-physics.md) | 增量 | v0.8.2 小型优化：简报保留卡物理动效（桌面端盖章卡甩飞停留）、拖回重新批阅 |
+| [v0.8-03-briefing-entry-intro.md](./v0.8-03-briefing-entry-intro.md) | 增量 | v0.8.3 小型优化：简报首次进入卡牌生成切入动画（无文字，设计风格对齐） |
+| [v0.9-roadmap.md](./v0.9-roadmap.md) | — | v0.9 路线图总览：Agent 主路径修复、数据安全网、决策责任边界提示、导航与诊断打磨 |
 
 ## 文档规范
 
@@ -39,4 +42,5 @@
 - v0.5（已交付）：真实数据接入 + 协同深化，见 [v0.5-roadmap.md](./v0.5-roadmap.md)
 - v0.6（已交付）：自进化技能系统；v0.6.1 小型优化（登录改版 / 字号缩放 / 移动端）
 - v0.7（已交付）：智能简报（生成增强 / 卡片交互 / 落章动效 / 专注模式）
-- v0.8（已交付）：API 模式数据驱动闭环 + LLM 技能提炼落地；v0.8.1 小型优化（专注模式移动端操作 / 工作台多文档跳转），见 [v0.8-01-focus-mobile-doc-nav.md](./v0.8-01-focus-mobile-doc-nav.md)
+- v0.8（已交付）：API 模式数据驱动闭环 + LLM 技能提炼落地；v0.8.1 小型优化（专注模式移动端操作 / 工作台多文档跳转），见 [v0.8-01-focus-mobile-doc-nav.md](./v0.8-01-focus-mobile-doc-nav.md)；v0.8.2 小型优化（简报保留卡物理动效 / 拖回重新批阅），见 [v0.8-02-briefing-kept-cards-physics.md](./v0.8-02-briefing-kept-cards-physics.md)；v0.8.3 小型优化（简报首次进入卡牌生成切入动画），见 [v0.8-03-briefing-entry-intro.md](./v0.8-03-briefing-entry-intro.md)
+- v0.9（规划中）：信任与健壮性专项（function-calling 接线 / 数据备份安全网 / 决策责任边界提示 / 导航与诊断打磨），见 [v0.9-roadmap.md](./v0.9-roadmap.md)
