@@ -30,9 +30,11 @@ const DRAG_START_THRESHOLD = 6
 const TILT_FACTOR = 0.07
 const PICKUP_SCALE = 1.03
 
-/** 简报首次切入动画（v0.8.3）：每次页面会话至多播一次；首次使用者先看操作引导（guideSeen=false 不播），弱动效偏好跳过 */
-const INTRO_ELIGIBLE =
+/** 简报切入动画播放条件（v0.8.3）：弱动效偏好跳过；首次使用者先看操作引导（guideSeen=false 不播）。
+ *  判定为函数：「重新过一遍」重播时按当次状态重新判定（如刚看完引导的用户同会话重放也可播） */
+const INTRO_ELIGIBLE = () =>
   !window.matchMedia('(prefers-reduced-motion: reduce)').matches && useSettingsStore.getState().guideSeen
+/** 会话级标记：普通进入简报每次会话至多播一次（「重新过一遍」重播不受此限） */
 let introPlayed = false
 
 /** 飞出位移：在当前拖拽位置基础上继续飞出舞台，避免先弹回中心再飞出的跳变 */
@@ -94,8 +96,8 @@ export default function BriefingPage() {
   const [pinnedId, setPinnedId] = useState<string | null>(null)
   // 后台任务浮层（v0.8.1）：批示过程中点击指示器随时查看任务明细
   const [taskSheetOpen, setTaskSheetOpen] = useState(false)
-  // 首次进入简报：卡牌生成切入动画（v0.8.3，仅会话首进且已看过引导时播放）
-  const [intro, setIntro] = useState(() => INTRO_ELIGIBLE && !introPlayed)
+  // 简报切入动画（v0.8.3）：会话首进且已看过引导时播放；「重新过一遍」重置卡组时同样播放
+  const [intro, setIntro] = useState(() => INTRO_ELIGIBLE() && !introPlayed)
   useEffect(() => {
     if (intro) introPlayed = true
   }, [intro])
@@ -116,6 +118,15 @@ export default function BriefingPage() {
     setRefreshing(true)
     void loadDeck(role).finally(() => window.setTimeout(() => setRefreshing(false), 400))
   }, [role, loadDeck, refreshing])
+
+  /* 重新过一遍（批示完成空态 / 专注模式总结层共用）：重置卡组并重播卡牌生成切入动画（v0.8.3） */
+  const replayDeck = useCallback(() => {
+    setKept([])
+    setPinnedId(null)
+    resetDeck()
+    if (INTRO_ELIGIBLE()) setIntro(true)
+    if (role) void loadDeck(role)
+  }, [resetDeck, loadDeck, role])
 
   const stale = isStale(meta)
   const canImport = role === 'teacher' || role === 'schoolAdmin'
@@ -409,10 +420,7 @@ export default function BriefingPage() {
               onEnterWorkbench={() => setStage('workbench')}
               onReplay={() => {
                 clearTasks()
-                setKept([])
-                setPinnedId(null)
-                resetDeck()
-                if (role) void loadDeck(role)
+                replayDeck()
               }}
             />
           ) : (
@@ -431,12 +439,7 @@ export default function BriefingPage() {
                   进入工作台
                 </button>
                 <button
-                  onClick={() => {
-                    setKept([])
-                    setPinnedId(null)
-                    resetDeck()
-                    if (role) void loadDeck(role)
-                  }}
+                  onClick={replayDeck}
                   className="inline-flex items-center gap-2 rounded-full border border-line bg-surface px-5 py-2.5 text-sm font-medium text-ink-soft transition-colors hover:border-primary/50 hover:text-primary"
                 >
                   <RotateCcw size={14} />
