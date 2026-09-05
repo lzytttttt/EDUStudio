@@ -9,14 +9,14 @@ interface FocusSummaryProps {
   onReplay: () => void
 }
 
-const STATUS_META: Record<BackgroundTaskStatus, { label: string; cls: string }> = {
+export const STATUS_META: Record<BackgroundTaskStatus, { label: string; cls: string }> = {
   queued: { label: '排队中', cls: 'text-ink-mute' },
   running: { label: '执行中', cls: 'text-primary' },
   done: { label: '已完成', cls: 'text-mint' },
   failed: { label: '执行失败', cls: 'text-coral' },
 }
 
-function StatusIcon({ status }: { status: BackgroundTaskStatus }) {
+export function StatusIcon({ status }: { status: BackgroundTaskStatus }) {
   if (status === 'running')
     return <Loader2 size={16} className="shrink-0 animate-spin text-primary" />
   if (status === 'done') return <Check size={16} className="shrink-0 text-mint" />
@@ -71,18 +71,19 @@ export default function FocusSummary({ tasks, stats, onEnterWorkbench, onReplay 
           ))}
         </div>
 
-        <div className="mt-5 flex items-center justify-center gap-3">
+        {/* 移动端纵向堆叠（v0.8.1）：小屏两按钮并排易溢出 */}
+        <div className="mt-5 flex flex-col-reverse items-stretch gap-2.5 sm:flex-row sm:items-center sm:justify-center sm:gap-3">
           <button
             onClick={onEnterWorkbench}
             data-testid="focus-enter-workbench"
-            className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-2.5 text-sm font-medium text-white shadow-soft transition-all hover:bg-primary-deep hover:shadow-pop"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-6 py-2.5 text-sm font-medium text-white shadow-soft transition-all hover:bg-primary-deep hover:shadow-pop sm:w-auto"
           >
             <LayoutDashboard size={15} />
             统一处理，进入工作台
           </button>
           <button
             onClick={onReplay}
-            className="inline-flex items-center gap-2 rounded-full border border-line bg-surface px-5 py-2.5 text-sm font-medium text-ink-soft transition-colors hover:border-primary/50 hover:text-primary"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-line bg-surface px-5 py-2.5 text-sm font-medium text-ink-soft transition-colors hover:border-primary/50 hover:text-primary sm:w-auto"
           >
             <RotateCcw size={14} />
             重新过一遍

@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import {
   Eye, Pencil, Copy, Trash2, FileText, Check, X, Download, History, Save, Plus, RotateCcw, LayoutTemplate, Share2, Link2,
-  MessageSquare, RefreshCw, Crosshair,
+  MessageSquare, RefreshCw, Crosshair, ChevronLeft, ChevronRight, ChevronDown,
 } from 'lucide-react'
 import { useArtifactStore } from '../../stores/artifactStore'
 import { useAuthStore } from '../../stores/authStore'
@@ -36,13 +36,15 @@ function fmtTime(ts: number): string {
 
 export default function ArtifactPanel() {
   const role = useAuthStore((s) => s.role)
-  const { docs, revisions, shareRefs, setShareRef, activeId, updateContent, remove, createManual, saveRevision, restoreRevision, removeRevision } =
+  const { docs, revisions, shareRefs, setShareRef, activeId, setActive, updateContent, remove, createManual, saveRevision, restoreRevision, removeRevision } =
     useArtifactStore()
   const doc = docs.find((d) => d.id === activeId)
   const [editing, setEditing] = useState(false)
   const [copyState, setCopyState] = useState<'idle' | 'ok' | 'fail'>('idle')
   const [exportOpen, setExportOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
+  // 文档清单下拉（v0.8.1）：多文档间快速跳转，无需经侧栏/抽屉
+  const [listOpen, setListOpen] = useState(false)
   // 分享弹层（v0.4 M2①）：生成只读快照链接
   const [shareOpen, setShareOpen] = useState(false)
   const [shareUrl, setShareUrl] = useState('')
@@ -56,6 +58,25 @@ export default function ArtifactPanel() {
   const html = useMemo(() => (doc ? renderMarkdown(doc.content) : ''), [doc?.content])
   const docRevisions = doc ? revisions[doc.id] ?? [] : []
   const templates = role ? listTemplates(role) : []
+
+  /* 多文档切换（v0.8.1）：专注模式批量生成后逐份查看，上一份/下一份 + 清单直达 */
+  const docIndex = docs.findIndex((d) => d.id === activeId)
+  const stepDoc = (dir: -1 | 1) => {
+    if (docIndex < 0) return
+    const next = docs[docIndex + dir]
+    if (next) setActive(next.id)
+  }
+  const titleCluster = (
+    <>
+      <FileText size={15} className="shrink-0 text-ink-mute" />
+      <h2 className="truncate text-sm font-semibold">{doc?.title ?? '文档工作区'}</h2>
+      {doc && (
+        <span className="shrink-0 rounded-full bg-primary-soft px-2 py-0.5 text-[0.625rem] font-medium text-primary">
+          {KIND_LABEL[doc.kind] ?? '文档'}
+        </span>
+      )}
+    </>
+  )
 
   const copy = async () => {
     if (!doc) return
@@ -165,14 +186,51 @@ export default function ArtifactPanel() {
   return (
     <div className="relative flex h-full w-full flex-col">
       {/* 头部 */}
-      <header className="flex items-center justify-between border-b border-line px-4 py-3">
-        <div className="flex min-w-0 items-center gap-2">
-          <FileText size={15} className="shrink-0 text-ink-mute" />
-          <h2 className="truncate text-sm font-semibold">{doc?.title ?? '文档工作区'}</h2>
-          {doc && (
-            <span className="shrink-0 rounded-full bg-primary-soft px-2 py-0.5 text-[0.625rem] font-medium text-primary">
-              {KIND_LABEL[doc.kind] ?? '文档'}
-            </span>
+      <header className="relative flex items-center justify-between border-b border-line px-4 py-3">
+        <div className="flex min-w-0 items-center gap-1.5">
+          {/* 上一份/下一份（v0.8.1）：多文档时显示，边界禁用 */}
+          {docs.length > 1 && (
+            <>
+              <button
+                onClick={() => stepDoc(-1)}
+                disabled={docIndex <= 0}
+                data-testid="doc-switch-prev"
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-ink-mute transition-colors hover:bg-surface-2 hover:text-ink disabled:opacity-30"
+                title="上一份文档"
+                aria-label="上一份文档"
+              >
+                <ChevronLeft size={14} />
+              </button>
+              <button
+                onClick={() => stepDoc(1)}
+                disabled={docIndex < 0 || docIndex >= docs.length - 1}
+                data-testid="doc-switch-next"
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-ink-mute transition-colors hover:bg-surface-2 hover:text-ink disabled:opacity-30"
+                title="下一份文档"
+                aria-label="下一份文档"
+              >
+                <ChevronRight size={14} />
+              </button>
+              <span className="minor-info shrink-0 text-[0.625rem] tabular-nums text-ink-mute">
+                {docIndex >= 0 ? docIndex + 1 : '–'}/{docs.length}
+              </span>
+            </>
+          )}
+          {/* 标题区（v0.8.1）：多文档时点击展开全部文档清单，单文档保持纯展示 */}
+          {docs.length > 1 ? (
+            <button
+              onClick={() => setListOpen((v) => !v)}
+              data-testid="doc-list-btn"
+              aria-expanded={listOpen}
+              className="flex min-w-0 items-center gap-2 rounded-lg px-1.5 py-1 transition-colors hover:bg-surface-2"
+              title="查看全部文档"
+              aria-label="查看全部文档"
+            >
+              {titleCluster}
+              <ChevronDown size={12} className={cn('shrink-0 text-ink-mute transition-transform', listOpen && 'rotate-180')} />
+            </button>
+          ) : (
+            <div className="flex min-w-0 items-center gap-2">{titleCluster}</div>
           )}
         </div>
         {doc && (
@@ -265,6 +323,45 @@ export default function ArtifactPanel() {
               <Trash2 size={15} />
             </button>
           </div>
+        )}
+
+        {/* 文档清单下拉（v0.8.1）：列出全部文档直达切换，生成中的文档有标注 */}
+        {listOpen && docs.length > 1 && (
+          <>
+            <div className="fixed inset-0 z-10" onClick={() => setListOpen(false)} />
+            <div
+              data-testid="doc-list-panel"
+              className="animate-fade-up absolute left-3 top-[calc(100%+4px)] z-20 max-h-80 w-72 overflow-y-auto rounded-2xl border border-line bg-surface p-1.5 shadow-xl"
+            >
+              <p className="px-2.5 pb-1 pt-2 text-[0.625rem] font-semibold text-ink-mute">全部文档（{docs.length}）</p>
+              {docs.map((d) => {
+                const active = d.id === activeId
+                return (
+                  <button
+                    key={d.id}
+                    onClick={() => {
+                      setActive(d.id)
+                      setListOpen(false)
+                    }}
+                    className={cn(
+                      'flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left transition-colors',
+                      active ? 'bg-primary-soft' : 'hover:bg-surface-2',
+                    )}
+                  >
+                    <FileText size={13} className={cn('shrink-0', active ? 'text-primary' : 'text-ink-mute')} />
+                    <div className="min-w-0 flex-1">
+                      <p className={cn('truncate text-xs font-medium', active && 'text-primary')}>{d.title}</p>
+                      <p className="minor-info mt-0.5 text-[0.625rem] text-ink-mute">
+                        {KIND_LABEL[d.kind] ?? '文档'} · {fmtTime(d.createdAt)}
+                        {!d.content && ' · 生成中'}
+                      </p>
+                    </div>
+                    {active && <Check size={12} className="shrink-0 text-primary" />}
+                  </button>
+                )
+              })}
+            </div>
+          </>
         )}
       </header>
 

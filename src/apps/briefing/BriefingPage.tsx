@@ -16,6 +16,7 @@ import CsvImportDialog from '../../components/CsvImportDialog'
 import BriefingCardView from './BriefingCardView'
 import StampMark, { type StampDecision } from './StampMark'
 import FocusSummary from './FocusSummary'
+import FocusTaskSheet from './FocusTaskSheet'
 import GuideDialog from '../../components/GuideDialog'
 import { cn } from '../../lib/cn'
 
@@ -63,6 +64,8 @@ export default function BriefingPage() {
   const [dragging, setDragging] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
+  // 后台任务浮层（v0.8.1）：批示过程中点击指示器随时查看任务明细
+  const [taskSheetOpen, setTaskSheetOpen] = useState(false)
   // 首次进入简报：自动弹出操作说明（v0.3 UI 专项）
   const guideSeen = useSettingsStore((s) => s.guideSeen)
   const markGuideSeen = useSettingsStore((s) => s.markGuideSeen)
@@ -225,7 +228,7 @@ export default function BriefingPage() {
   const showFocusSummary = !current && !loading && focusMode && focusTasks.length > 0
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-bg">
+    <div className="relative flex h-full flex-col overflow-hidden bg-bg">
       {/* 顶部进度栏（v0.6.1：移动端精简——隐藏日期、按钮缩为图标/短文案，减少 banner 遮挡） */}
       <header className="flex items-center justify-between gap-2 px-4 pt-4 sm:gap-3 sm:px-6 sm:pt-5 md:px-10">
         <div className="flex items-center gap-3">
@@ -268,6 +271,19 @@ export default function BriefingPage() {
               <span className="hidden sm:inline">导入成绩</span>
             </button>
           )}
+          {/* 移动端后台执行指示器（v0.8.1）：收进顶栏避免遮挡卡片与落章，点击查看任务明细 */}
+          {focusMode && activeTasks > 0 && current && (
+            <button
+              onClick={() => setTaskSheetOpen(true)}
+              data-testid="focus-indicator-mobile"
+              className="flex items-center gap-1 rounded-full border border-primary/30 bg-surface px-2 py-1.5 text-[0.6875rem] font-medium text-primary transition-colors hover:border-primary/60 md:hidden"
+              aria-label={`${activeTasks} 个任务后台执行中，点击查看`}
+              title="查看后台任务"
+            >
+              <Loader2 size={12} className="animate-spin" />
+              {activeTasks}
+            </button>
+          )}
           <button
             onClick={() => setStage('workbench')}
             className="flex items-center gap-1.5 rounded-full border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-ink-soft transition-colors hover:border-primary/50 hover:text-primary sm:px-3.5"
@@ -287,17 +303,20 @@ export default function BriefingPage() {
 
       {/* 卡片舞台 */}
       <main className="relative flex flex-1 items-center justify-center overflow-hidden px-4 py-6">
-        {/* 专注模式：后台执行浮动指示器（v0.7），计数变化时弹跳 */}
+        {/* 专注模式：后台执行浮动指示器（v0.7），计数变化时弹跳；v0.8.1 起可点击查看任务明细（移动端收进顶栏） */}
         {focusMode && activeTasks > 0 && current && (
-          <div
+          <button
             key={activeTasks}
+            onClick={() => setTaskSheetOpen(true)}
             data-testid="focus-indicator"
-            className="absolute right-4 top-2 z-20 flex animate-bounce-soft items-center gap-2 rounded-full border border-primary/30 bg-surface px-3.5 py-1.5 text-xs font-medium text-primary shadow-soft"
+            className="absolute right-4 top-2 z-20 hidden animate-bounce-soft items-center gap-2 rounded-full border border-primary/30 bg-surface px-3.5 py-1.5 text-xs font-medium text-primary shadow-soft transition-colors hover:border-primary/60 md:flex"
+            title="查看后台任务"
+            aria-label={`${activeTasks} 个任务后台执行中，点击查看`}
           >
             <Loader2 size={13} className="animate-spin" />
             {activeTasks} 个任务后台执行中
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-mint" />
-          </div>
+          </button>
         )}
         {!current ? (
           loading ? (
@@ -480,6 +499,15 @@ export default function BriefingPage() {
           onImported={() => {
             if (role) void loadDeck(role)
           }}
+        />
+      )}
+
+      {/* 后台任务浮层（v0.8.1）：批示过程中随时查看任务明细与状态 */}
+      {taskSheetOpen && (
+        <FocusTaskSheet
+          tasks={focusTasks}
+          onClose={() => setTaskSheetOpen(false)}
+          onEnterWorkbench={() => setStage('workbench')}
         />
       )}
     </div>
