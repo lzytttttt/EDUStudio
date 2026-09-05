@@ -13,9 +13,21 @@ npm run build    # 类型检查 + 生产构建
 npm run preview  # 预览生产构建
 ```
 
-## 部署（Docker，v0.5）
+## 部署
 
-轻后端代理（key 托管 / 限额 / 审计 / 分享短链 / 任务链 / 错误上报）可一条命令拉起：
+### 前端（Vercel，推荐）
+
+纯静态 SPA，零后端依赖即可上线（`ACTIVE_MODE` 默认 `mock`，离线可演示）：
+
+1. 在 Vercel 导入本仓库（GitHub：`lzytttttt/EDUStudio`）。
+2. Framework 选 **Vite**（自动识别），Build Command `npm run build`，Output Directory `dist`。
+3. 也可在仓库根目录执行 `vercel` 一键部署；`vercel.json` 已内置构建参数与 SPA 回退重写。
+
+> `npm run build` 前置执行 Vitest 单测 + `tsc` 类型检查，任一不过则构建失败，天然构成上线质量闸门。
+
+### 轻后端代理（Docker，可选）
+
+key 托管 / 限额 / 审计 / 分享短链 / 任务链 / 错误上报 可一条命令拉起：
 
 ```bash
 DEEPSEEK_KEY=sk-xxx docker compose up -d        # PowerShell：$env:DEEPSEEK_KEY='sk-xxx'; docker compose up -d
@@ -77,11 +89,6 @@ v0.3 起支持阅读区字号四档调节（超大档面向高龄用户：20px �
 ---
 
 v0.5 · 真实数据接入与协同深化（SourceProvider 数据源 / CSV 成绩导入 / 分享短链与批注回流 / 任务链跨端同步 / 通知中心 / 课标与跨文档 Agent 工具 / 上下文压缩与 token 预算 / 视觉回归与 Lighthouse / Docker 部署 / Key 生命周期与导出水印）
-v0.4 · 分享协作 + 任务流看板 + e2e 测试 + 数据提供/密钥盒 · 架构模式参考 EduOS-95（仅借鉴模式，未复用代码）
-
----
-
-v0.5 · 真实数据接入（SourceProvider 数据源抽象 / CSV 成绩导入 / 看板真实指标 / 数据新鲜度标注）
 v0.4 · 分享协作 + 任务流看板 + e2e 测试 + 数据提供/密钥盒 · 架构模式参考 EduOS-95（仅借鉴模式，未复用代码）
 
 ## 许可协议
