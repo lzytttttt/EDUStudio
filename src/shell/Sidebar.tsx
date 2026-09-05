@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import {
-  Sparkles, Plus, MessageSquare, Star, Trash2, Settings, ChevronRight, ChevronLeft, FileText, CircleHelp,
+  Sparkles, Plus, MessageSquare, Star, Trash2, Settings, ChevronRight, ChevronLeft, FileText, CircleHelp, Bell,
 } from 'lucide-react'
 import { useAuthStore } from '../stores/authStore'
 import { useChatStore } from '../stores/chatStore'
 import { useBriefingStore } from '../stores/briefingStore'
 import { useArtifactStore } from '../stores/artifactStore'
 import { useSettingsStore } from '../stores/settingsStore'
+import { useNotificationStore, unreadCount } from '../stores/notificationStore'
 import { getRolePreset } from '../harness/roles'
 import SettingsDialog from '../components/SettingsDialog'
 import GuideDialog from '../components/GuideDialog'
@@ -24,6 +25,8 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const docs = useArtifactStore((s) => s.docs)
   const setActiveDoc = useArtifactStore((s) => s.setActive)
   const mode = useSettingsStore((s) => s.mode)
+  const unread = useNotificationStore((s) => unreadCount(s.items))
+  const openNotifPanel = useNotificationStore((s) => s.openPanel)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [guideOpen, setGuideOpen] = useState(false)
   const [tab, setTab] = useState<'tasks' | 'fav' | 'docs'>('tasks')
@@ -48,6 +51,19 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           </div>
         </button>
         <div className="flex items-center gap-0.5">
+          <button
+            onClick={openNotifPanel}
+            className="relative flex h-8 w-8 items-center justify-center rounded-lg text-ink-mute transition-colors hover:bg-surface-2 hover:text-ink"
+            aria-label="通知中心"
+            title="通知中心"
+          >
+            <Bell size={16} />
+            {unread > 0 && (
+              <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-coral px-1 text-[9px] font-bold text-white">
+                {unread > 9 ? '9+' : unread}
+              </span>
+            )}
+          </button>
           <button
             onClick={() => setGuideOpen(true)}
             className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-mute transition-colors hover:bg-surface-2 hover:text-ink"

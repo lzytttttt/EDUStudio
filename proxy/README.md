@@ -13,7 +13,8 @@
 
 - `POST /v1/chat/completions`：OpenAI 兼容透传，SSE 原样流式（无缓冲）
 - `GET /health`：健康检查 + 限额/模型白名单自描述
-- 路径白名单：仅上述两个端点，其余 404
+- `GET /api/sources/{classes,region,school}`：数据源演示端点（v0.5 M1③），返回与前端 seed 同构的演示数据 + `fetchedAt`，供远端数据源联调；生产替换为真实数据平台查询即可，前端契约不变
+- 路径白名单：仅上述端点，其余 404
 - `model` 白名单：`deepseek-chat` / `deepseek-reasoner` / `deepseek-v4-flash` / `deepseek-v4-flash-free` / `deepseek-v4-pro`
 - 请求体校验：messages ≤ 100 条、单条 content ≤ 32000 字符
 - 限额：10 次/分钟 + 200 次/天（按客户端摘要：优先 `X-EDU-TOKEN`，其次 IP）
@@ -55,6 +56,9 @@ $env:DEEPSEEK_KEY='sk-xxx'; node proxy/server.mjs
 
 设置页 → 「代理地址」填入 `https://<proxy-host>/v1`（或内网 `http://<host>:8787/v1`）→ 保存。
 代理地址非空时，前端请求走代理且不携带 `Authorization`；直连 baseUrl/model/key 字段自动禁用。
+
+数据源（v0.5）：设置页 → 「数据来源」选「远端数据平台」，地址填 `http://<host>:8787/api/sources`。
+请求失败自动回落演示数据并在 UI 标注；导入的班级成绩 CSV 始终最优先。
 
 ## 验收清单（对应 v0.2 专项 02）
 

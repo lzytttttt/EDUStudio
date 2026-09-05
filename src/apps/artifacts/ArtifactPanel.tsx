@@ -1,13 +1,16 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import {
   Eye, Pencil, Copy, Trash2, FileText, Check, X, Download, History, Save, Plus, RotateCcw, LayoutTemplate, Share2, Link2,
+  MessageSquare, RefreshCw, Crosshair,
 } from 'lucide-react'
 import { useArtifactStore } from '../../stores/artifactStore'
 import { useAuthStore } from '../../stores/authStore'
+import { useNotificationStore } from '../../stores/notificationStore'
 import { renderMarkdown } from '../../lib/markdown'
 import { copyText } from '../../lib/clipboard'
 import { exportDoc, type ExportFormat } from '../../lib/exporters'
-import { buildShareUrl } from '../../lib/share'
+import { buildShareUrl, type ShareAnnotation, type ShareSnapshot } from '../../lib/share'
+import { getApiBase, apiJson } from '../../lib/api'
 import { listTemplates } from '../../harness/scripts/artifacts'
 import { cn } from '../../lib/cn'
 
@@ -33,7 +36,7 @@ function fmtTime(ts: number): string {
 
 export default function ArtifactPanel() {
   const role = useAuthStore((s) => s.role)
-  const { docs, revisions, activeId, updateContent, remove, createManual, saveRevision, restoreRevision, removeRevision } =
+  const { docs, revisions, shareRefs, setShareRef, activeId, updateContent, remove, createManual, saveRevision, restoreRevision, removeRevision } =
     useArtifactStore()
   const doc = docs.find((d) => d.id === activeId)
   const [editing, setEditing] = useState(false)
@@ -45,6 +48,11 @@ export default function ArtifactPanel() {
   const [shareUrl, setShareUrl] = useState('')
   const [shareState, setShareState] = useState<'idle' | 'generating' | 'ready' | 'too-long' | 'fail'>('idle')
   const [shareCopied, setShareCopied] = useState(false)
+  const [shareMode, setShareMode] = useState<'short' | 'inline'>('inline')
+  // 收到的批注（v0.5 M2②）：短链登记后从轻后端拉取评审回传
+  const [annoList, setAnnoList] = useState<ShareAnnotation[]>([])
+  const [annoLoading, setAnnoLoading] = useState(false)
+  const editorRef = useRef<HTMLTextAreaElement>(null)
   const html = useMemo(() => (doc ? renderMarkdown(doc.content) : ''), [doc?.content])
   const docRevisions = doc ? revisions[doc.id] ?? [] : []
   const templates = role ? listTemplates(role) : []
@@ -61,24 +69,88 @@ export default function ArtifactPanel() {
     setExportOpen(false)
   }
 
-  /* 生成分享链接（v0.4 M2①）：快照压缩进 hash，接收方免登录只读查看 */
+  /* 拉取收到的批注（v0.5 M2②）：短链登记后从轻后端读取评审回传；新批注进通知中心 */
+  const fetchAnnotations = useCallback(async () => {
+    if (!doc) return
+    const ref = useArtifactStore.getState().shareRefs[doc.id]
+    if (!ref) return
+    setAnnoLoading(true)
+    try {
+      const j = await apiJson<{ snapshot: ShareSnapshot; annotations: ShareAnnotation[] }>(
+        ref.apiBase,
+        `/v1/share/${encodeURIComponent(ref.id)}`,
+      )
+      const list = j.annotations ?? []
+      setAnnoList(list)
+      const seen = ref.seenAnnotations ?? 0
+      if (list.length > seen) {
+        useNotificationStore.getState().push({
+          kind: 'annotation',
+          title: `《${doc.title}》收到 ${list.length - seen} 条新批注`,
+          body: list[list.length - 1]?.text.slice(0, 60) ?? '',
+          docId: doc.id,
+        })
+        useArtifactStore.getState().setShareRef(doc.id, { ...ref, seenAnnotations: list.length })
+      }
+    } catch {
+      /* 服务不可用：保留上次结果，不打断 */
+    } finally {
+      setAnnoLoading(false)
+    }
+  }, [doc])
+
+  /* 批注定位（v0.5 M2②）：切到编辑器并滚动选中引用片段 */
+  const locateInEditor = (quote: string) => {
+    if (!doc) return
+    setEditing(true)
+    window.setTimeout(() => {
+      const el = editorRef.current
+      if (!el) return
+      const idx = quote ? doc.content.indexOf(quote) : -1
+      if (idx >= 0) {
+        const line = doc.content.slice(0, idx).split('\n').length
+        el.scrollTop = Math.max(0, (line - 3) * 21)
+        el.focus()
+        el.setSelectionRange(idx, idx + quote.length)
+      } else {
+        el.focus()
+      }
+    }, 60)
+  }
+
+  /* 生成分享链接（v0.4 M2① → v0.5 M2① 短链优先）：快照存轻后端，接收方免登录只读查看 */
   const openShare = async () => {
     if (!doc?.content) return
     setShareOpen(true)
     setShareState('generating')
     setShareCopied(false)
-    const res = await buildShareUrl({
-      v: 1,
-      title: doc.title,
-      kind: doc.kind,
-      role: doc.role,
-      content: doc.content,
-      createdAt: doc.createdAt,
-      author: role ? { bureau: '教育局', schoolAdmin: '校长', teacher: '教师' }[role] : undefined,
-    })
+    const hadRef = !!shareRefs[doc.id]
+    const apiBase = getApiBase()
+    const res = await buildShareUrl(
+      {
+        v: 1,
+        title: doc.title,
+        kind: doc.kind,
+        role: doc.role,
+        content: doc.content,
+        createdAt: doc.createdAt,
+        author: role ? { bureau: '教育局', schoolAdmin: '校长', teacher: '教师' }[role] : undefined,
+      },
+      { apiBase },
+    )
     if (res.ok) {
       setShareUrl(res.url)
+      setShareMode(res.mode)
       setShareState('ready')
+      if (res.mode === 'short' && res.shareId && apiBase) {
+        setShareRef(doc.id, {
+          id: res.shareId,
+          apiBase,
+          sharedAt: Date.now(),
+          seenAnnotations: shareRefs[doc.id]?.seenAnnotations ?? 0,
+        })
+      }
+      if (hadRef) void fetchAnnotations()
     } else {
       setShareState(res.reason === 'too-long' ? 'too-long' : 'fail')
     }
@@ -231,6 +303,7 @@ export default function ArtifactPanel() {
         </div>
       ) : editing ? (
         <textarea
+          ref={editorRef}
           value={doc.content}
           onChange={(e) => updateContent(doc.id, e.target.value)}
           spellCheck={false}
@@ -277,7 +350,9 @@ export default function ArtifactPanel() {
             {shareState === 'ready' && (
               <>
                 <p className="mt-3 text-xs leading-relaxed text-ink-soft">
-                  链接包含文档只读快照，接收方无需登录即可查看；校长/局角色可在分享页添加批注后回传。
+                  {shareMode === 'short'
+                    ? '短链模式：内容已存到轻后端，链接短且不受长度限制；评审人在分享页添加的批注会回传到下方。'
+                    : '链接包含文档只读快照，接收方无需登录即可查看；校长/局角色可在分享页添加批注后回传。'}
                 </p>
                 <div className="mt-3 flex items-center gap-2 rounded-xl border border-line bg-surface-2 px-3 py-2">
                   <Link2 size={13} className="shrink-0 text-ink-mute" />
@@ -299,6 +374,56 @@ export default function ArtifactPanel() {
                   {shareCopied ? <Check size={13} /> : <Link2 size={13} />}
                   {shareCopied ? '已复制到剪贴板' : '复制链接'}
                 </button>
+
+                {/* 收到的批注（v0.5 M2②）：短链登记后可拉取评审回传并定位 */}
+                {shareRefs[doc.id] && (
+                  <div className="mt-4 rounded-2xl border border-line bg-surface-2 px-3 py-3">
+                    <div className="flex items-center justify-between">
+                      <p className="flex items-center gap-1.5 text-[11px] font-semibold text-ink">
+                        <MessageSquare size={12} className="text-primary" />
+                        收到的批注
+                        <span className="font-normal text-ink-mute">（{annoList.length}）</span>
+                      </p>
+                      <button
+                        onClick={() => void fetchAnnotations()}
+                        disabled={annoLoading}
+                        className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] text-primary transition-colors hover:bg-primary-soft disabled:opacity-40"
+                      >
+                        <RefreshCw size={10} className={cn(annoLoading && 'animate-spin')} />
+                        刷新
+                      </button>
+                    </div>
+                    {annoLoading ? (
+                      <p className="mt-2 text-[10px] text-ink-mute">正在拉取批注…</p>
+                    ) : annoList.length === 0 ? (
+                      <p className="mt-2 text-[10px] leading-relaxed text-ink-mute">
+                        暂无批注。评审人在分享页添加批注后会回传到这里，点击「刷新」即可查看。
+                      </p>
+                    ) : (
+                      <ul className="mt-2 max-h-44 space-y-1.5 overflow-y-auto">
+                        {annoList.map((a) => (
+                          <li key={a.id} className="rounded-xl bg-surface px-2.5 py-2">
+                            <p className="text-[10px] text-ink-mute">
+                              {a.author} · {fmtTime(a.createdAt)}
+                            </p>
+                            {a.quote && <p className="mt-0.5 truncate text-[10px] text-ink-soft">「{a.quote}」</p>}
+                            <div className="mt-0.5 flex items-start justify-between gap-2">
+                              <p className="text-[11px] leading-relaxed text-ink">{a.text}</p>
+                              <button
+                                onClick={() => locateInEditor(a.quote)}
+                                className="inline-flex shrink-0 items-center gap-0.5 text-[10px] text-primary hover:underline"
+                                title="跳到编辑器对应位置"
+                              >
+                                <Crosshair size={10} />
+                                定位
+                              </button>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
               </>
             )}
 

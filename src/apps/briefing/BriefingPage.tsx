@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   X, Star, Check, Sparkles, ArrowLeft, ArrowUp, ArrowRight, LayoutDashboard, RotateCcw,
+  RefreshCw, FileSpreadsheet, Clock,
 } from 'lucide-react'
 import { useAuthStore } from '../../stores/authStore'
 import { useBriefingStore } from '../../stores/briefingStore'
 import { useChatStore } from '../../stores/chatStore'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { getRolePreset } from '../../harness/roles'
+import { formatAge, isStale } from '../../harness/sources'
+import CsvImportDialog from '../../components/CsvImportDialog'
 import BriefingCardView from './BriefingCardView'
 import GuideDialog from '../../components/GuideDialog'
 import { cn } from '../../lib/cn'
@@ -35,12 +38,14 @@ const clamp01 = (v: number) => Math.min(Math.max(v, 0), 1)
 export default function BriefingPage() {
   const role = useAuthStore((s) => s.role)
   const setStage = useAuthStore((s) => s.setStage)
-  const { cards, decisions, processed, loadDeck, decide, resetDeck } = useBriefingStore()
+  const { cards, decisions, processed, meta, loading, loadDeck, decide, resetDeck } = useBriefingStore()
   const sendMessage = useChatStore((s) => s.sendMessage)
 
   const [exiting, setExiting] = useState<Direction | null>(null)
   const [drag, setDrag] = useState({ x: 0, y: 0 })
   const [dragging, setDragging] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
   // 首次进入简报：自动弹出操作说明（v0.3 UI 专项）
   const guideSeen = useSettingsStore((s) => s.guideSeen)
   const markGuideSeen = useSettingsStore((s) => s.markGuideSeen)
@@ -50,8 +55,17 @@ export default function BriefingPage() {
   const cardRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (role) loadDeck(role)
+    if (role) void loadDeck(role)
   }, [role, loadDeck])
+
+  const handleRefresh = useCallback(() => {
+    if (!role || refreshing) return
+    setRefreshing(true)
+    void loadDeck(role).finally(() => window.setTimeout(() => setRefreshing(false), 400))
+  }, [role, loadDeck, refreshing])
+
+  const stale = isStale(meta)
+  const canImport = role === 'teacher' || role === 'schoolAdmin'
 
   const visible = cards.filter((c) => !decisions[c.id])
   const current = visible[0]
@@ -149,7 +163,7 @@ export default function BriefingPage() {
   return (
     <div className="flex h-full flex-col overflow-hidden bg-bg">
       {/* 顶部进度栏 */}
-      <header className="flex items-center justify-between px-6 pt-5 md:px-10">
+      <header className="flex items-center justify-between gap-3 px-6 pt-5 md:px-10">
         <div className="flex items-center gap-3">
           <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary text-white">
             <Sparkles size={15} />
@@ -162,13 +176,41 @@ export default function BriefingPage() {
             </p>
           </div>
         </div>
-        <button
-          onClick={() => setStage('workbench')}
-          className="flex items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 py-1.5 text-xs font-medium text-ink-soft transition-colors hover:border-primary/50 hover:text-primary"
-        >
-          <LayoutDashboard size={13} />
-          跳过简报，直接进入工作台
-        </button>
+        <div className="flex items-center gap-2">
+          {/* 数据新鲜度标注（v0.5 M1④）：来源 + 相对时间；超 7 天提示刷新 */}
+          {meta && (
+            <button
+              onClick={handleRefresh}
+              title={stale ? '数据已超过 7 天，点击刷新' : '刷新数据'}
+              className={cn(
+                'minor-info hidden items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] transition-colors sm:flex',
+                stale ? 'border-amber/60 bg-amber-50 text-amber-700 hover:border-amber' : 'border-line bg-surface text-ink-mute hover:border-primary/40 hover:text-primary',
+              )}
+            >
+              <RefreshCw size={10} className={cn(refreshing && 'animate-spin')} />
+              <Clock size={10} />
+              {meta.label} · {formatAge(meta.fetchedAt)}
+              {stale && ' · 建议刷新'}
+            </button>
+          )}
+          {canImport && (
+            <button
+              onClick={() => setImportOpen(true)}
+              className="flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1.5 text-xs font-medium text-ink-soft transition-colors hover:border-primary/50 hover:text-primary"
+              title="导入班级成绩 CSV，简报将基于真实数据生成"
+            >
+              <FileSpreadsheet size={13} />
+              导入成绩
+            </button>
+          )}
+          <button
+            onClick={() => setStage('workbench')}
+            className="flex items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 py-1.5 text-xs font-medium text-ink-soft transition-colors hover:border-primary/50 hover:text-primary"
+          >
+            <LayoutDashboard size={13} />
+            跳过简报，直接进入工作台
+          </button>
+        </div>
       </header>
       <div className="mx-6 mt-3 h-1 overflow-hidden rounded-full bg-line md:mx-10">
         <div
@@ -180,32 +222,49 @@ export default function BriefingPage() {
       {/* 卡片舞台 */}
       <main className="relative flex flex-1 items-center justify-center overflow-hidden px-4 py-6">
         {!current ? (
-          <div className="animate-fade-up text-center">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-mint-soft text-mint">
-              <Check size={28} />
+          loading ? (
+            /* 卡组加载中：卡片形骨架屏，避免闪现「已读完」空状态 */
+            <div className="h-full max-h-[560px] w-full max-w-[420px] animate-pulse">
+              <div className="flex h-full flex-col rounded-[28px] border border-line bg-surface p-6">
+                <div className="h-5 w-20 rounded-full bg-surface-2" />
+                <div className="mt-6 h-7 w-4/5 rounded-lg bg-surface-2" />
+                <div className="mt-3 h-4 w-full rounded bg-surface-2" />
+                <div className="mt-2 h-4 w-11/12 rounded bg-surface-2" />
+                <div className="mt-2 h-4 w-2/3 rounded bg-surface-2" />
+                <div className="mt-auto space-y-2">
+                  <div className="h-16 w-full rounded-2xl bg-surface-2" />
+                  <div className="h-3 w-24 rounded bg-surface-2" />
+                </div>
+              </div>
             </div>
-            <h2 className="mt-5 text-xl font-bold">今日简报已读完</h2>
-            <p className="mt-1.5 text-sm text-ink-soft">收藏的卡片已放入工作台收藏夹，随时回看</p>
-            <div className="mt-6 flex items-center justify-center gap-3">
-              <button
-                onClick={() => setStage('workbench')}
-                className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-2.5 text-sm font-medium text-white shadow-soft transition-all hover:bg-primary-deep hover:shadow-pop"
-              >
-                <LayoutDashboard size={15} />
-                进入工作台
-              </button>
-              <button
-                onClick={() => {
-                  resetDeck()
-                  if (role) loadDeck(role)
-                }}
-                className="inline-flex items-center gap-2 rounded-full border border-line bg-surface px-5 py-2.5 text-sm font-medium text-ink-soft transition-colors hover:border-primary/50 hover:text-primary"
-              >
-                <RotateCcw size={14} />
-                重新过一遍
-              </button>
+          ) : (
+            <div className="animate-fade-up text-center">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-mint-soft text-mint">
+                <Check size={28} />
+              </div>
+              <h2 className="mt-5 text-xl font-bold">今日简报已读完</h2>
+              <p className="mt-1.5 text-sm text-ink-soft">收藏的卡片已放入工作台收藏夹，随时回看</p>
+              <div className="mt-6 flex items-center justify-center gap-3">
+                <button
+                  onClick={() => setStage('workbench')}
+                  className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-2.5 text-sm font-medium text-white shadow-soft transition-all hover:bg-primary-deep hover:shadow-pop"
+                >
+                  <LayoutDashboard size={15} />
+                  进入工作台
+                </button>
+                <button
+                  onClick={() => {
+                    resetDeck()
+                    if (role) void loadDeck(role)
+                  }}
+                  className="inline-flex items-center gap-2 rounded-full border border-line bg-surface px-5 py-2.5 text-sm font-medium text-ink-soft transition-colors hover:border-primary/50 hover:text-primary"
+                >
+                  <RotateCcw size={14} />
+                  重新过一遍
+                </button>
+              </div>
             </div>
-          </div>
+          )
         ) : (
           <div className="relative h-full max-h-[560px] w-full max-w-[420px]">
             {/* 底部堆叠预览 */}
@@ -306,6 +365,16 @@ export default function BriefingPage() {
           onClose={() => {
             setGuideOpen(false)
             markGuideSeen()
+          }}
+        />
+      )}
+
+      {/* 成绩 CSV 导入（v0.5 M1②） */}
+      {importOpen && (
+        <CsvImportDialog
+          onClose={() => setImportOpen(false)}
+          onImported={() => {
+            if (role) void loadDeck(role)
           }}
         />
       )}

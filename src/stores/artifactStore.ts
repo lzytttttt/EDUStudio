@@ -12,10 +12,21 @@ export interface ArtifactRevision {
   createdAt: number
 }
 
+/** 分享短链登记（v0.5 M2①）：文档 → 轻后端分享 id，用于批注回传拉取 */
+export interface ShareRef {
+  id: string
+  apiBase: string
+  sharedAt: number
+  /** 作者端已读批注数（用于「新批注」提醒去重） */
+  seenAnnotations?: number
+}
+
 export interface ArtifactState {
   docs: ArtifactDoc[]
   /** 每个文档的版本历史（新版本在后，上限 20 条） */
   revisions: Record<string, ArtifactRevision[]>
+  /** 文档 → 分享短链登记（v0.5 M2①） */
+  shareRefs: Record<string, ShareRef>
   activeId: string | null
   /** 每个角色最近一次使用的模板（用于「再次生成」） */
   lastTemplate: Partial<Record<RoleId, string>>
@@ -35,6 +46,8 @@ export interface ArtifactState {
   restoreRevision: (id: string, revisionId: string) => void
   /** 删除某个版本 */
   removeRevision: (id: string, revisionId: string) => void
+  /** 登记分享短链（v0.5 M2①） */
+  setShareRef: (id: string, ref: ShareRef) => void
 }
 
 const MAX_REVISIONS = 20
@@ -45,12 +58,18 @@ interface Persisted {
   docs: ArtifactDoc[]
   revisions: Record<string, ArtifactRevision[]>
   lastTemplate: Partial<Record<RoleId, string>>
+  shareRefs?: Record<string, ShareRef>
 }
 
 const persisted = loadJSON<Persisted>('artifacts', { docs: [], revisions: {}, lastTemplate: {} })
 
-function persist(state: Pick<ArtifactState, 'docs' | 'revisions' | 'lastTemplate'>): void {
-  saveJSON('artifacts', { docs: state.docs, revisions: state.revisions, lastTemplate: state.lastTemplate })
+function persist(state: Pick<ArtifactState, 'docs' | 'revisions' | 'lastTemplate' | 'shareRefs'>): void {
+  saveJSON('artifacts', {
+    docs: state.docs,
+    revisions: state.revisions,
+    lastTemplate: state.lastTemplate,
+    shareRefs: state.shareRefs,
+  })
 }
 
 function genRevId(): string {
@@ -66,6 +85,7 @@ function pushRevision(list: ArtifactRevision[], rev: ArtifactRevision): Artifact
 export const useArtifactStore = create<ArtifactState>((set, get) => ({
   docs: persisted.docs,
   revisions: persisted.revisions,
+  shareRefs: persisted.shareRefs ?? {},
   activeId: persisted.docs[0]?.id ?? null,
   lastTemplate: persisted.lastTemplate,
 
@@ -203,6 +223,11 @@ export const useArtifactStore = create<ArtifactState>((set, get) => ({
     const revisions = { ...get().revisions }
     revisions[id] = (revisions[id] ?? []).filter((r) => r.id !== revisionId)
     set({ revisions })
+    persist(get())
+  },
+
+  setShareRef: (id, ref) => {
+    set({ shareRefs: { ...get().shareRefs, [id]: ref } })
     persist(get())
   },
 }))

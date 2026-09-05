@@ -34,3 +34,10 @@ Thumbs.db
 test-results
 playwright-report
 blob-report
+
+# Proxy runtime artifacts
+proxy-logs/
+proxy-data/
+
+# Visual regression snapshots (baseline kept in repo; local updates ignored)
+e2e/visual.spec.ts-snapshots/*.png

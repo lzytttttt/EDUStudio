@@ -1,12 +1,21 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
-  Send, ChevronDown, ChevronRight, Clock, CheckCircle2, Inbox, FileCheck, Trash2, X, Users, Plus,
+  Send, ChevronDown, ChevronRight, Clock, CheckCircle2, Inbox, FileCheck, Trash2, X, Users, Plus, RefreshCw,
 } from 'lucide-react'
 import { useAuthStore } from '../../stores/authStore'
 import { useTaskFlowStore, flowsForRole, myReceipt } from '../../stores/taskFlowStore'
 import { TASK_FLOW_STATUS_LABEL, type TaskFlow, type TaskFlowStatus } from '../../data/taskFlow'
 import { CLASSES, SCHOOLS } from '../../data/seed'
+import { t } from '../../lib/i18n'
 import { cn } from '../../lib/cn'
+
+/** 同步状态徽标（v0.5 M2③，文案走 i18n v0.5 M4③） */
+const SYNC_STYLE = {
+  local: 'bg-surface-2 text-ink-mute',
+  syncing: 'bg-surface-2 text-ink-mute',
+  remote: 'bg-mint-soft text-mint',
+  degraded: 'bg-amber-soft text-amber-600',
+} as const
 
 const STATUS_STYLE: Record<TaskFlowStatus, string> = {
   pending: 'bg-amber-soft text-amber-600',
@@ -42,9 +51,16 @@ function targetOptions(role: 'bureau' | 'schoolAdmin'): { name: string; role: 's
 
 export default function TaskFlowBoard() {
   const role = useAuthStore((s) => s.role)
-  const { flows, issue, acknowledge, submit, remove } = useTaskFlowStore()
+  const { flows, syncState, refresh, issue, acknowledge, submit, remove } = useTaskFlowStore()
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [formOpen, setFormOpen] = useState(false)
+
+  // 远端同步（v0.5 M2③）：挂载即拉取 + 15s 轮询，回执变化自动进通知中心
+  useEffect(() => {
+    void refresh()
+    const timer = window.setInterval(() => void refresh(), 15000)
+    return () => window.clearInterval(timer)
+  }, [refresh])
 
   const visible = useMemo(() => (role ? flowsForRole(flows, role) : []), [flows, role])
   const canIssue = role === 'bureau' || role === 'schoolAdmin'
@@ -67,6 +83,13 @@ export default function TaskFlowBoard() {
               {pendingCount} 待处理
             </span>
           )}
+          <span
+            className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium', SYNC_STYLE[syncState])}
+            title="任务链跨端同步状态（v0.5 M2③）"
+          >
+            <RefreshCw size={9} className={cn(syncState === 'syncing' && 'animate-spin')} />
+            {t(`flow.sync.${syncState}` as const)}
+          </span>
         </div>
         {canIssue && (
           <button

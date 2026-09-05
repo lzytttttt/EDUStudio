@@ -1,19 +1,22 @@
 import type { RoleId, ToolDef, ToolResult } from '../../types'
 import {
-  CLASS_LEARNING,
-  REGION_METRICS,
-  SCHOOL_ALERTS,
-  SCHOOL_TREND,
   SCHOOLS,
   TEACHERS,
   POLICIES,
-  findClassLearning,
 } from '../../../data/seed'
+import { getSourceProvider } from '../../sources'
 import { useQuizStore, type QuizItem } from '../../../stores/quizStore'
+import {
+  searchCurriculum,
+  searchResources,
+  listDocuments,
+  quoteDocument,
+  mergeDocuments,
+} from './knowledge'
 
 const ALL: RoleId[] = ['bureau', 'schoolAdmin', 'teacher']
 
-/** 学情查询：按班级关键词返回成绩/作业/专注度聚合 */
+/** 学情查询：按班级关键词返回成绩/作业/专注度聚合（v0.5 M1①：经 SourceProvider 取数，导入数据优先） */
 export const queryClassLearning: ToolDef = {
   name: 'queryClassLearning',
   label: '学情查询',
@@ -26,16 +29,20 @@ export const queryClassLearning: ToolDef = {
   },
   async run(args) {
     const kw = String(args.className ?? args.keyword ?? '高一（3）班')
-    const c = findClassLearning(kw) ?? CLASS_LEARNING[0]
+    const { profile: c, meta } = await getSourceProvider().getClassProfile(kw)
+    if (!c) {
+      return { summary: `未找到班级「${kw}」的学情数据`, payload: null }
+    }
+    const src = meta.kind === 'csv' ? '（本地导入数据）' : meta.degraded ? '（演示数据）' : ''
     const result: ToolResult = {
-      summary: `${c.className}：均分 ${c.scores.map((s) => `${s.subject} ${s.avg}`).join(' / ')}，作业完成率 ${c.homeworkCompletion}%，专注度 ${c.attentionIndex}`,
+      summary: `${c.className}${src}：均分 ${c.scores.map((s) => `${s.subject} ${s.avg}`).join(' / ')}，作业完成率 ${c.homeworkCompletion}%，专注度 ${c.attentionIndex}`,
       payload: c,
     }
     return result
   },
 }
 
-/** 校情统计：学校规模、周趋势、结构化预警、教师队伍（v0.3 专项 ①） */
+/** 校情统计：学校规模、周趋势、结构化预警、教师队伍（v0.3 专项 ①；v0.5 经 SourceProvider 取数） */
 export const querySchoolStats: ToolDef = {
   name: 'querySchoolStats',
   label: '校情统计',
@@ -44,14 +51,16 @@ export const querySchoolStats: ToolDef = {
   parameters: { type: 'object', properties: {} },
   async run() {
     const s = SCHOOLS[0]
+    const { trend, alerts, meta } = await getSourceProvider().getSchoolOverview()
+    const src = meta.degraded ? '（演示数据）' : ''
     return {
-      summary: `${s.name}（${s.level}）：${s.classes} 个教学班，教师 ${s.teachers} 人，学生 ${s.students} 人；当前预警 ${SCHOOL_ALERTS.length} 项（1 高 / 1 中 / 1 低）`,
-      payload: { school: s, trend: SCHOOL_TREND, alerts: SCHOOL_ALERTS, teachers: TEACHERS },
+      summary: `${s.name}（${s.level}）${src}：${s.classes} 个教学班，教师 ${s.teachers} 人，学生 ${s.students} 人；当前预警 ${alerts.length} 项`,
+      payload: { school: s, trend, alerts, teachers: TEACHERS },
     }
   },
 }
 
-/** 区域数据：教育局区域指标 */
+/** 区域数据：教育局区域指标（v0.5 经 SourceProvider 取数，远端优先） */
 export const queryRegionData: ToolDef = {
   name: 'queryRegionData',
   label: '区域数据',
@@ -59,9 +68,11 @@ export const queryRegionData: ToolDef = {
   roles: ['bureau'],
   parameters: { type: 'object', properties: {} },
   async run() {
+    const { metrics, meta } = await getSourceProvider().getRegionMetrics()
+    const src = meta.degraded ? '（演示数据）' : ''
     return {
-      summary: `区域综合指数 ${REGION_METRICS[0].value}（环比 +${REGION_METRICS[0].trend}%），AI 分析覆盖率 ${REGION_METRICS[1].value}`,
-      payload: { metrics: REGION_METRICS, schools: SCHOOLS },
+      summary: `区域综合指数 ${metrics[0].value}（环比 +${metrics[0].trend}%），AI 分析覆盖率 ${metrics[1]?.value ?? '-'}${src}`,
+      payload: { metrics, schools: SCHOOLS },
     }
   },
 }
@@ -250,8 +261,23 @@ export const TOOLS: ToolDef[] = [
   genQuiz,
   draftNotice,
   analyzeClass,
+  // v0.5 M3①：知识检索 + 跨文档工具
+  searchCurriculum,
+  searchResources,
+  listDocuments,
+  quoteDocument,
+  mergeDocuments,
 ]
 
-export const TEACHER_TOOLS = ['queryClassLearning', 'genLessonPlan', 'genQuiz', 'analyzeClass']
-export const SCHOOL_ADMIN_TOOLS = ['queryClassLearning', 'querySchoolStats', 'analyzeClass', 'draftNotice', 'searchPolicy']
-export const BUREAU_TOOLS = ['queryRegionData', 'searchPolicy', 'draftNotice']
+export const TEACHER_TOOLS = [
+  'queryClassLearning', 'genLessonPlan', 'genQuiz', 'analyzeClass',
+  'searchCurriculum', 'searchResources', 'listDocuments', 'quoteDocument', 'mergeDocuments',
+]
+export const SCHOOL_ADMIN_TOOLS = [
+  'queryClassLearning', 'querySchoolStats', 'analyzeClass', 'draftNotice', 'searchPolicy',
+  'searchCurriculum', 'searchResources', 'listDocuments', 'quoteDocument', 'mergeDocuments',
+]
+export const BUREAU_TOOLS = [
+  'queryRegionData', 'searchPolicy', 'draftNotice',
+  'searchCurriculum', 'searchResources', 'listDocuments', 'quoteDocument', 'mergeDocuments',
+]

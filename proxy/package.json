@@ -1,0 +1,17 @@
+{
+  "name": "edustudio-proxy",
+  "version": "0.5.0",
+  "private": true,
+  "type": "module",
+  "description": "EDUStudio 轻后端代理（key 托管 / 限额 / 审计 / 分享短链 / 任务链 / 错误上报）",
+  "main": "server.mjs",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}

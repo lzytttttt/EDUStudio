@@ -1,0 +1,24 @@
+# EDUStudio 轻后端一键部署（v0.5 M4④）
+#
+# 用法：
+#   DEEPSEEK_KEY=sk-xxx docker compose up -d
+#   （PowerShell：$env:DEEPSEEK_KEY='sk-xxx'; docker compose up -d）
+#
+# 前端直连：设置页 → 代理地址填 http://<主机>:8787，模式选「代理」。
+services:
+  proxy:
+    build: ./proxy
+    container_name: edustudio-proxy
+    ports:
+      - '8787:8787'
+    environment:
+      - DEEPSEEK_KEY=${DEEPSEEK_KEY}
+      - AUDIT_DIR=/data/logs
+      - SHARE_DIR=/data
+      - TELEMETRY_SAMPLE=1
+    volumes:
+      - edustudio-data:/data
+    restart: unless-stopped
+
+volumes:
+  edustudio-data:

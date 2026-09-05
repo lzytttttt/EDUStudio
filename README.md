@@ -13,6 +13,16 @@ npm run build    # 类型检查 + 生产构建
 npm run preview  # 预览生产构建
 ```
 
+## 部署（Docker，v0.5）
+
+轻后端代理（key 托管 / 限额 / 审计 / 分享短链 / 任务链 / 错误上报）可一条命令拉起：
+
+```bash
+DEEPSEEK_KEY=sk-xxx docker compose up -d        # PowerShell：$env:DEEPSEEK_KEY='sk-xxx'; docker compose up -d
+```
+
+前端设置页 → 模式选「代理」，地址填 `http://<主机>:8787/v1`；审计日志与分享/任务链数据持久化在 `edustudio-data` 卷。
+
 ## 三屏流程
 
 1. **登录页** — 选择身份（教育局 / 学校管理 / 教师），角色决定 system prompt、简报剧本与工具集
@@ -45,6 +55,10 @@ src/harness/
 Raw（`src/data/seed.ts` 种子数据）→ Aggregated（工具聚合）→ Agent Output（trace / 文档）→ Presentation（渲染）。
 会话、收藏、文档、版本历史、偏好画像、登录态均存 LocalStorage（`edustudio:` 前缀），设置弹层可一键清空。
 
+v0.5 起数据经 `harness/sources/`（SourceProvider）统一取数：**CSV 导入 > 远端数据平台 > 静态 seed**
+三级优先，远端失败自动降级并在 UI 标注「演示数据」；简报/看板/Agent 工具均标注数据来源与新鲜度（超 7 天提示刷新）。
+教师可在简报页导入班级成绩 CSV（宽表/长表通吃，列名模糊匹配 + 预览确认），简报首卡即基于真实数据生成。
+
 ## 技术栈
 
 Vite 5 · React 18 · TypeScript 5 · Tailwind CSS 3 · Zustand · lucide-react / react-icons · recharts · Vitest
@@ -52,16 +66,22 @@ Vite 5 · React 18 · TypeScript 5 · Tailwind CSS 3 · Zustand · lucide-react 
 
 ## 响应式
 
-桌面三栏；<1280px 右栏折叠为抽屉；<768px 单栏 + 顶栏抽屉导航，简报滑卡保持完整触控体验。
+桌面三栏；<1280px 右栏折叠为抽屉；<768px 单栏 + 底部三标签导航（列表/会话/文档）+ 简报滑卡完整触控体验（惯性回弹）。
 v0.3 起支持阅读区字号四档调节（超大档面向高龄用户：20px 阅读字号并自动隐藏次要信息）、iOS 安全区避让与输入防缩放。
 
 ## 质量保障
 
-`npm test` 运行 Vitest 单测（39 例，覆盖 SSE 解析 / 增量归一化 / Markdown 渲染 / 工具注册 / 剧本与模板匹配 / 存储往返 / 偏好注入 / 导出工具）；
-`npm run build` 前置执行单测 + tsc 类型检查，双闸门保障交付质量。
+`npm test` 运行 Vitest 单测（82 例，覆盖 SSE 解析 / 增量归一化 / Markdown 渲染 / 工具注册 / 剧本与模板匹配 / 存储往返 / 偏好注入 / 导出工具 / CSV 成绩解析 / 数据源降级 / 上下文压缩）；
+`npm run build` 前置执行单测 + tsc 类型检查，双闸门保障交付质量；Playwright 3 条关键路径 E2E + 4 张基线视觉回归（阈值 5%，首月观察期）+ 包体预算门禁 + Lighthouse CI（性能 ≥ 0.85）。
 
 ---
 
+v0.5 · 真实数据接入与协同深化（SourceProvider 数据源 / CSV 成绩导入 / 分享短链与批注回流 / 任务链跨端同步 / 通知中心 / 课标与跨文档 Agent 工具 / 上下文压缩与 token 预算 / 视觉回归与 Lighthouse / Docker 部署 / Key 生命周期与导出水印）
+v0.4 · 分享协作 + 任务流看板 + e2e 测试 + 数据提供/密钥盒 · 架构模式参考 EduOS-95（仅借鉴模式，未复用代码）
+
+---
+
+v0.5 · 真实数据接入（SourceProvider 数据源抽象 / CSV 成绩导入 / 看板真实指标 / 数据新鲜度标注）
 v0.4 · 分享协作 + 任务流看板 + e2e 测试 + 数据提供/密钥盒 · 架构模式参考 EduOS-95（仅借鉴模式，未复用代码）
 
 ## 许可协议

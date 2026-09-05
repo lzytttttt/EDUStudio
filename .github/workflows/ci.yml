@@ -46,3 +46,42 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
+
+  visual:
+    name: 视觉回归（首月观察期，允许失败）
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: 安装 Chromium
+        run: npx playwright install --with-deps chromium
+      - name: 运行视觉回归
+        run: npx playwright test e2e/visual.spec.ts
+      - name: 上传差异截图
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: visual-diff
+          path: test-results/
+          retention-days: 7
+
+  lighthouse:
+    name: Lighthouse 性能（首月观察期，允许失败）
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: 构建
+        run: npx vite build
+      - name: Lighthouse CI（性能 ≥ 0.85）
+        run: npx --yes @lhci/cli@0.14.x autorun

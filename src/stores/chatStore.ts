@@ -1,8 +1,9 @@
 import { create } from 'zustand'
-import type { AgentTraceEvent, ChatMessage, RoleId } from '../harness/types'
+import { LLMError, type AgentTraceEvent, type ChatMessage, type RoleId } from '../harness/types'
 import { getProviders } from '../harness/providerRegistry'
 import { useAuthStore } from './authStore'
 import { useArtifactStore } from './artifactStore'
+import { useSettingsStore } from './settingsStore'
 import { loadJSON, saveJSON } from '../lib/storage'
 import { typewriter } from '../lib/typewriter'
 
@@ -243,9 +244,14 @@ async function runAgentTask(
     await queue
   } catch (err) {
     console.error('[chat] runTask failed:', err)
+    // v0.5 M5②：Key 失效（401/403）自动清空，避免反复失败；提示用户重新填写
+    if (err instanceof LLMError && (err.status === 401 || err.status === 403)) {
+      useSettingsStore.getState().update({ apiKey: '' })
+    }
     // 连续失败达上限（FallbackAgent 抛出）：记录错误并给出可感知的反馈（重试按钮见 ChatPanel）
     const cur = get().sessions.find((s) => s.id === sessionId)?.entries.find((x) => x.id === entryId)
-    const msg = `任务执行失败：${((err as Error)?.message ?? '未知错误').slice(0, 120)}。请检查设置页的模型配置后重试，或切换 Mock 模式。`
+    const keyCleared = err instanceof LLMError && (err.status === 401 || err.status === 403)
+    const msg = `任务执行失败：${((err as Error)?.message ?? '未知错误').slice(0, 120)}。${keyCleared ? '检测到 Key 无效（401），已自动清空，请重新填写。' : '请检查设置页的模型配置后重试，或切换 Mock 模式。'}`
     if (!cur?.content) {
       patchEntry(sessionId, entryId, { content: msg, error: msg })
     } else {

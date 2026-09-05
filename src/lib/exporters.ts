@@ -1,19 +1,28 @@
 /**
- * 文档导出（v0.3 专项 ② → v0.4 M2④ 增强）
+ * 文档导出（v0.3 专项 ② → v0.4 M2④ 增强 → v0.5 M5③ 水印）
  * - md：直接下载 Markdown 源文件
  * - docx：以 Word 兼容 HTML（MHTML 简化版）生成 .doc 文件，Word/WPS 可直接打开；
  *   v0.4 升级：封面（标题/作者/日期）、页眉行、精修样式、可选附带评审批注
  * - pdf：调用浏览器打印（另存为 PDF），print CSS 精修（A4 页边距、分页保护）
+ * - v0.5 M5③：可选「机构 · 人员 · 日期」页脚水印（设置中开启后默认生效）
  */
 import type { ShareAnnotation } from './share'
+import { useSettingsStore } from '../stores/settingsStore'
 
 export type ExportFormat = 'md' | 'docx' | 'pdf'
+
+export interface ExportWatermark {
+  org: string
+  person: string
+}
 
 export interface ExportOptions {
   /** 封面署名（作者/单位） */
   author?: string
   /** 评审批注：非空时在文末附加「评审批注」章节（v0.4 M2②） */
   annotations?: ShareAnnotation[]
+  /** 页脚水印（v0.5 M5③）：不传时读取设置中的水印开关 */
+  watermark?: ExportWatermark
 }
 
 /** 文件名清洗：去非法字符，限长 60 */
@@ -141,6 +150,12 @@ export function markdownToWordHtml(md: string, title: string, options: ExportOpt
   // 页眉行（Word 兼容 HTML 的 mso 页眉易失效，采用文档首行页眉带，打印同样可见）
   const headerBand = `<div class="header-band"><span>${esc(title)}</span><span>EDUStudio 教育智能工作台</span></div>`
 
+  // 页脚水印（v0.5 M5③）：机构 · 人员 · 日期
+  const wm = options.watermark
+  const watermarkFooter = wm
+    ? `<div class="wm-footer">水印：${esc(wm.org || '—')} · ${esc(wm.person || '—')} · ${fmtDate()}</div>`
+    : ''
+
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(title)}</title>
 <style>
 body{font-family:"Microsoft YaHei",SimSun,sans-serif;font-size:12pt;line-height:1.8;color:#26221d}
@@ -154,21 +169,27 @@ table td{border:1px solid #999}
 blockquote.anno-quote{margin:4pt 0;padding:4pt 10pt;border-left:3px solid #4f46e5;background:#eef2ff;color:#6b6660;font-size:10.5pt}
 .anno-item{margin:10pt 0;padding:8pt 12pt;border:1px solid #ece8e2;border-radius:6pt;background:#fafaf8}
 .anno-meta{font-size:9.5pt;color:#a8a39d;margin:0 0 4pt}
+.wm-footer{margin-top:18pt;padding-top:8pt;border-top:1px solid #ece8e2;font-size:9pt;color:#a8a39d;text-align:center}
 @page{size:A4;margin:2cm 1.8cm}
-@media print{.header-band{position:fixed;top:0}}
+@media print{.header-band{position:fixed;top:0}.wm-footer{position:fixed;bottom:0;left:0;right:0;background:#fff}}
 </style>
-</head><body>${headerBand}\n${cover}\n${out.join('\n')}\n${annotationsHtml(options.annotations ?? [])}</body></html>`
+</head><body>${headerBand}\n${cover}\n${out.join('\n')}\n${annotationsHtml(options.annotations ?? [])}\n${watermarkFooter}</body></html>`
 }
 
-/** 导出文档：md 直接下载；docx 生成 Word 兼容文件；pdf 走打印（可附带批注） */
+/** 导出文档：md 直接下载；docx 生成 Word 兼容文件；pdf 走打印（可附带批注/水印） */
 export function exportDoc(md: string, title: string, format: ExportFormat, options: ExportOptions = {}): void {
+  // 水印（v0.5 M5③）：调用方未显式指定时，读取设置中的水印开关
+  const wmSettings = useSettingsStore.getState().watermark
+  const watermark: ExportWatermark | undefined =
+    options.watermark ?? (wmSettings.enabled ? { org: wmSettings.org, person: wmSettings.person } : undefined)
+  const opts: ExportOptions = { ...options, watermark }
   const filename = sanitizeFilename(title)
   if (format === 'md') {
     downloadBlob(new Blob([md], { type: 'text/markdown;charset=utf-8' }), `${filename}.md`)
     return
   }
   if (format === 'docx') {
-    const html = markdownToWordHtml(md, filename, options)
+    const html = markdownToWordHtml(md, filename, opts)
     // Word 兼容：以 .doc 扩展名携带 HTML 内容，Word/WPS 打开时自动按文档渲染
     downloadBlob(new Blob(['\ufeff', html], { type: 'application/msword;charset=utf-8' }), `${filename}.doc`)
     return
@@ -176,7 +197,7 @@ export function exportDoc(md: string, title: string, format: ExportFormat, optio
   // pdf：打印当前文档（用户在打印对话框中选择「另存为 PDF」）
   const w = window.open('', '_blank', 'width=820,height=900')
   if (!w) return
-  w.document.write(markdownToWordHtml(md, filename, options))
+  w.document.write(markdownToWordHtml(md, filename, opts))
   w.document.close()
   w.focus()
   w.print()

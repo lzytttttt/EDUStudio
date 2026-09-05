@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { X, Eye, EyeOff, RotateCcw, Trash2, User, Type } from 'lucide-react'
+import { X, Eye, EyeOff, RotateCcw, Trash2, User, Type, Database, ShieldCheck, Stamp } from 'lucide-react'
 import { useSettingsStore, maskKey, clampPref, PREF_MAX_LEN, type FontSize } from '../stores/settingsStore'
+import { checkApiKey, type KeyCheckResult } from '../lib/keyCheck'
 import { cn } from '../lib/cn'
 import { useDialogA11y } from '../lib/useDialogA11y'
 
@@ -22,7 +23,22 @@ export default function SettingsDialog({ onClose }: { onClose: () => void }) {
   const s = useSettingsStore()
   const [showKey, setShowKey] = useState(false)
   const [confirmClear, setConfirmClear] = useState(false)
+  const [keyCheck, setKeyCheck] = useState<KeyCheckResult | null>(null)
+  const [keyChecking, setKeyChecking] = useState(false)
   const dialogRef = useDialogA11y<HTMLDivElement>(true, onClose)
+
+  /** Key 有效性检测（v0.5 M5②）：无效自动清空，避免反复失败 */
+  const runKeyCheck = async () => {
+    setKeyChecking(true)
+    setKeyCheck(null)
+    const base = s.proxyUrl || s.baseUrl
+    const res = await checkApiKey(base, s.apiKey)
+    setKeyChecking(false)
+    setKeyCheck(res)
+    if (!res.ok && s.apiKey && /401|无效/.test(res.message)) {
+      s.update({ apiKey: '' })
+    }
+  }
 
   const pref = s.preferences
 
@@ -154,7 +170,7 @@ export default function SettingsDialog({ onClose }: { onClose: () => void }) {
                     浏览器直连
                   </button>
                   <button
-                    onClick={() => s.update({ proxyUrl: s.proxyUrl || 'http://localhost:8787/api/llm' })}
+                    onClick={() => s.update({ proxyUrl: s.proxyUrl || 'http://localhost:8787/v1' })}
                     className={cn(
                       'rounded-xl border px-3 py-2 text-xs transition-all',
                       s.proxyUrl ? 'border-primary bg-primary-soft text-primary' : 'border-line bg-surface-2 text-ink-soft',
@@ -169,7 +185,7 @@ export default function SettingsDialog({ onClose }: { onClose: () => void }) {
                 <input
                   value={s.proxyUrl || s.baseUrl}
                   onChange={(e) => s.update(s.proxyUrl ? { proxyUrl: e.target.value } : { baseUrl: e.target.value })}
-                  placeholder={s.proxyUrl ? 'http://localhost:8787/api/llm' : 'https://api.deepseek.com/v1'}
+                  placeholder={s.proxyUrl ? 'http://localhost:8787/v1' : 'https://api.deepseek.com/v1'}
                   className="w-full rounded-xl border border-line bg-surface-2 px-3 py-2 text-sm text-ink outline-none transition-colors placeholder:text-ink-mute focus:border-primary"
                 />
               </div>
@@ -202,11 +218,122 @@ export default function SettingsDialog({ onClose }: { onClose: () => void }) {
                     </button>
                   </div>
                   {s.apiKey && <p className="mt-1 text-[11px] text-ink-mute">已保存：{maskKey(s.apiKey)}</p>}
+                  {/* Key 有效性检测（v0.5 M5②） */}
+                  <div className="mt-2 flex items-center gap-2">
+                    <button
+                      onClick={() => void runKeyCheck()}
+                      disabled={keyChecking}
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-surface-2 px-3 py-1.5 text-xs text-ink-soft transition-colors hover:border-primary/40 hover:text-primary disabled:opacity-40"
+                    >
+                      <ShieldCheck size={12} className={cn(keyChecking && 'animate-pulse')} />
+                      {keyChecking ? '检测中…' : '检测 Key 有效性'}
+                    </button>
+                    {keyCheck && (
+                      <span className={cn('text-[11px]', keyCheck.ok ? 'text-mint' : 'text-coral')}>
+                        {keyCheck.message}
+                        {!keyCheck.ok && s.apiKey && /401|无效/.test(keyCheck.message) && '（已自动清空）'}
+                      </span>
+                    )}
+                  </div>
                 </div>
               )}
+              {/* 单任务 token 预算（v0.5 M3③） */}
+              <div>
+                <label className="mb-1 block text-xs font-medium text-ink-soft">单任务 token 预算</label>
+                <input
+                  type="number"
+                  min={0}
+                  step={1000}
+                  value={s.tokenBudget}
+                  onChange={(e) => s.update({ tokenBudget: Math.max(0, Number(e.target.value) || 0) })}
+                  className="w-full rounded-xl border border-line bg-surface-2 px-3 py-2 text-sm text-ink outline-none transition-colors focus:border-primary"
+                />
+                <p className="mt-1 text-[11px] text-ink-mute">超出后 Agent 提前收尾以保证成本可控；0 表示不限制。</p>
+              </div>
               <p className="rounded-xl bg-amber-50 px-3 py-2 text-[11px] leading-relaxed text-amber-700">
                 ⚠️ Key 仅存本机浏览器。生产环境请使用轻后端代理（proxy/ 目录），避免 Key 暴露。
               </p>
+            </div>
+          )}
+        </section>
+
+        {/* ── 数据来源（v0.5 M1①） ── */}
+        <section className="mb-6">
+          <div className="mb-3 flex items-center gap-2">
+            <Database size={14} className="text-primary" />
+            <h3 className="text-sm font-semibold text-ink">数据来源</h3>
+          </div>
+          <p className="mb-3 text-xs leading-relaxed text-ink-mute">
+            简报、看板与 Agent 工具的取数入口。演示模式离线可用；远端模式请求失败会自动回落演示数据并标注。导入的班级成绩 CSV 始终最优先。
+          </p>
+          <div className="mb-3 grid grid-cols-2 gap-2">
+            <button
+              onClick={() => s.update({ dataSource: 'seed' })}
+              className={cn(
+                'rounded-2xl border px-3 py-3 text-left transition-all',
+                s.dataSource === 'seed' ? 'border-primary bg-primary-soft' : 'border-line bg-surface-2 hover:border-primary/40',
+              )}
+            >
+              <p className={cn('text-sm font-medium', s.dataSource === 'seed' ? 'text-primary' : 'text-ink')}>演示数据</p>
+              <p className="mt-0.5 text-[11px] text-ink-mute">内置数据 + CSV 导入，离线可用</p>
+            </button>
+            <button
+              onClick={() => s.update({ dataSource: 'remote' })}
+              className={cn(
+                'rounded-2xl border px-3 py-3 text-left transition-all',
+                s.dataSource === 'remote' ? 'border-primary bg-primary-soft' : 'border-line bg-surface-2 hover:border-primary/40',
+              )}
+            >
+              <p className={cn('text-sm font-medium', s.dataSource === 'remote' ? 'text-primary' : 'text-ink')}>远端数据平台</p>
+              <p className="mt-0.5 text-[11px] text-ink-mute">经轻后端拉取，失败自动降级</p>
+            </button>
+          </div>
+          {s.dataSource === 'remote' && (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-ink-soft">数据服务地址</label>
+              <input
+                value={s.sourceUrl}
+                onChange={(e) => s.update({ sourceUrl: e.target.value })}
+                placeholder="http://localhost:8787/api/sources"
+                className="w-full rounded-xl border border-line bg-surface-2 px-3 py-2 text-sm text-ink outline-none transition-colors placeholder:text-ink-mute focus:border-primary"
+              />
+              <p className="mt-1 text-[11px] text-ink-mute">轻后端需提供 /classes、/region、/school 三个只读端点（见 proxy/）。</p>
+            </div>
+          )}
+        </section>
+
+        {/* ── 导出水印（v0.5 M5③） ── */}
+        <section className="mb-6">
+          <div className="mb-3 flex items-center gap-2">
+            <Stamp size={14} className="text-primary" />
+            <h3 className="text-sm font-semibold text-ink">导出水印</h3>
+          </div>
+          <p className="mb-3 text-xs leading-relaxed text-ink-mute">
+            开启后，导出 Word/PDF 时在页脚附加「机构 · 人员 · 日期」水印，便于材料溯源。
+          </p>
+          <label className="mb-3 flex cursor-pointer items-center gap-2 text-xs text-ink-soft">
+            <input
+              type="checkbox"
+              checked={s.watermark.enabled}
+              onChange={(e) => s.setWatermark({ enabled: e.target.checked })}
+              className="h-4 w-4 accent-[var(--color-primary)]"
+            />
+            启用水印
+          </label>
+          {s.watermark.enabled && (
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                value={s.watermark.org}
+                onChange={(e) => s.setWatermark({ org: e.target.value })}
+                placeholder="机构名称，如：实验一中"
+                className="w-full rounded-xl border border-line bg-surface-2 px-3 py-2 text-sm text-ink outline-none transition-colors placeholder:text-ink-mute focus:border-primary"
+              />
+              <input
+                value={s.watermark.person}
+                onChange={(e) => s.setWatermark({ person: e.target.value })}
+                placeholder="人员姓名，如：张老师"
+                className="w-full rounded-xl border border-line bg-surface-2 px-3 py-2 text-sm text-ink outline-none transition-colors placeholder:text-ink-mute focus:border-primary"
+              />
             </div>
           )}
         </section>

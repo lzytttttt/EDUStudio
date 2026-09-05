@@ -22,6 +22,8 @@ const TOOL_FAIL_LIMIT = 2
 const KEEP_FULL_TOOL_ROUNDS = 2
 /** 截断后的单条工具结果上限（字符） */
 const TRIMMED_TOOL_CHARS = 240
+/** 上下文字符预算（v0.5 M3②）：超过即把更早的工具轮次整体折叠为摘要 */
+const CONTEXT_CHAR_BUDGET = 12000
 
 interface PendingToolCall {
   id: string
@@ -83,9 +85,20 @@ export class Orchestrator implements AgentProvider {
     const { role, signal } = input
     const tools = this.toolsForRole(role)
     let consecutiveToolFails = 0
+    // v0.5 M3③：单任务 token 预算护栏（0 = 不限制）
+    const budgetTokens = useSettingsStore.getState().tokenBudget
+    let usedTokens = 0
 
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
       const { text, toolCalls, finishReason } = await this.collectRound(messages, tools, ctx.emit, signal)
+
+      // v0.5 M3③：估算本轮消耗（模型输出 + 工具参数；CJK ≈ 2 字符/token），超预算提前收尾
+      usedTokens += Math.round((text.length + toolCalls.reduce((n, tc) => n + tc.args.length, 0)) / 2)
+      if (budgetTokens > 0 && usedTokens > budgetTokens) {
+        ctx.emit({ kind: 'reflect', text: `已达到单任务 token 预算（约 ${usedTokens}/${budgetTokens}），提前收尾以保证成本可控。` })
+        ctx.emit({ kind: 'done', text: '任务已按预算收尾。如需继续，可在设置中调高单任务 token 预算。' })
+        return
+      }
 
       if (toolCalls.length > 0) {
         // assistant 消息（含 tool_calls）入栈
@@ -122,6 +135,8 @@ export class Orchestrator implements AgentProvider {
         }
         // v0.4 风险对策：多轮循环的上下文裁剪（只保留最近 2 轮工具结果全文）
         trimOldToolResults(messages)
+        // v0.5 M3②：字符预算超限时，把更早轮次整体折叠为摘要
+        compressToolRounds(messages, CONTEXT_CHAR_BUDGET)
         continue // 工具结果回填后继续推理
       }
 
@@ -358,5 +373,65 @@ export function trimOldToolResults(messages: ChatMessage[]): void {
         m.content = `${m.content.slice(0, TRIMMED_TOOL_CHARS)}…（早期轮次结果已截断）`
       }
     }
+  }
+}
+
+/** 估算上下文占用（字符数；CJK 场景 ≈ 2 字符/token） */
+export function estimateContextChars(messages: ChatMessage[]): number {
+  return messages.reduce(
+    (n, m) =>
+      n + m.content.length + (m.toolCalls ? m.toolCalls.reduce((x, c) => x + c.name.length + c.arguments.length, 0) : 0),
+    0,
+  )
+}
+
+/**
+ * 上下文压缩（v0.5 M3②）：在 trimOldToolResults 之上，当总字符量仍超预算时，
+ * 把最早的工具轮次（assistant(toolCalls) + tool 消息组）整体折叠为一条 assistant 摘要，
+ * 成对移除保证协议合法；保留最近 KEEP_FULL_TOOL_ROUNDS 轮原文不折叠。
+ */
+export function compressToolRounds(messages: ChatMessage[], budget: number): void {
+  let guard = 0
+  while (estimateContextChars(messages) > budget && guard++ < 20) {
+    const roundStarts: number[] = []
+    for (let i = 0; i < messages.length; i++) {
+      const m = messages[i]
+      const prev = messages[i - 1]
+      if (m.role === 'tool' && prev?.role !== 'tool') roundStarts.push(i)
+    }
+    const cutoff = roundStarts.length - KEEP_FULL_TOOL_ROUNDS
+    if (cutoff <= 0) break
+    const start = roundStarts[0]
+    // 向前找该轮对应的 assistant(toolCalls)
+    let assistantIdx = -1
+    for (let i = start - 1; i >= 0; i--) {
+      if (messages[i].role === 'assistant' && messages[i].toolCalls?.length) {
+        assistantIdx = i
+        break
+      }
+      if (messages[i].role !== 'tool') break
+    }
+    // 该轮 tool 消息组结束位置
+    let end = start
+    while (end < messages.length && messages[end].role === 'tool') end++
+    const from = assistantIdx >= 0 ? assistantIdx : start
+    const folded = messages.slice(from, end)
+    const digestParts: string[] = []
+    for (const m of folded) {
+      if (m.role === 'assistant' && m.toolCalls) {
+        for (const c of m.toolCalls) digestParts.push(`调用 ${c.name}`)
+      } else if (m.role === 'tool') {
+        let summary = ''
+        try {
+          const j = JSON.parse(m.content) as { summary?: string; error?: string }
+          summary = j.summary ?? j.error ?? ''
+        } catch {
+          summary = m.content
+        }
+        digestParts.push(`结果：${summary.slice(0, 160)}`)
+      }
+    }
+    const digest: ChatMessage = { role: 'assistant', content: `【早期工具轮次摘要】\n${digestParts.join('\n')}` }
+    messages.splice(from, end - from, digest)
   }
 }

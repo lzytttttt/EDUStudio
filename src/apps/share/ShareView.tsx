@@ -7,6 +7,7 @@ import { exportDoc } from '../../lib/exporters'
 import { copyText } from '../../lib/clipboard'
 import {
   buildShareUrl, parseShareUrl, snapshotKey, newAnnotationId,
+  decodeShortPayload, pushShareAnnotations,
   type ShareAnnotation, type ShareSnapshot,
 } from '../../lib/share'
 import { loadJSON, saveJSON } from '../../lib/storage'
@@ -44,6 +45,9 @@ export default function ShareView() {
   const [annotations, setAnnotations] = useState<ShareAnnotation[]>([])
   const [linkState, setLinkState] = useState<'idle' | 'ok' | 'fail'>('idle')
   const [annoLinkState, setAnnoLinkState] = useState<'idle' | 'ok' | 'fail' | 'too-long'>('idle')
+  // 短链模式（v0.5 M2②）：批注可回传到轻后端，作者端刷新即可看到
+  const [serverRef, setServerRef] = useState<{ id: string; apiBase: string } | null>(null)
+  const [syncState, setSyncState] = useState<'local' | 'syncing' | 'synced' | 'fail'>('local')
 
   // 批注表单
   const [formOpen, setFormOpen] = useState(false)
@@ -67,6 +71,10 @@ export default function ShareView() {
       setSnapshot(snap)
       const key = snapshotKey(snap)
       setAnnotations(loadJSON<ShareAnnotation[]>(annoStorageKey(key), snap.annotations ?? []))
+      // 短链模式：记录服务端登记，批注可回传给作者（v0.5 M2②）
+      if (location.hash.startsWith('#s=')) {
+        setServerRef(decodeShortPayload(location.hash.slice('#s='.length)))
+      }
       setStatus('ready')
     })
     return () => {
@@ -132,8 +140,17 @@ export default function ShareView() {
       text,
       createdAt: Date.now(),
     }
-    persistAnnotations([...annotations, anno])
+    const next = [...annotations, anno]
+    persistAnnotations(next)
     setFormOpen(false)
+    // 短链模式：批注回传服务端，作者端刷新即可看到（v0.5 M2②）；失败不丢数据（本地已存）
+    if (serverRef) {
+      setSyncState('syncing')
+      void pushShareAnnotations(serverRef.apiBase, serverRef.id, next).then((ok) => {
+        setSyncState(ok ? 'synced' : 'fail')
+        window.setTimeout(() => setSyncState('local'), 3000)
+      })
+    }
   }
 
   /* 复制原始分享链接 */
@@ -256,6 +273,20 @@ export default function ShareView() {
                 <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-medium text-ink-mute">
                   {annotations.length}
                 </span>
+                {serverRef && syncState !== 'local' && (
+                  <span
+                    className={cn(
+                      'rounded-full px-2 py-0.5 text-[10px] font-medium',
+                      syncState === 'synced'
+                        ? 'bg-mint-soft text-mint'
+                        : syncState === 'fail'
+                          ? 'bg-coral-soft text-coral'
+                          : 'bg-surface-2 text-ink-mute',
+                    )}
+                  >
+                    {syncState === 'synced' ? '已同步给作者' : syncState === 'fail' ? '同步失败（本地已保存）' : '同步中…'}
+                  </span>
+                )}
               </h2>
               {annotations.length > 0 && (
                 <button

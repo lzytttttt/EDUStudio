@@ -1,0 +1,15 @@
+# Lighthouse CI 配置（v0.5 M4①）
+# 首月观察期：性能 < 0.85 记为失败，但 CI job 允许失败（continue-on-error），用于收集趋势。
+ci:
+  collect:
+    startServerCommand: npx vite preview --port 4173 --strictPort
+    startServerReadyPattern: Local
+    url:
+      - http://localhost:4173/
+    numberOfRuns: 1
+  assert:
+    assertions:
+      categories:performance: ['error', { minScore: 0.85 }]
+  upload:
+    target: filesystem
+    outputDir: lighthouseci
