@@ -41,3 +41,6 @@ proxy-data/
 
 # Visual regression snapshots (baseline kept in repo; local updates ignored)
 e2e/visual.spec.ts-snapshots/*.png
+
+# CodeBuddy local plans (project data, not for repo)
+.codebuddy/plans/
