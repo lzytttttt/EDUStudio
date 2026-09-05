@@ -3,7 +3,10 @@ import { expect, test, type Page } from '@playwright/test'
 /**
  * v0.5 M4①：视觉回归基线（Mock 模式，离线可跑）。
  * - 首次生成基线：npx playwright test e2e/visual.spec.ts --update-snapshots
- * - 基线随仓库提交；CI 上字体渲染差异可能造成误报（首月观察期，job 允许失败）；
+ * - 基线按平台区分（*-chromium-win32.png / *-chromium-linux.png），随仓库提交；
+ *   CI（Linux）缺 linux 基线时 visual job 会自动生成并上传 linux-baselines 工件，
+ *   下载后放入本目录提交，之后即为真实对比；
+ * - CI 上字体渲染差异可能造成误报（首月观察期，job 允许失败）；
  * - 全局阈值 5%（playwright.config.ts expect.toHaveScreenshot）。
  */
 

@@ -37,8 +37,8 @@ jobs:
       - run: npm ci
       - name: 安装 Chromium
         run: npx playwright install --with-deps chromium
-      - name: 运行 E2E
-        run: npx playwright test
+      - name: 运行 E2E（仅关键路径；视觉回归在独立 visual job）
+        run: npx playwright test e2e/critical-path.spec.ts
       - name: 上传测试报告
         uses: actions/upload-artifact@v4
         if: failure()
@@ -62,6 +62,16 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: 运行视觉回归
         run: npx playwright test e2e/visual.spec.ts
+      - name: 生成 Linux 基线（--update-snapshots，下载工件后提交回仓库即转真实对比）
+        if: failure()
+        run: npx playwright test e2e/visual.spec.ts --update-snapshots
+      - name: 上传 Linux 基线
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-baselines
+          path: e2e/visual.spec.ts-snapshots/*-linux.png
+          retention-days: 30
       - name: 上传差异截图
         uses: actions/upload-artifact@v4
         if: failure()
