@@ -14,7 +14,9 @@ const BUDGET = {
   // vendor 拆分与图表库引入重校，属存量潜伏超限；按基线 + v0.6 增量（约 7KB）+ 余量校准为 250KB
   // v0.8 校准：v0.7 简报交互/落章/专注模式 + v0.8 数据上下文层与 LLM 技能提炼（合计约 +9KB 业务代码，
   // 无新依赖，recharts 懒加载 chunk 不变），按实测 258.6KB + 余量校准为 260KB
-  totalJsKB: 260, // 全部 JS gzip 上限
+  // v0.8.4 校准：v0.8.3 follow-up 打磨（+2.9KB，交付时未随重校，存量潜伏超限）+ v0.8.4 简报自定义
+  // 重新生成弹窗（+3.2KB 业务代码，无新依赖），按实测 266.1KB + 余量校准为 270KB
+  totalJsKB: 270, // 全部 JS gzip 上限
 }
 
 const dist = 'dist/assets'

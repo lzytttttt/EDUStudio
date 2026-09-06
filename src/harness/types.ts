@@ -99,14 +99,40 @@ export type PayloadPatch =
   | { kind: 'todos'; done: boolean[] }
   | { kind: 'editable'; text: string }
 
+/** 内容风格档位（v0.8.4 重新生成弹窗）：缺省 = 跟随角色 system prompt */
+export type BriefingStyle = 'concise' | 'detailed' | 'data'
+
+/**
+ * 重新生成选项（v0.8.4）：弹窗 → store 持久化 → Provider 消费；未传字段 = 既有默认行为。
+ * 提示词/数量/风格/payload/生成参数仅 API 模式生效；types 过滤 Mock 与 API 共用。
+ */
+export interface BriefingGenOptions {
+  /** 自定义提示词（仅 API 模式生效），≤200 字 */
+  prompt?: string
+  /** 勾选的卡片种类；空/全选 = 不限（Mock 过滤与 API 约束共用） */
+  types?: CardType[]
+  /** 参考资料开关（API 模式注入 prompt 的段落开关，默认全开） */
+  references?: { dataContext: boolean; decisions: boolean; favorites: boolean }
+  /** 卡片数量 3-10；缺省 = 默认 5-7（仅 API 生效） */
+  count?: number
+  /** 内容风格档位；缺省 = 默认（仅 API 生效） */
+  style?: BriefingStyle
+  /** 交互型 payload 要求（API 模式约束允许的 payload 类型，默认全开） */
+  payloads?: { chart: boolean; options: boolean; todos: boolean }
+  /** 单次尝试超时 ms（clamp 6000-30000，默认 12000，仅 API 生效） */
+  timeoutMs?: number
+  /** 最大尝试次数（clamp 1-3，默认 2，仅 API 生效） */
+  maxAttempts?: number
+}
+
 export interface BriefingProvider {
-  /** ctx 可选：Mock 个性化排序 / API 生成上下文；现有调用点零破坏 */
-  getDeck(role: RoleId, ctx?: BriefingGenContext): BriefingCard[]
+  /** ctx 可选：Mock 个性化排序 / API 生成上下文；options 可选：重新生成选项（v0.8.4），现有调用点零破坏 */
+  getDeck(role: RoleId, ctx?: BriefingGenContext, options?: BriefingGenOptions): BriefingCard[]
   /**
    * 可选异步生成（v0.7 API 骨架）：LLM 结构化生成 + 逐卡校验，失败回退 getDeck。
    * Mock 实现无需提供；调用方（briefingStore）存在即优先使用。
    */
-  getDeckAsync?(role: RoleId, ctx?: BriefingGenContext): Promise<BriefingCard[]>
+  getDeckAsync?(role: RoleId, ctx?: BriefingGenContext, options?: BriefingGenOptions): Promise<BriefingCard[]>
 }
 
 /* ---------- Agent 编排 ---------- */

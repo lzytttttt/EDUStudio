@@ -1,4 +1,4 @@
-import type { BriefingCard, BriefingGenContext, BriefingProvider, RoleId } from '../types'
+import type { BriefingCard, BriefingGenContext, BriefingGenOptions, BriefingProvider, RoleId } from '../types'
 import { BRIEFING_DECKS } from '../scripts/briefing'
 
 /** 个性化排序档位：0=收藏 tag 关联（前置） 1=默认 2=跳过 ≥2 次 tag（沉底） */
@@ -32,9 +32,14 @@ export function personalize(deck: BriefingCard[], ctx: BriefingGenContext): Brie
 }
 
 export class MockBriefingProvider implements BriefingProvider {
-  /** 返回角色剧本的浅拷贝，避免调用方直接改动剧本；ctx 存在时做个性化排序 */
-  getDeck(role: RoleId, ctx?: BriefingGenContext): BriefingCard[] {
-    const deck = (BRIEFING_DECKS[role] ?? []).map((c) => ({ ...c }))
+  /**
+   * 返回角色剧本的浅拷贝，避免调用方直接改动剧本；ctx 存在时做个性化排序。
+   * v0.8.4：options.types 非空时按种类过滤静态剧本（空选/全选 = 不过滤，个性化排序保持不变）。
+   */
+  getDeck(role: RoleId, ctx?: BriefingGenContext, options?: BriefingGenOptions): BriefingCard[] {
+    let deck = (BRIEFING_DECKS[role] ?? []).map((c) => ({ ...c }))
+    const types = options?.types
+    if (types && types.length > 0) deck = deck.filter((c) => types.includes(c.type))
     return ctx ? personalize(deck, ctx) : deck
   }
 }

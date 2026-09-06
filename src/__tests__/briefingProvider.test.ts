@@ -1,11 +1,21 @@
 import { describe, expect, it } from 'vitest'
 import { MockBriefingProvider, personalize } from '../harness/briefing/MockBriefingProvider'
-import { ApiBriefingProvider } from '../harness/briefing/ApiBriefingProvider'
+import {
+  ApiBriefingProvider,
+  clampGenAttempts,
+  clampGenCount,
+  clampGenPrompt,
+  clampGenTimeout,
+  composeBriefingUser,
+  composeGenConstraints,
+  GEN_PROMPT_MAX_LEN,
+} from '../harness/briefing/ApiBriefingProvider'
 import { extractJsonArray, validateBriefingCard } from '../harness/briefing/validate'
 import { getBriefingProvider } from '../harness/briefing'
 import type { BriefingCard, BriefingGenContext } from '../harness/types'
 
 /* 简报生成层 v0.7：运行时校验、JSON 提取、Mock 个性化排序、API 骨架失败回退 */
+/* 简报生成层 v0.8.4：重新生成选项——约束注入、参考资料开关、Mock 种类过滤、参数 clamp */
 
 const baseCard = { id: 'ai-1', type: 'insight', title: '标题', body: '正文', confidence: 2 }
 
@@ -105,6 +115,13 @@ describe('ApiBriefingProvider 骨架', () => {
     expect(deck.length).toBeGreaterThan(0)
     expect(deck[0].id).not.toMatch(/^ai-/)
   })
+
+  it('LLM 不可达 → 回退 Mock 时 options 透传（种类过滤仍生效）', async () => {
+    const provider = new ApiBriefingProvider({ baseUrl: 'http://localhost:9/v1', apiKey: 'k', model: 'm' })
+    const deck = await provider.getDeckAsync('teacher', { decisions: {}, favorites: [] }, { types: ['insight'], maxAttempts: 1 })
+    expect(deck.length).toBeGreaterThan(0)
+    expect(deck.every((c) => c.type === 'insight')).toBe(true)
+  })
 })
 
 describe('getBriefingProvider 工厂', () => {
@@ -112,5 +129,90 @@ describe('getBriefingProvider 工厂', () => {
     expect(getBriefingProvider('mock')).toBeInstanceOf(MockBriefingProvider)
     expect(getBriefingProvider('api')).toBeInstanceOf(MockBriefingProvider)
     expect(getBriefingProvider('api', { baseUrl: 'http://x/v1', apiKey: 'k', model: 'm' })).toBeInstanceOf(ApiBriefingProvider)
+  })
+})
+
+describe('composeGenConstraints 生成约束（v0.8.4）', () => {
+  it('缺省 options = 既有默认（5-7 张、类型多样、至少 2 张带 payload）', () => {
+    const c = composeGenConstraints()
+    expect(c).toContain('生成 5-7 张卡片')
+    expect(c).toContain('类型多样')
+    expect(c).toContain('至少 2 张带 payload')
+  })
+
+  it('数量/种类/风格/payload 按 options 注入', () => {
+    const c = composeGenConstraints({
+      count: 4,
+      types: ['insight', 'data'],
+      style: 'concise',
+      payloads: { chart: true, options: false, todos: false },
+    })
+    expect(c).toContain('生成 4 张卡片')
+    expect(c).toContain('卡片类型仅限：insight|data')
+    expect(c).toContain('payload 仅限 chart 类型')
+    expect(c).toContain('简洁扼要')
+  })
+
+  it('全选种类 = 不限；payload 全关 = 纯文本卡；非法种类被忽略', () => {
+    const all = composeGenConstraints({ types: ['insight', 'decision', 'creation', 'todo', 'data', 'question'] })
+    expect(all).toContain('类型多样')
+    const none = composeGenConstraints({ payloads: { chart: false, options: false, todos: false } })
+    expect(none).toContain('不要使用 payload')
+    const weird = composeGenConstraints({ types: ['insight', 'unknown-type' as never] })
+    expect(weird).toContain('卡片类型仅限：insight')
+  })
+})
+
+describe('composeBriefingUser 自定义选项注入（v0.8.4）', () => {
+  const ctx: BriefingGenContext = { decisions: { c1: 'skip' }, favorites: [] }
+
+  it('自定义提示词注入【自定义要求】并 clamp 200 字', () => {
+    const long = 'a'.repeat(260)
+    const user = composeBriefingUser('teacher', ctx, '', { prompt: `  ${long}  ` })
+    expect(user).toContain('【自定义要求】')
+    expect(user).toContain('a'.repeat(GEN_PROMPT_MAX_LEN))
+    expect(user).not.toContain('a'.repeat(GEN_PROMPT_MAX_LEN + 1))
+  })
+
+  it('参考资料开关：关闭后不注入对应段，默认全开', () => {
+    const dataText = '【班级学情】测试数据'
+    const off = composeBriefingUser('teacher', ctx, dataText, {
+      references: { dataContext: false, decisions: false, favorites: false },
+    })
+    expect(off).not.toContain(dataText)
+    expect(off).not.toContain('历史决策')
+    expect(off).not.toContain('收藏过的卡片')
+    const on = composeBriefingUser('teacher', ctx, dataText)
+    expect(on).toContain(dataText)
+    expect(on).toContain('历史决策')
+  })
+})
+
+describe('MockBriefingProvider 种类过滤（v0.8.4）', () => {
+  it('按 types 过滤静态剧本；空选 = 不过滤；个性化排序保持', () => {
+    const provider = new MockBriefingProvider()
+    const full = provider.getDeck('teacher')
+    expect(full.length).toBeGreaterThan(0)
+    const filtered = provider.getDeck('teacher', undefined, { types: ['insight'] })
+    expect(filtered.length).toBeGreaterThan(0)
+    expect(filtered.length).toBeLessThan(full.length)
+    expect(filtered.every((c) => c.type === 'insight')).toBe(true)
+    const empty = provider.getDeck('teacher', undefined, { types: [] })
+    expect(empty.map((c) => c.id)).toEqual(full.map((c) => c.id))
+  })
+})
+
+describe('生成参数 clamp（v0.8.4）', () => {
+  it('超时 6-30s、重试 1-3、数量 3-10、提示词去空白截断', () => {
+    expect(clampGenTimeout(undefined)).toBe(12000)
+    expect(clampGenTimeout(1000)).toBe(6000)
+    expect(clampGenTimeout(60000)).toBe(30000)
+    expect(clampGenAttempts(undefined)).toBe(2)
+    expect(clampGenAttempts(0)).toBe(1)
+    expect(clampGenAttempts(9)).toBe(3)
+    expect(clampGenCount(undefined)).toBeUndefined()
+    expect(clampGenCount(2)).toBe(3)
+    expect(clampGenCount(99)).toBe(10)
+    expect(clampGenPrompt('  聚焦薄弱点  ')).toBe('聚焦薄弱点')
   })
 })

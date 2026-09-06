@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   X, Star, Check, Sparkles, ArrowLeft, ArrowUp, ArrowRight, LayoutDashboard, RotateCcw,
-  RefreshCw, FileSpreadsheet, Clock, Loader2,
+  RefreshCw, FileSpreadsheet, Clock, Loader2, Wand2,
 } from 'lucide-react'
 import { useAuthStore } from '../../stores/authStore'
 import { useBriefingStore } from '../../stores/briefingStore'
@@ -11,8 +11,9 @@ import { useSettingsStore } from '../../stores/settingsStore'
 import { useUiStore } from '../../stores/uiStore'
 import { getRolePreset } from '../../harness/roles'
 import { formatAge, isStale } from '../../harness/sources'
-import type { CardLink } from '../../harness/types'
+import type { BriefingGenOptions, CardLink } from '../../harness/types'
 import CsvImportDialog from '../../components/CsvImportDialog'
+import RegenerateDialog from './RegenerateDialog'
 import BriefingCardView from './BriefingCardView'
 import StampMark, { STAMP_POSITION, type StampDecision } from './StampMark'
 import KeptBriefingCards, { type KeptCardItem } from './KeptBriefingCards'
@@ -78,7 +79,7 @@ function dragShadow(strength: number): string {
 export default function BriefingPage() {
   const role = useAuthStore((s) => s.role)
   const setStage = useAuthStore((s) => s.setStage)
-  const { cards, decisions, processed, meta, loading, loadDeck, decide, revertDecision, resetDeck } = useBriefingStore()
+  const { cards, decisions, processed, meta, loading, loadDeck, decide, revertDecision, resetDeck, setGenOptions } = useBriefingStore()
   const sendMessage = useChatStore((s) => s.sendMessage)
   const focusMode = useSettingsStore((s) => s.focusMode)
   const focusTasks = useFocusStore((s) => s.tasks)
@@ -96,6 +97,8 @@ export default function BriefingPage() {
   const [pinnedId, setPinnedId] = useState<string | null>(null)
   // 后台任务浮层（v0.8.1）：批示过程中点击指示器随时查看任务明细
   const [taskSheetOpen, setTaskSheetOpen] = useState(false)
+  // 重新生成弹窗（v0.8.4）：自定义提示词/种类/参考资料/高级选项后重载卡组
+  const [regenOpen, setRegenOpen] = useState(false)
   // 简报切入动画（v0.8.3）：会话首进且已看过引导时播放；「重新过一遍」重置卡组时同样播放
   const [intro, setIntro] = useState(() => INTRO_ELIGIBLE() && !introPlayed)
   useEffect(() => {
@@ -127,6 +130,20 @@ export default function BriefingPage() {
     if (INTRO_ELIGIBLE()) setIntro(true)
     if (role) void loadDeck(role)
   }, [resetDeck, loadDeck, role])
+
+  /* 重新生成（v0.8.4）：保存选项 → 重置卡组并重载，复用「重新过一遍」的重播路径（含切入动画） */
+  const handleRegenerate = useCallback(
+    (options: BriefingGenOptions) => {
+      setRegenOpen(false)
+      setGenOptions(options)
+      setKept([])
+      setPinnedId(null)
+      resetDeck()
+      if (INTRO_ELIGIBLE()) setIntro(true)
+      if (role) void loadDeck(role, options)
+    },
+    [setGenOptions, resetDeck, loadDeck, role],
+  )
 
   const stale = isStale(meta)
   const canImport = role === 'teacher' || role === 'schoolAdmin'
@@ -344,6 +361,17 @@ export default function BriefingPage() {
               <span className="hidden sm:inline">导入成绩</span>
             </button>
           )}
+          {/* 重新生成（v0.8.4）：自定义偏好后重载卡组，与刷新/导入并列 */}
+          <button
+            onClick={() => setRegenOpen(true)}
+            className="flex items-center gap-1.5 rounded-full border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-ink-soft transition-colors hover:border-primary/50 hover:text-primary sm:px-3"
+            title="自定义偏好，重新生成今日简报"
+            aria-label="重新生成简报"
+            data-testid="regen-btn"
+          >
+            <Wand2 size={13} />
+            <span className="hidden sm:inline">重新生成</span>
+          </button>
           {/* 移动端后台执行指示器（v0.8.1）：收进顶栏避免遮挡卡片与落章，点击查看任务明细 */}
           {focusMode && activeTasks > 0 && current && (
             <button
@@ -575,6 +603,9 @@ export default function BriefingPage() {
           }}
         />
       )}
+
+      {/* 重新生成弹窗（v0.8.4）：确认后按选项重置并重载卡组 */}
+      {regenOpen && <RegenerateDialog onClose={() => setRegenOpen(false)} onConfirm={handleRegenerate} />}
 
       {/* 后台任务浮层（v0.8.1）：批示过程中随时查看任务明细与状态 */}
       {taskSheetOpen && (

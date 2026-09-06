@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { BriefingCard, BriefingGenContext, PayloadPatch, RoleId } from '../harness/types'
+import type { BriefingCard, BriefingGenContext, BriefingGenOptions, PayloadPatch, RoleId } from '../harness/types'
 import { getProviders } from '../harness/providerRegistry'
 import { buildDataCards } from '../harness/sources/dataCards'
 import { getSourceProvider, type SourceMeta } from '../harness/sources'
@@ -12,6 +12,8 @@ interface PersistedBriefing {
   favorites: BriefingCard[]
   /** 用户交互覆盖层（v0.7）：选项选择/待办勾选/文本编辑，按卡片 id 持久化 */
   payloads?: Record<string, PayloadPatch>
+  /** 重新生成选项（v0.8.4）：弹窗记忆，下次打开回填并随 loadDeck 透传 */
+  genOptions?: BriefingGenOptions
 }
 
 interface BriefingState {
@@ -26,8 +28,12 @@ interface BriefingState {
   loading: boolean
   /** 本次卡组的数据元信息（来源 + 时间戳，v0.5 M1④ 新鲜度标注） */
   meta: SourceMeta | null
-  /** 加载卡组：静态剧本（Mock 个性化 / API 生成）+ 数据驱动卡（异步，v0.5 M1②） */
-  loadDeck: (role: RoleId) => Promise<void>
+  /** 重新生成选项（v0.8.4）：弹窗回填 + loadDeck 缺省透传，随 'briefing' 持久化 */
+  genOptions: BriefingGenOptions
+  /** 保存重新生成选项（弹窗确认时调用），立即持久化 */
+  setGenOptions: (options: BriefingGenOptions) => void
+  /** 加载卡组：静态剧本（Mock 个性化 / API 生成）+ 数据驱动卡（异步，v0.5 M1②）；options 缺省时沿用已存 genOptions */
+  loadDeck: (role: RoleId, options?: BriefingGenOptions) => Promise<void>
   decide: (cardId: string, decision: CardDecision) => BriefingCard | undefined
   /** 选中选项卡（v0.7）：写覆盖层 + 即时更新 cards */
   selectOption: (cardId: string, index: number) => void
@@ -43,8 +49,13 @@ interface BriefingState {
 
 const persisted = loadJSON<PersistedBriefing>('briefing', { decisions: {}, favorites: [] })
 
-function persist(s: { decisions: Record<string, CardDecision>; favorites: BriefingCard[]; payloads: Record<string, PayloadPatch> }): void {
-  saveJSON('briefing', { decisions: s.decisions, favorites: s.favorites, payloads: s.payloads })
+function persist(s: {
+  decisions: Record<string, CardDecision>
+  favorites: BriefingCard[]
+  payloads: Record<string, PayloadPatch>
+  genOptions: BriefingGenOptions
+}): void {
+  saveJSON('briefing', { decisions: s.decisions, favorites: s.favorites, payloads: s.payloads, genOptions: s.genOptions })
 }
 
 /** 按 kind 判别合并覆盖层：只作用于匹配类型的 payload，不破坏 chart 等只读卡 */
@@ -73,12 +84,19 @@ export const useBriefingStore = create<BriefingState>((set, get) => ({
   processed: 0,
   loading: false,
   meta: null,
-  loadDeck: async (role) => {
+  genOptions: persisted.genOptions ?? {},
+  setGenOptions: (options) => {
+    set({ genOptions: options })
+    persist({ decisions: get().decisions, favorites: get().favorites, payloads: get().payloads, genOptions: options })
+  },
+  loadDeck: async (role, options) => {
     set({ loading: true })
     // 个性化上下文（v0.7）：历史决策 + 收藏，Mock 排序 / API 生成共用
     const ctx: BriefingGenContext = { decisions: get().decisions, favorites: get().favorites }
+    // 重新生成选项（v0.8.4）：显式传入优先，否则沿用已存偏好（刷新/重播同样生效）
+    const genOpts = options ?? get().genOptions
     const provider = getProviders().briefing
-    const deck = provider.getDeckAsync ? await provider.getDeckAsync(role, ctx) : provider.getDeck(role, ctx)
+    const deck = provider.getDeckAsync ? await provider.getDeckAsync(role, ctx, genOpts) : provider.getDeck(role, ctx, genOpts)
     let dataCards: BriefingCard[] = []
     let meta: SourceMeta | null = null
     try {
@@ -116,7 +134,7 @@ export const useBriefingStore = create<BriefingState>((set, get) => ({
       favorites: nextFavorites,
       processed: get().processed + 1,
     })
-    persist({ decisions: nextDecisions, favorites: nextFavorites, payloads: get().payloads })
+    persist({ decisions: nextDecisions, favorites: nextFavorites, payloads: get().payloads, genOptions: get().genOptions })
     return card
   },
   selectOption: (cardId, index) => {
@@ -130,7 +148,7 @@ export const useBriefingStore = create<BriefingState>((set, get) => ({
         c.id === cardId && c.payload?.kind === 'options' ? { ...c, payload: { ...c.payload, selected: index } } : c,
       ),
     })
-    persist({ decisions: get().decisions, favorites: get().favorites, payloads: nextPayloads })
+    persist({ decisions: get().decisions, favorites: get().favorites, payloads: nextPayloads, genOptions: get().genOptions })
   },
   toggleTodo: (cardId, index) => {
     const { cards, payloads } = get()
@@ -148,7 +166,7 @@ export const useBriefingStore = create<BriefingState>((set, get) => ({
           : c,
       ),
     })
-    persist({ decisions: get().decisions, favorites: get().favorites, payloads: nextPayloads })
+    persist({ decisions: get().decisions, favorites: get().favorites, payloads: nextPayloads, genOptions: get().genOptions })
   },
   editCardText: (cardId, text) => {
     const { cards, payloads } = get()
@@ -161,12 +179,12 @@ export const useBriefingStore = create<BriefingState>((set, get) => ({
         c.id === cardId && c.payload?.kind === 'editable' ? { ...c, payload: { ...c.payload, text } } : c,
       ),
     })
-    persist({ decisions: get().decisions, favorites: get().favorites, payloads: nextPayloads })
+    persist({ decisions: get().decisions, favorites: get().favorites, payloads: nextPayloads, genOptions: get().genOptions })
   },
   removeFavorite: (cardId) => {
     const next = get().favorites.filter((f) => f.id !== cardId)
     set({ favorites: next })
-    persist({ decisions: get().decisions, favorites: next, payloads: get().payloads })
+    persist({ decisions: get().decisions, favorites: next, payloads: get().payloads, genOptions: get().genOptions })
   },
   /** 撤回决策（v0.8.2）：卡片回到未批示状态，可修改内容后重新批阅 */
   revertDecision: (cardId) => {
@@ -176,11 +194,11 @@ export const useBriefingStore = create<BriefingState>((set, get) => ({
     delete nextDecisions[cardId]
     const nextFavorites = favorites.filter((f) => f.id !== cardId)
     set({ decisions: nextDecisions, favorites: nextFavorites, processed: Math.max(0, processed - 1) })
-    persist({ decisions: nextDecisions, favorites: nextFavorites, payloads: get().payloads })
+    persist({ decisions: nextDecisions, favorites: nextFavorites, payloads: get().payloads, genOptions: get().genOptions })
   },
   /** 重置卡组与决策（收藏保留，交互覆盖层清空），配合 loadDeck 可重新过一遍简报 */
   resetDeck: () => {
     set({ cards: [], decisions: {}, processed: 0, payloads: {} })
-    persist({ decisions: {}, favorites: get().favorites, payloads: {} })
+    persist({ decisions: {}, favorites: get().favorites, payloads: {}, genOptions: get().genOptions })
   },
 }))
