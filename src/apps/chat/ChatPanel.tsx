@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
-import { Sparkles, Zap, CheckCircle2, ArrowLeft, RotateCcw, AlertCircle, GraduationCap } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Sparkles, Zap, CheckCircle2, ArrowLeft, RotateCcw, AlertCircle, GraduationCap, Plus } from 'lucide-react'
 import { useAuthStore } from '../../stores/authStore'
 import { useChatStore } from '../../stores/chatStore'
 import { useBriefingStore } from '../../stores/briefingStore'
@@ -79,7 +79,7 @@ function BackToBriefingCard() {
 }
 
 export default function ChatPanel() {
-  const { sessions, activeId, streaming, retry } = useChatStore()
+  const { sessions, activeId, streaming, retry, newSession } = useChatStore()
   const session = sessions.find((s) => s.id === activeId)
   /* Mock 边界标识（v0.9 M4③）：运行时读取 mode，切换即时生效；API 模式零打扰 */
   const mode = useSettingsStore((s) => s.mode)
@@ -89,6 +89,27 @@ export default function ChatPanel() {
   const lastEntry = entries[entries.length - 1]
   /* 任务完成态：非流式中、已有对话、最后一条 assistant 已输出完毕 */
   const taskDone = !streaming && entries.length > 0 && lastEntry?.role === 'assistant' && !lastEntry.streaming
+  /* 头部仪表盘用：提前取出角色，避免 JSX 闭包内失去 narrowing */
+  const headerRole = session?.role
+
+  /* 头部仪表盘（v0.9.2 P1-B）：从 trace 实时计算步骤进度与并行组数——
+   * 总步数取「plan 步骤数」与「tool_call 数」的较大者（无 plan 事件时仍有进度），
+   * 已完成步数 = tool_result 数，并行组数 = group 字段去重。 */
+  const progress = useMemo(() => {
+    let totalSteps = 0
+    let doneSteps = 0
+    let toolCalls = 0
+    const groups = new Set<string>()
+    for (const e of entries) {
+      for (const ev of e.trace) {
+        if (ev.kind === 'plan') totalSteps = Math.max(totalSteps, ev.steps.length)
+        else if (ev.kind === 'tool_call') toolCalls += 1
+        else if (ev.kind === 'tool_result') doneSteps += 1
+        if ((ev.kind === 'tool_call' || ev.kind === 'tool_result') && ev.group) groups.add(ev.group)
+      }
+    }
+    return { totalSteps: Math.max(totalSteps, toolCalls), doneSteps, groups: groups.size }
+  }, [entries])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
@@ -96,23 +117,55 @@ export default function ChatPanel() {
 
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col">
-      {/* 头部 */}
-      {session && (
-        <header className="hidden items-center justify-between border-b border-line bg-surface px-5 py-3 md:flex">
-          <div className="flex min-w-0 items-center gap-2.5">
-            <h1 className="truncate text-sm font-semibold">{session.title}</h1>
-            {session.role && (
-              <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[0.625rem] font-medium', ROLE_CHIP[session.role])}>
-                {getRolePreset(session.role).name}
+      {/* 头部（v0.9.2 P1-B）：任务状态仪表盘——一眼看清「这是谁的任务、跑到哪一步」 */}
+      {session && headerRole && (
+        <header className="hidden items-center justify-between gap-3 border-b border-line bg-surface px-5 py-3 md:flex">
+          <div className="min-w-0">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <h1 className="truncate text-sm font-semibold">{session.title}</h1>
+              <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[0.625rem] font-medium', ROLE_CHIP[headerRole])}>
+                {getRolePreset(headerRole).name}
               </span>
-            )}
+            </div>
+            <div className="mt-1 flex items-center gap-2">
+              {streaming ? (
+                <>
+                  <span className="flex items-center gap-1.5 text-[0.6875rem] font-medium text-mint">
+                    <span className="relative flex h-1.5 w-1.5">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-mint opacity-75" />
+                      <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-mint" />
+                    </span>
+                    执行中
+                    {progress.totalSteps > 0 && (
+                      <span>
+                        {' '}
+                        · 第 {Math.min(progress.doneSteps, progress.totalSteps)}/{progress.totalSteps} 步
+                      </span>
+                    )}
+                    <Zap size={10} className="text-amber" />
+                  </span>
+                  {progress.groups > 0 && (
+                    <span className="rounded-md bg-amber-soft px-1.5 py-0.5 text-[0.5625rem] font-semibold text-amber">
+                      并行 {progress.groups} 组
+                    </span>
+                  )}
+                </>
+              ) : (
+                <span className="minor-info flex items-center gap-1.5 text-[0.6875rem] text-ink-mute">
+                  <span className="h-1.5 w-1.5 rounded-full bg-line" />
+                  空闲
+                </span>
+              )}
+            </div>
           </div>
-          {streaming && (
-            <span className="flex shrink-0 items-center gap-1.5 text-[0.6875rem] font-medium text-primary">
-              <Zap size={12} className="animate-pulse" />
-              Agent 执行中
-            </span>
-          )}
+          {/* 新建任务快捷入口（v0.9.2 P1-B）：复用 newSession，与 Sidebar 主按钮同族样式 */}
+          <button
+            onClick={() => newSession(headerRole)}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-primary px-3.5 py-1.5 text-xs font-medium text-white shadow-soft transition-all hover:bg-primary-deep hover:shadow-pop active:scale-95"
+          >
+            <Plus size={13} />
+            新建任务
+          </button>
         </header>
       )}
 

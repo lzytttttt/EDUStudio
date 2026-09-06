@@ -94,6 +94,9 @@ test('② 对话出题 → 出题工作台联动', async ({ page }) => {
 test('③ 文档新建 → 导出下载', async ({ page }) => {
   await loginAsTeacher(page)
 
+  // v0.9.2 P0-B：右栏默认直达主工作台，先切回「文档」tab 再新建（tab 按钮带 testid，避免「文档」重名）
+  await page.getByTestId('tab-doc').click()
+
   // 新建空白文档（右栏文档面板空状态）
   await page.getByTestId('new-doc-btn').click()
   await expect(page.getByTestId('new-doc-btn')).toBeHidden()

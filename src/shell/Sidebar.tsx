@@ -3,7 +3,8 @@ import {
   Sparkles, Plus, MessageSquare, Star, Trash2, Settings, ChevronRight, ChevronLeft, FileText, CircleHelp, Bell,
 } from 'lucide-react'
 import { useAuthStore } from '../stores/authStore'
-import { useChatStore } from '../stores/chatStore'
+import { useChatStore, type ChatEntry } from '../stores/chatStore'
+import { relativeTime } from '../lib/relativeTime'
 import { useBriefingStore } from '../stores/briefingStore'
 import { useArtifactStore } from '../stores/artifactStore'
 import { useSettingsStore } from '../stores/settingsStore'
@@ -17,6 +18,15 @@ import SkillsPanel from './SkillsPanel'
 import { cn } from '../lib/cn'
 
 const ROLE_BADGE = { teacher: 'bg-mint-soft text-mint', schoolAdmin: 'bg-primary-soft text-primary', bureau: 'bg-coral-soft text-coral' } as const
+
+/** 任务摘要（v0.9.2 P1-A）：取末条 user/assistant 内容压平截断一行，让任务按「内容」可找 */
+function sessionSummary(entries: ChatEntry[]): string {
+  for (let i = entries.length - 1; i >= 0; i--) {
+    const flat = entries[i].content.replace(/\s+/g, ' ').trim()
+    if (flat) return flat.length > 40 ? `${flat.slice(0, 40)}…` : flat
+  }
+  return ''
+}
 
 export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const role = useAuthStore((s) => s.role)
@@ -124,34 +134,40 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           <>
             {sessions.length === 0 && (
               <p className="px-2 py-6 text-center text-xs leading-relaxed text-ink-mute">
-                暂无任务<br />从今日简报采纳卡片，或点击「新建任务」
+                暂无任务<br />从简报采纳卡片，或直接说需求开始新任务
               </p>
             )}
-            {sessions.map((s) => (
-              <div
-                key={s.id}
-                onClick={() => { setActive(s.id); onNavigate?.() }}
-                className={cn(
-                  'group flex cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2.5 transition-colors',
-                  activeId === s.id ? 'bg-primary-soft text-primary' : 'hover:bg-surface-2',
-                )}
-              >
-                <MessageSquare size={14} className="shrink-0 opacity-70" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[0.8125rem] font-medium leading-tight">{s.title}</p>
-                  <p className="minor-info text-[0.625rem] text-ink-mute">
-                    {new Date(s.updatedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
-                  </p>
-                </div>
-                <button
-                  onClick={(e) => { e.stopPropagation(); removeSession(s.id) }}
-                  className="hidden h-7 w-7 items-center justify-center rounded-lg text-ink-mute hover:bg-danger/10 hover:text-danger group-hover:flex"
-                  aria-label="删除会话"
+            {/* 「最近工作」卡片（v0.9.2 P1-A）：标题 + 内容摘要 + 相对时间，按内容找任务 */}
+            {sessions.map((s) => {
+              const summary = sessionSummary(s.entries)
+              return (
+                <div
+                  key={s.id}
+                  onClick={() => { setActive(s.id); onNavigate?.() }}
+                  className={cn(
+                    'group flex cursor-pointer items-start gap-2.5 rounded-xl px-3 py-2.5 transition-colors',
+                    activeId === s.id ? 'bg-primary-soft text-primary' : 'hover:bg-surface-2',
+                  )}
                 >
-                  <Trash2 size={13} />
-                </button>
-              </div>
-            ))}
+                  <MessageSquare size={14} className="mt-0.5 shrink-0 opacity-70" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[0.8125rem] font-semibold leading-tight">{s.title}</p>
+                    <p className="minor-info mt-0.5 truncate text-[0.625rem] text-ink-mute">
+                      {summary ? `${summary} · ` : ''}
+                      {relativeTime(s.updatedAt)}
+                    </p>
+                  </div>
+                  {/* 删除按钮常显（v0.9.2 P1-A）：移动端无 hover，藏起来等于不可删 */}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); removeSession(s.id) }}
+                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-ink-mute/60 transition-colors hover:bg-danger/10 hover:text-danger"
+                    aria-label="删除会话"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              )
+            })}
           </>
         )}
 

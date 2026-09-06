@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { ClipboardList, Wrench, ChevronDown, BrainCircuit, CheckCircle2, Sparkles, GraduationCap } from 'lucide-react'
 import type { AgentTraceEvent } from '../../harness/types'
 import { toolRegistry } from '../../harness/agent'
+import { useSettingsStore } from '../../stores/settingsStore'
 import { cn } from '../../lib/cn'
 
 function JsonPeek({ payload }: { payload: unknown }) {
@@ -27,6 +28,8 @@ function JsonPeek({ payload }: { payload: unknown }) {
 /** Agent 执行轨迹：Plan(蓝) → Tool Call(黄) → Result(绿,可展开) → Reflect(纸感)
  *  根容器挂 .agent-trace：超大字号档下内部文字跟随放大（见 index.css） */
 export default function AgentTraceView({ trace, streaming }: { trace: AgentTraceEvent[]; streaming: boolean }) {
+  /* v0.9.2 P0-A：业务化轨迹——默认隐藏 JSON 返回数据入口，设置「显示技术细节」开启后才可见 */
+  const showTechDetails = useSettingsStore((s) => s.showTechDetails)
   if (trace.length === 0) return null
   return (
     <div className="agent-trace mb-2 space-y-1.5">
@@ -53,12 +56,14 @@ export default function AgentTraceView({ trace, streaming }: { trace: AgentTrace
           )
         }
         if (e.kind === 'tool_call') {
-          const label = toolRegistry.get(e.tool)?.label ?? e.tool
+          /* 业务化文案（v0.9.2 P0-A）：display(args) 优先，缺省回退工具 label */
+          const def = toolRegistry.get(e.tool)
+          const copy = def?.display?.(e.args) ?? def?.label ?? e.tool
           return (
             <div key={i} className="animate-fade-up flex items-center gap-2.5 rounded-2xl border border-amber/30 bg-amber-soft px-4 py-2.5">
               <Wrench size={13} className="shrink-0 text-amber" />
               <p className="text-xs text-ink-soft">
-                调用工具 <span className="font-semibold text-ink">{label}</span>
+                <span className="font-semibold text-ink">{copy}</span>
                 {e.group && (
                   <span className="ml-1.5 rounded-md bg-amber/15 px-1.5 py-0.5 text-[0.5625rem] font-semibold text-amber-600">并行组</span>
                 )}
@@ -68,20 +73,20 @@ export default function AgentTraceView({ trace, streaming }: { trace: AgentTrace
           )
         }
         if (e.kind === 'tool_result') {
-          const label = toolRegistry.get(e.tool)?.label ?? e.tool
+          /* 结果行只讲业务结果（summary 已业务化），不再前置工具名（v0.9.2 P0-A） */
           return (
             <div key={i} className="animate-fade-up rounded-2xl border border-mint/25 bg-mint-soft px-4 py-2.5">
               <p className="flex items-start gap-2 text-xs leading-relaxed text-ink-soft">
                 <CheckCircle2 size={13} className="mt-0.5 shrink-0 text-mint" />
                 <span>
-                  <span className="font-semibold text-ink">{label}</span>
+                  {e.summary}
                   {e.group && (
                     <span className="ml-1.5 rounded-md bg-mint/15 px-1.5 py-0.5 text-[0.5625rem] font-semibold text-mint">并行组</span>
-                  )}{' '}
-                  · {e.summary}
+                  )}
                 </span>
               </p>
-              {e.payload !== undefined && <JsonPeek payload={e.payload} />}
+              {/* JSON 返回数据入口默认隐藏，仅「显示技术细节」开启时可见 */}
+              {showTechDetails && e.payload !== undefined && <JsonPeek payload={e.payload} />}
             </div>
           )
         }

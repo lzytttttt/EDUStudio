@@ -4,11 +4,11 @@
 
 **A lightweight AI Agent workbench for K-12 education practitioners (education bureaus / school admins / teachers)**
 
-`v0.9.0` · `Trust & Robustness · Decoupled Harness · Mock Fallback · DeepSeek-level Low Cost · Offline Demo-ready`
+`v0.9.2` · `Educator's View · Human-readable Traces · Decoupled Harness · Mock Fallback · DeepSeek-level Low Cost · Offline Demo-ready`
 
 [![license](https://img.shields.io/badge/license-CC%20BY--NC%204.0-blue.svg)](./LICENSE)
 [![stack](https://img.shields.io/badge/Vite-React%2018-646CFF.svg)](./package.json)
-[![tests](https://img.shields.io/badge/Vitest-181%20cases-success.svg)](#-quality-assurance)
+[![tests](https://img.shields.io/badge/Vitest-228%20cases-success.svg)](#-quality-assurance)
 [![e2e](https://img.shields.io/badge/Playwright-9%20cases-brightgreen.svg)](#-quality-assurance)
 [![lighthouse](https://img.shields.io/badge/Lighthouse-%E2%89%A5%200.85-yellow.svg)](#-quality-assurance)
 [![budget](https://img.shields.io/badge/gzip-270KB%20budget-orange.svg)](#-quality-assurance)
@@ -352,6 +352,8 @@ Frontend Settings → Mode "Proxy", endpoint `http://<host>:8787/v1`; audit logs
 
 | Version | Theme | One-liner |
 | --- | --- | --- |
+| **v0.9.2** | Workbench UI polish · educator's view | Human-readable traces (display contract for 13 tools + "show tech details" toggle) + role-default right-panel tab + sidebar task cards (summary + relative time + always-visible delete) + center-column progress dashboard (step N/M · parallel N groups) + dispatch pending-receipt badge |
+| **v0.9.1** | Layered memory & output self-eval loop | L2 episodic + L3 semantic preference local memory (ring buffer of 200 + role isolation) + preference injection for chat / briefing + rule-based doc self-eval (0-10 score + actionable advice) + harvesting loop for exports / feedback / card decisions |
 | **v0.9.0** | Trust & robustness | Function-calling wiring (tools in request body) + data backup safety net (full export/restore + key whitelist) + decision accountability notices + Mock boundary labels + browser back-key history integration + document import (attachments straight to LLM + purpose instructions) + weekly deck derivation + connection error classification |
 | **v0.8.4** | Briefing custom regeneration | Top-bar "Regenerate" dialog: prompt / six card types / reference toggles / advanced options (count 3–10 / style / payload / timeout-retry); API mode injects generation constraints, Mock filters scripts by type; options persist and refill |
 | **v0.8.3** | Briefing card-generation intro | On first briefing entry and "replay": three cards fly in from the lower right and stack + landing sparkle + top-card generation sheen; shrink-fade handoff to the real deck; no text, skipped under reduced motion |
@@ -369,9 +371,10 @@ Frontend Settings → Mode "Proxy", endpoint `http://<host>:8787/v1`; audit logs
 
 ---
 
-## Next · v0.9.1
+## Next
 
-> See [doc/v0.9.1-roadmap.md](./doc/v0.9.1-roadmap.md) for the complete plan. All iteration docs are in [doc/README.md](./doc/README.md).
+- **v0.9.2 shipped**: workbench UI polish · educator's view (human-readable traces / role-default panel tab / sidebar task cards & relative time / center-column progress dashboard / dispatch pending-receipt badge) — see [doc/v0.9.2-roadmap.md](./doc/v0.9.2-roadmap.md);
+- **Phase-2 candidates**: LLM-based preference distillation & self-eval (`getMemoryProvider` / `getEvaluator` already reserve mode switches), cloud memory sync (on the "won't do" list in the design doc, start on demand).
 
 ---
 

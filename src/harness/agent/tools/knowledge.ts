@@ -30,6 +30,8 @@ export const searchCurriculum: ToolDef = {
     properties: { keyword: { type: 'string', description: '知识点关键词，如「函数」「电磁感应」' } },
     required: ['keyword'],
   },
+  /** 业务文案（v0.9.2 P0-A）：给教育者看的执行描述，隐藏工具名 */
+  display: (args) => `正在检索课程标准「${String(args.keyword ?? '')}」`,
   async run(args) {
     const kw = String(args.keyword ?? '')
     const hits = searchCurriculumPoints(kw)
@@ -59,6 +61,7 @@ export const searchResources: ToolDef = {
     },
     required: ['keyword'],
   },
+  display: (args) => `正在检索校本资源「${String(args.keyword ?? '')}」`,
   async run(args) {
     const kw = String(args.keyword ?? '')
     const subject = typeof args.subject === 'string' && args.subject ? args.subject : undefined
@@ -82,6 +85,7 @@ export const listDocuments: ToolDef = {
   description: '列出当前工作区全部文档（标题/类型/角色/字数），跨文档汇总前先摸清家底',
   roles: ['teacher', 'schoolAdmin', 'bureau'],
   parameters: { type: 'object', properties: {} },
+  display: () => '正在清点工作区文档',
   async run() {
     const docs = useArtifactStore.getState().docs
     if (docs.length === 0) {
@@ -108,6 +112,7 @@ export const quoteDocument: ToolDef = {
     },
     required: ['doc'],
   },
+  display: (args) => `正在摘录《${String(args.doc ?? '')}》关键内容`,
   async run(args) {
     const kw = String(args.doc ?? '')
     const docs = useArtifactStore.getState().docs
@@ -140,6 +145,7 @@ export const mergeDocuments: ToolDef = {
     },
     required: ['docs'],
   },
+  display: (args) => `正在汇编${Array.isArray(args.docs) ? `${args.docs.length} 份` : '多份'}文档`,
   async run(args) {
     const keys = Array.isArray(args.docs) ? args.docs.map(String) : []
     if (keys.length < 2) {

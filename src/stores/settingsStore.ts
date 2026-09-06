@@ -107,6 +107,8 @@ interface PersistedSettings extends LLMSettings {
   columnWidths?: ColumnWidths
   /** 专注模式（v0.7）：采纳简报后台执行，批示完成后统一处理 */
   focusMode?: boolean
+  /** 显示技术细节（v0.9.2 P0-A）：开启后执行轨迹展示 JSON 返回数据入口（默认关，业务化文案不受影响） */
+  showTechDetails?: boolean
 }
 
 const persisted = loadJSON<Partial<PersistedSettings>>('settings', {})
@@ -134,12 +136,15 @@ interface SettingsState extends LLMSettings {
   columnWidths: ColumnWidths
   /** 专注模式（v0.7）：默认开启；关闭时采纳简报立即跳工作台（原行为） */
   focusMode: boolean
+  /** 显示技术细节（v0.9.2 P0-A）：默认关；开启后执行轨迹展示「查看返回数据」JSON 入口 */
+  showTechDetails: boolean
   update: (patch: Partial<LLMSettings> & { tokenBudget?: number }) => void
   updatePreferences: (patch: Partial<UserPreferences>) => void
   setFontSize: (px: number) => void
   setWatermark: (patch: Partial<WatermarkSettings>) => void
   setColumnWidth: (side: 'left' | 'right', width: number) => void
   setFocusMode: (enabled: boolean) => void
+  setShowTechDetails: (enabled: boolean) => void
   markGuideSeen: () => void
   resetLLMSettings: () => void
   clearAllData: () => void
@@ -161,6 +166,7 @@ function persist(s: SettingsState): void {
     watermark: s.watermark,
     columnWidths: s.columnWidths,
     focusMode: s.focusMode,
+    showTechDetails: s.showTechDetails,
   })
 }
 
@@ -177,8 +183,13 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     right: clampColumnWidth('right', persisted.columnWidths?.right ?? DEFAULT_COLUMN_WIDTHS.right),
   },
   focusMode: persisted.focusMode ?? true,
+  showTechDetails: persisted.showTechDetails ?? false,
   setFocusMode: (enabled) => {
     set({ focusMode: enabled })
+    persist(useSettingsStore.getState())
+  },
+  setShowTechDetails: (enabled) => {
+    set({ showTechDetails: enabled })
     persist(useSettingsStore.getState())
   },
   update: (patch) => {
@@ -221,6 +232,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       watermark: { ...DEFAULT_WATERMARK },
       columnWidths: { ...DEFAULT_COLUMN_WIDTHS },
       focusMode: true,
+      showTechDetails: false,
     })
     window.location.reload()
   },

@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { X, Eye, EyeOff, RotateCcw, Trash2, User, Type, Database, ShieldCheck, Stamp, Focus, HardDrive, Download, Upload } from 'lucide-react'
+import { X, Eye, EyeOff, RotateCcw, Trash2, User, Type, Database, ShieldCheck, Stamp, Focus, HardDrive, Download, Upload, Code2 } from 'lucide-react'
 import {
   useSettingsStore, maskKey, clampPref, PREF_MAX_LEN,
   FONT_SIZE_MIN, FONT_SIZE_MAX, FONT_SIZE_DEFAULT,
@@ -478,6 +478,28 @@ export default function SettingsDialog({ onClose }: { onClose: () => void }) {
               className="h-4 w-4 accent-[var(--color-primary)]"
             />
             启用专注模式（默认开启）
+          </label>
+        </section>
+
+        {/* ── 显示技术细节（v0.9.2 P0-A）：执行轨迹 JSON 数据入口门控 ── */}
+        <section className="mb-6">
+          <div className="mb-3 flex items-center gap-2">
+            <Code2 size={14} className="text-primary" />
+            <h3 className="text-sm font-semibold text-ink">显示技术细节</h3>
+          </div>
+          <p className="mb-3 text-xs leading-relaxed text-ink-mute">
+            默认关闭：Agent 执行轨迹只显示业务描述（如「正在检索课程标准「函数」」）。
+            开启后会额外显示原始返回数据（JSON）的展开入口，便于开发排查，日常使用无需打开。
+          </p>
+          <label className="flex cursor-pointer items-center gap-2 text-xs text-ink-soft">
+            <input
+              type="checkbox"
+              checked={s.showTechDetails}
+              onChange={(e) => s.setShowTechDetails(e.target.checked)}
+              data-testid="tech-details-toggle"
+              className="h-4 w-4 accent-[var(--color-primary)]"
+            />
+            显示技术细节（默认关闭）
           </label>
         </section>
 

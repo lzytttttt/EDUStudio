@@ -27,6 +27,8 @@ export const queryClassLearning: ToolDef = {
     properties: { className: { type: 'string', description: '班级名称，如「高一（3）班」' } },
     required: ['className'],
   },
+  /** 业务文案（v0.9.2 P0-A）：给教育者看的执行描述，隐藏工具名 */
+  display: (args) => `正在查询「${String(args.className ?? args.keyword ?? '目标班级')}」的班级学情`,
   async run(args) {
     const kw = String(args.className ?? args.keyword ?? '高一（3）班')
     const { profile: c, meta } = await getSourceProvider().getClassProfile(kw)
@@ -49,6 +51,7 @@ export const querySchoolStats: ToolDef = {
   description: '查询学校规模、近8周教学质量趋势、预警清单与教师队伍概况',
   roles: ['schoolAdmin'],
   parameters: { type: 'object', properties: {} },
+  display: () => '正在汇总学校教学概况',
   async run() {
     const s = SCHOOLS[0]
     const { trend, alerts, meta } = await getSourceProvider().getSchoolOverview()
@@ -67,6 +70,7 @@ export const queryRegionData: ToolDef = {
   description: '查询区域教学质量指数、覆盖率、师资达标率等核心指标',
   roles: ['bureau'],
   parameters: { type: 'object', properties: {} },
+  display: () => '正在调取区域教育核心指标',
   async run() {
     const { metrics, meta } = await getSourceProvider().getRegionMetrics()
     const src = meta.degraded ? '（演示数据）' : ''
@@ -88,6 +92,7 @@ export const searchPolicy: ToolDef = {
     properties: { keyword: { type: 'string', description: '检索关键词，如「减负」「人工智能」' } },
     required: ['keyword'],
   },
+  display: (args) => `正在检索政策文件，关键词「${String(args.keyword ?? '')}」`,
   async run(args) {
     const kw = String(args.keyword ?? '')
     const hits = kw
@@ -113,6 +118,7 @@ export const genLessonPlan: ToolDef = {
     properties: { topic: { type: 'string', description: '课题名称，如「摩擦力」' } },
     required: ['topic'],
   },
+  display: (args) => `正在为《${String(args.topic ?? '新授课')}》搭建教案`,
   async run(args) {
     const topic = String(args.topic ?? '新授课')
     return {
@@ -200,6 +206,7 @@ export const genQuiz: ToolDef = {
     },
     required: ['knowledgePoint'],
   },
+  display: (args) => `正在为「${String(args.knowledgePoint ?? '综合')}」命制试题`,
   async run(args) {
     const point = String(args.knowledgePoint ?? '综合')
     const items = buildQuizItems(point)
@@ -223,6 +230,7 @@ export const draftNotice: ToolDef = {
     properties: { matter: { type: 'string', description: '通知事项，如「学生体质健康专项督导」' } },
     required: ['matter'],
   },
+  display: (args) => `正在起草「${String(args.matter ?? '工作事项')}」通知文稿`,
   async run(args) {
     const matter = String(args.matter ?? '工作事项')
     return {
@@ -242,6 +250,7 @@ export const analyzeClass: ToolDef = {
     type: 'object',
     properties: { teacher: { type: 'string', description: '教师姓名，可选，默认最近被评课教师' } },
   },
+  display: (args) => (args.teacher ? `正在分析${String(args.teacher)}的评课数据` : '正在分析课堂评课数据'),
   async run(args) {
     const teacher = String(args.teacher ?? '李建国')
     const t = TEACHERS.find((x) => x.name === teacher) ?? TEACHERS[0]

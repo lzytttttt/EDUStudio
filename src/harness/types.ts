@@ -232,6 +232,8 @@ export interface ToolDef {
   roles: RoleId[]
   /** 参数 JSON Schema（function-calling 映射用；缺省视为无参对象） */
   parameters?: { type: 'object'; properties: Record<string, unknown>; required?: string[] }
+  /** 业务化文案（v0.9.2 P0-A）：用 args 拼给教育者看的执行描述（如「正在检索课程标准「函数」」）；缺省回退 label */
+  display?: (args: Record<string, unknown>) => string
   run(args: Record<string, unknown>): Promise<ToolResult>
 }
 
