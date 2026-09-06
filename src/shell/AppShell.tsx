@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { LayoutList, MessageSquare, FileText, X } from 'lucide-react'
+import { LayoutList, MessageSquare, FileText, X, ArrowLeft } from 'lucide-react'
 import Sidebar from './Sidebar'
 import ChatPanel from '../apps/chat/ChatPanel'
 import RightPanel from './RightPanel'
@@ -57,14 +57,15 @@ export default function AppShell() {
 
       {/* 中栏：对话流（移动端为底部标签栏 + iOS 安全区让位，v0.6.1 修复输入框被遮挡） */}
       <main className="relative flex min-w-0 flex-1 flex-col pb-[calc(var(--tabbar-h)+env(safe-area-inset-bottom))] md:pb-0">
-        {/* 移动端顶栏：品牌入口（导航由底部标签承担，v0.5 M4②） */}
-        <div className="flex items-center justify-center border-b border-line bg-surface px-3 py-2 md:hidden">
+        {/* 移动端顶栏：返回简报明确入口（v0.9 M5④，原品牌文字按钮可发现性弱） */}
+        <div className="flex items-center border-b border-line bg-surface px-3 py-2 md:hidden">
           <button
             onClick={() => setStage('briefing')}
-            className="rounded-lg px-2 py-1 text-sm font-semibold transition-colors hover:bg-surface-2"
+            className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-ink-soft transition-colors hover:bg-surface-2"
             title="返回今日简报"
           >
-            智教工坊 · EDUStudio
+            <ArrowLeft size={16} />
+            简报
           </button>
         </div>
         <ChatPanel />

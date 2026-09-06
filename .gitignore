@@ -31,7 +31,7 @@ Thumbs.db
 .cache
 
 # Playwright
-test-results
+test-results*
 playwright-report
 blob-report
 

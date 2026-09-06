@@ -6,7 +6,8 @@ interface AuthState {
   role: RoleId | null
   stage: Stage
   login: (role: RoleId) => void
-  setStage: (stage: Stage) => void
+  /** setStage：opts.fromPopstate 标记浏览器返回键来源，App 层据此跳过 pushState（v0.9 M5① 守卫） */
+  setStage: (stage: Stage, opts?: { fromPopstate?: boolean }) => void
   logout: () => void
 }
 
@@ -24,9 +25,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ role, stage: 'briefing' })
     saveJSON('auth', { role, stage: get().stage })
   },
-  setStage: (stage) => {
+  setStage: (stage, opts) => {
     set({ stage })
     saveJSON('auth', { role: get().role, stage })
+    void opts
   },
   logout: () => {
     set({ role: null, stage: 'login' })

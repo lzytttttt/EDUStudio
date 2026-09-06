@@ -20,10 +20,41 @@ function useShareRoute(): boolean {
   return isShare
 }
 
+/** 浏览器历史集成（v0.9 M5①②③）：阶段切换写入历史栈，返回键回退阶段而非退出站点；
+ *  分享视图（#share=）优先级不变，不参与 pushState / popstate；无路由库，维持轻定位 */
+function useHistorySync(): void {
+  const stage = useAuthStore((s) => s.stage)
+  /* 首挂 / popstate 来源跳过 pushState（守卫：防 setStage ↔ popstate 互相触发死循环） */
+  const skipPush = useRef(true)
+  useEffect(() => {
+    /* 刷新恢复（M5③）：replaceState 写入当前 stage，不产生多余历史记录 */
+    window.history.replaceState({ stage: useAuthStore.getState().stage }, '')
+    const onPop = (e: PopStateEvent) => {
+      if (window.location.hash.startsWith('#share=')) return // 分享路由优先（M5②）
+      const target = (e.state as { stage?: Stage } | null)?.stage ?? 'login'
+      const cur = useAuthStore.getState().stage
+      if (target === cur) return
+      skipPush.current = true
+      useAuthStore.getState().setStage(target, { fromPopstate: true })
+    }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
+  /* 正向切换（M5①）：pushState 入栈；首挂与 popstate 来源不入栈 */
+  useEffect(() => {
+    if (skipPush.current) {
+      skipPush.current = false
+      return
+    }
+    window.history.pushState({ stage }, '')
+  }, [stage])
+}
+
 /** 阶段状态机：login → briefing → workbench（无路由库，轻量分流 + 双向过渡动画） */
 export default function App() {
   const isShare = useShareRoute()
   const stage = useAuthStore((s) => s.stage)
+  useHistorySync()
   const [rendered, setRendered] = useState<Stage>(stage)
   const [leaving, setLeaving] = useState(false)
   const timer = useRef<number | undefined>(undefined)

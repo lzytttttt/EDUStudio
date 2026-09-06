@@ -318,3 +318,6 @@ export const BRIEFING_DECKS: Record<RoleId, BriefingCard[]> = {
   schoolAdmin: schoolAdminDeck,
   bureau: bureauDeck,
 }
+
+/** 周粒度内容池分组数（v0.9 M6④）：第 0 组即当前剧本（默认体验不变），其余组为轮换变体 */
+export const DECK_GROUP_COUNT = 3

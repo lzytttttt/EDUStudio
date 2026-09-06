@@ -1,4 +1,4 @@
-import { LLMError, type ChatMessage, type LLMDelta, type LLMProvider } from '../types'
+import { LLMError, type ChatMessage, type LLMDelta, type LLMProvider, type StreamChatRawOptions } from '../types'
 import { parseSSEChunk } from './sse'
 
 export interface DeepSeekConfig {
@@ -77,6 +77,8 @@ export class DeepSeekAdapter implements LLMProvider {
       })
     } catch (err) {
       if ((err as Error)?.name === 'AbortError') throw err
+      // v0.9 M7①：网络层 TypeError（请求未发出：断网/跨域/DNS）原样透传，由 classifyConnectionError 归类提示
+      if (err instanceof TypeError) throw err
       throw new LLMError(`网络请求失败：${(err as Error)?.message ?? 'unknown'}`)
     }
     if (!res.ok || !res.body) {
@@ -91,9 +93,19 @@ export class DeepSeekAdapter implements LLMProvider {
     return res
   }
 
-  /** 原始增量流：yield 归一化 delta（含 tool_calls 分片），Orchestrator 消费 */
-  async *streamChatRaw(messages: ChatMessage[], signal?: AbortSignal): AsyncGenerator<LLMDelta> {
-    const res = await this.open({ model: this.config.model, messages, stream: true }, signal)
+  /**
+   * 原始增量流：yield 归一化 delta（含 tool_calls 分片），Orchestrator 消费。
+   * v0.9 M1①：options.tools 非空时合入请求体——模型自此知道可用工具，才会返回 tool_calls
+   * （v0.9 前该字段从未下发，function-calling 主路径恒走 Plan-JSON 降级）；不传时行为不变。
+   */
+  async *streamChatRaw(
+    messages: ChatMessage[],
+    signal?: AbortSignal,
+    options?: StreamChatRawOptions,
+  ): AsyncGenerator<LLMDelta> {
+    const body: Record<string, unknown> = { model: this.config.model, messages, stream: true }
+    if (options?.tools?.length) body.tools = options.tools
+    const res = await this.open(body, signal)
     const reader = res.body!.getReader()
     const decoder = new TextDecoder()
     let buffer = ''
@@ -133,6 +145,23 @@ export class DeepSeekAdapter implements LLMProvider {
   }
 }
 
+/**
+ * 连接错误分类（v0.9 M7①）：断网/跨域、Key 无效、地址错误分别给出可区分的中文提示，
+ * 其余状态码原样透出（导出供单测）。
+ */
+export function classifyConnectionError(err: unknown): string {
+  if (err instanceof LLMError) {
+    if (err.status === 401 || err.status === 403) return 'API Key 无效或无权限，请检查 Key 是否正确、账户是否有额度'
+    if (err.status === 404) return '接口地址不存在，请检查 baseUrl 是否以 /v1 结尾'
+    return err.message
+  }
+  // fetch 网络层错误（TypeError）：请求未发出——网络不通 / 浏览器跨域限制 / DNS 失败
+  if (err instanceof TypeError) {
+    return '无法连接目标地址，可能为网络不通或浏览器跨域限制，建议改用轻后端代理'
+  }
+  return err instanceof Error ? err.message : String(err)
+}
+
 /** 测试连接：发送一条短请求，返回成功/失败与摘要（供设置页「测试连接」按钮） */
 export async function testLLMConnection(
   config: DeepSeekConfig,
@@ -149,7 +178,6 @@ export async function testLLMConnection(
     }
     return { ok: true, message: `连接成功${got.trim() ? `：${got.trim().slice(0, 24)}` : ''}` }
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    return { ok: false, message: msg.slice(0, 120) }
+    return { ok: false, message: classifyConnectionError(err).slice(0, 120) }
   }
 }

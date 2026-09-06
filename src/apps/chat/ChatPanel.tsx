@@ -3,6 +3,7 @@ import { Sparkles, Zap, CheckCircle2, ArrowLeft, RotateCcw, AlertCircle, Graduat
 import { useAuthStore } from '../../stores/authStore'
 import { useChatStore } from '../../stores/chatStore'
 import { useBriefingStore } from '../../stores/briefingStore'
+import { useSettingsStore } from '../../stores/settingsStore'
 import { getRolePreset } from '../../harness/roles'
 import AgentTraceView from './AgentTraceView'
 import ChatInput from './ChatInput'
@@ -80,6 +81,8 @@ function BackToBriefingCard() {
 export default function ChatPanel() {
   const { sessions, activeId, streaming, retry } = useChatStore()
   const session = sessions.find((s) => s.id === activeId)
+  /* Mock 边界标识（v0.9 M4③）：运行时读取 mode，切换即时生效；API 模式零打扰 */
+  const mode = useSettingsStore((s) => s.mode)
   const [demoOpen, setDemoOpen] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const entries = session?.entries ?? []
@@ -136,6 +139,13 @@ export default function ChatPanel() {
                         {entry.streaming && <span className="ml-0.5 inline-block h-4 w-[2px] animate-pulse bg-primary align-middle" />}
                       </p>
                     </div>
+                  )}
+                  {/* Mock 边界标识（v0.9 M4①）：演示模式 assistant 消息 meta 区低调标注，样式对齐数据来源标注 */}
+                  {mode === 'mock' && !entry.streaming && entry.content && (
+                    <p className="minor-info mt-1.5 flex items-center gap-1.5 text-[0.625rem] text-ink-mute">
+                      <span className="rounded-full bg-surface-2 px-1.5 py-0.5 font-medium">演示</span>
+                      演示剧本生成，非真实模型产出
+                    </p>
                   )}
                   {/* 失败重试（v0.4 M1④）：断点重试，按原目标重新执行 */}
                   {!entry.streaming && entry.error && (

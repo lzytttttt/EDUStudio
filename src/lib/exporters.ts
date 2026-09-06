@@ -179,17 +179,21 @@ blockquote.anno-quote{margin:4pt 0;padding:4pt 10pt;border-left:3px solid #4f46e
 /** 导出文档：md 直接下载；docx 生成 Word 兼容文件；pdf 走打印（可附带批注/水印） */
 export function exportDoc(md: string, title: string, format: ExportFormat, options: ExportOptions = {}): void {
   // 水印（v0.5 M5③）：调用方未显式指定时，读取设置中的水印开关
-  const wmSettings = useSettingsStore.getState().watermark
+  const settings = useSettingsStore.getState()
   const watermark: ExportWatermark | undefined =
-    options.watermark ?? (wmSettings.enabled ? { org: wmSettings.org, person: wmSettings.person } : undefined)
+    options.watermark ?? (settings.watermark.enabled ? { org: settings.watermark.org, person: settings.watermark.person } : undefined)
   const opts: ExportOptions = { ...options, watermark }
+  // Mock 边界标注（v0.9 M4②）：演示模式导出文末追加说明，运行时读取 mode 即时生效
+  const mockNote =
+    settings.mode === 'mock' ? '\n\n---\n\n*本文档由演示剧本生成，非真实模型产出。*' : ''
+  const content = md + mockNote
   const filename = sanitizeFilename(title)
   if (format === 'md') {
-    downloadBlob(new Blob([md], { type: 'text/markdown;charset=utf-8' }), `${filename}.md`)
+    downloadBlob(new Blob([content], { type: 'text/markdown;charset=utf-8' }), `${filename}.md`)
     return
   }
   if (format === 'docx') {
-    const html = markdownToWordHtml(md, filename, opts)
+    const html = markdownToWordHtml(content, filename, opts)
     // Word 兼容：以 .doc 扩展名携带 HTML 内容，Word/WPS 打开时自动按文档渲染
     downloadBlob(new Blob(['\ufeff', html], { type: 'application/msword;charset=utf-8' }), `${filename}.doc`)
     return
@@ -197,7 +201,7 @@ export function exportDoc(md: string, title: string, format: ExportFormat, optio
   // pdf：打印当前文档（用户在打印对话框中选择「另存为 PDF」）
   const w = window.open('', '_blank', 'width=820,height=900')
   if (!w) return
-  w.document.write(markdownToWordHtml(md, filename, opts))
+  w.document.write(markdownToWordHtml(content, filename, opts))
   w.document.close()
   w.focus()
   w.print()

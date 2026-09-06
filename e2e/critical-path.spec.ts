@@ -58,10 +58,13 @@ test('① 登录 → 简报 → 采纳（后台执行）→ 批示完成 → 统
   await expect(page.getByTestId('focus-indicator')).toBeVisible({ timeout: 5_000 })
   await expect(page.getByTestId('adopt-btn')).toBeVisible() // 仍在简报页
 
-  // 依次批示完剩余卡片（教师剧本共 8 张，全部采纳）
-  for (let i = 2; i <= 8; i++) {
+  // 批示循环去硬编码（v0.9 M7②）：从 DOM 解析「已处理 n/N」的 N，剧本卡数变化不再挂测试
+  const counterText = await page.getByText(/已处理 \d+\/\d+/).first().textContent()
+  const total = Number(counterText?.match(/\/(\d+)/)?.[1] ?? 0)
+  expect(total).toBeGreaterThan(0)
+  for (let i = 2; i <= total; i++) {
     await page.getByTestId('adopt-btn').click()
-    await expect(page.getByText(`已处理 ${i}/8`)).toBeVisible({ timeout: 5_000 })
+    await expect(page.getByText(`已处理 ${i}/${total}`)).toBeVisible({ timeout: 5_000 })
   }
 
   // 全部批示完成 → 「批示完成」总结层（任务清单 + 统一处理入口）

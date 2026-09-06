@@ -67,6 +67,10 @@ export default function GuideDialog({ stage, onClose }: { stage: GuideStage; onC
         </ol>
 
         <div className={cn('border-t border-line px-6 py-4')}>
+          {/* 责任边界提示（v0.9 M3①）：首次引导即建立「AI 产出需人工复核」预期 */}
+          <p className="mb-2.5 text-center text-[0.625rem] leading-relaxed text-ink-mute">
+            AI 生成内容仅供参考，采纳前请人工复核
+          </p>
           <button
             onClick={onClose}
             className="w-full rounded-2xl bg-primary py-2.5 text-sm font-semibold text-white transition-all hover:bg-primary-deep active:scale-[0.98]"

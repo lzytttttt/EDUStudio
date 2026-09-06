@@ -15,6 +15,7 @@ import type { BriefingCard, BriefingGenContext, BriefingGenOptions, BriefingProv
 import { DeepSeekAdapter, type DeepSeekConfig } from '../llm/adapter'
 import { getRolePreset, buildSystemPrompt } from '../roles'
 import { useSettingsStore } from '../../stores/settingsStore'
+import { buildDocAttachments } from '../../stores/dataStore'
 import { buildDataContext } from '../sources/dataContext'
 import { MockBriefingProvider } from './MockBriefingProvider'
 import { extractJsonArray, validateBriefingCard } from './validate'
@@ -109,8 +110,15 @@ export function composeGenConstraints(options?: BriefingGenOptions): string {
 }
 
 /** 组装 user prompt：角色/日期 + 真实数据上下文 + 历史决策/收藏 + 自定义要求（导出供单测）。
- *  v0.8.4：options.references 控制三段参考资料开关；options.prompt 注入【自定义要求】（≤200 字） */
-export function composeBriefingUser(role: RoleId, ctx?: BriefingGenContext, dataText = '', options?: BriefingGenOptions): string {
+ *  v0.8.4：options.references 控制三段参考资料开关；options.prompt 注入【自定义要求】（≤200 字）
+ *  v0.9 M6②：docText 非空时注入【导入文档材料】（附件直通上下文，卡片可引用） */
+export function composeBriefingUser(
+  role: RoleId,
+  ctx?: BriefingGenContext,
+  dataText = '',
+  options?: BriefingGenOptions,
+  docText = '',
+): string {
   const preset = getRolePreset(role)
   const refs = options?.references
   const lines = [
@@ -136,6 +144,7 @@ export function composeBriefingUser(role: RoleId, ctx?: BriefingGenContext, data
   }
   const prompt = clampGenPrompt(options?.prompt)
   if (prompt) lines.push(`【自定义要求】（用户本次生成偏好，优先级高于默认要求）\n${prompt}`)
+  if (docText) lines.push(`【导入文档材料】（用户导入的文档与说明，卡片内容可引用，禁止编造文档中不存在的数据）\n${docText}`)
   return lines.join('\n')
 }
 
@@ -175,7 +184,9 @@ export class ApiBriefingProvider implements BriefingProvider {
     try {
       const preset = getRolePreset(role)
       const system = `${buildSystemPrompt(preset, useSettingsStore.getState().preferences)}\n\n${CARD_SCHEMA_PROMPT}\n\n${composeGenConstraints(options)}`
-      const user = composeBriefingUser(role, ctx, dataText, options)
+      // v0.9 M6②：导入文档附件注入（ApiBriefingProvider 仅 API 模式运行；Mock 剧本不消费）
+      const docText = buildDocAttachments(role)
+      const user = composeBriefingUser(role, ctx, dataText, options, docText)
 
       const llm = new DeepSeekAdapter(this.config)
       let full = ''

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   X, Star, Check, Sparkles, ArrowLeft, ArrowUp, ArrowRight, LayoutDashboard, RotateCcw,
-  RefreshCw, FileSpreadsheet, Clock, Loader2, Wand2,
+  RefreshCw, FileText, Clock, Loader2, Wand2,
 } from 'lucide-react'
 import { useAuthStore } from '../../stores/authStore'
 import { useBriefingStore } from '../../stores/briefingStore'
@@ -12,7 +12,7 @@ import { useUiStore } from '../../stores/uiStore'
 import { getRolePreset } from '../../harness/roles'
 import { formatAge, isStale } from '../../harness/sources'
 import type { BriefingGenOptions, CardLink } from '../../harness/types'
-import CsvImportDialog from '../../components/CsvImportDialog'
+import ImportDocumentDialog from '../../components/ImportDocumentDialog'
 import RegenerateDialog from './RegenerateDialog'
 import BriefingCardView from './BriefingCardView'
 import StampMark, { STAMP_POSITION, type StampDecision } from './StampMark'
@@ -146,7 +146,8 @@ export default function BriefingPage() {
   )
 
   const stale = isStale(meta)
-  const canImport = role === 'teacher' || role === 'schoolAdmin'
+  /* 导入入口（v0.9 M6①）：教师 / 校管 / 教育局三角色统一开放「导入文档」 */
+  const canImport = role === 'teacher' || role === 'schoolAdmin' || role === 'bureau'
 
   const visible = cards.filter((c) => !decisions[c.id])
   const current = (pinnedId ? visible.find((c) => c.id === pinnedId) : undefined) ?? visible[0]
@@ -354,11 +355,11 @@ export default function BriefingPage() {
             <button
               onClick={() => setImportOpen(true)}
               className="flex items-center gap-1.5 rounded-full border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-ink-soft transition-colors hover:border-primary/50 hover:text-primary sm:px-3"
-              title="导入班级成绩 CSV，简报将基于真实数据生成"
-              aria-label="导入成绩"
+              title={role === 'bureau' ? '导入区县汇总文档，简报将引用其内容' : '导入文档（成绩表/说明文档），简报与任务将引用其内容'}
+              aria-label="导入文档"
             >
-              <FileSpreadsheet size={13} />
-              <span className="hidden sm:inline">导入成绩</span>
+              <FileText size={13} />
+              <span className="hidden sm:inline">导入文档</span>
             </button>
           )}
           {/* 重新生成（v0.8.4）：自定义偏好后重载卡组，与刷新/导入并列 */}
@@ -535,6 +536,11 @@ export default function BriefingPage() {
         )}
       </main>
 
+      {/* 责任边界提示（v0.9 M3①）：常驻轻标识，不弹窗打断批示流 */}
+      <p className="minor-info px-4 pb-1.5 text-center text-[0.625rem] text-ink-mute">
+        AI 生成内容仅供参考，采纳前请人工复核
+      </p>
+
       {/* 决策栏（切入动画期间不渲染，避免批示到未展示的卡） */}
       {current && !intro && (
         <footer className="pb-[max(28px,env(safe-area-inset-bottom))]">
@@ -594,9 +600,9 @@ export default function BriefingPage() {
         />
       )}
 
-      {/* 成绩 CSV 导入（v0.5 M1②） */}
+      {/* 导入文档（v0.9 M6②，原成绩 CSV 导入改造更名）：文档原文作为附件材料直通 LLM 上下文 */}
       {importOpen && (
-        <CsvImportDialog
+        <ImportDocumentDialog
           onClose={() => setImportOpen(false)}
           onImported={() => {
             if (role) void loadDeck(role)

@@ -13,6 +13,7 @@ import { ArtifactApiAdapter } from '../artifacts/adapter'
 import { getRolePreset, buildSystemPrompt } from '../roles'
 import { FALLBACK_SCRIPTS, type ScriptStep } from '../scripts/agent'
 import { useSettingsStore } from '../../stores/settingsStore'
+import { buildDocAttachments } from '../../stores/dataStore'
 import { matchSkill, summarizeSkill } from '../skills/library'
 import { LlmSkillDistiller, type SkillDistiller } from '../skills/distill'
 import { useSkillStore } from '../../stores/skillStore'
@@ -76,10 +77,17 @@ export class Orchestrator implements AgentProvider {
       : ''
 
     try {
+      // v0.9 M6②：导入文档作为附件材料注入上下文（Orchestrator 仅 API 模式运行，Mock 走剧本不消费）
+      const attachments = buildDocAttachments(role)
       const messages: ChatMessage[] = [
         { role: 'system', content: buildSystemPrompt(preset, useSettingsStore.getState().preferences) + skillPrompt },
         ...history,
-        { role: 'user', content: goal },
+        {
+          role: 'user',
+          content: attachments
+            ? `${goal}\n\n【导入文档材料】（用户导入的文档与说明，回答与产出可引用其内容）\n${attachments}`
+            : goal,
+        },
       ]
       if (skill) {
         emit({ kind: 'skill_hit', skillId: skill.id, name: skill.name, version: skill.version, origin: skill.origin })
@@ -134,7 +142,11 @@ export class Orchestrator implements AgentProvider {
       // v0.5 M3③：估算本轮消耗（模型输出 + 工具参数；CJK ≈ 2 字符/token），超预算提前收尾
       usedTokens += Math.round((text.length + toolCalls.reduce((n, tc) => n + tc.args.length, 0)) / 2)
       if (budgetTokens > 0 && usedTokens > budgetTokens) {
-        ctx.emit({ kind: 'reflect', text: `已达到单任务 token 预算（约 ${usedTokens}/${budgetTokens}），提前收尾以保证成本可控。` })
+        // v0.9 M7③：预算文案标注「约数，仅统计输出」，管理成本预期
+        ctx.emit({
+          kind: 'reflect',
+          text: `已达到单任务 token 预算（约 ${usedTokens}/${budgetTokens}，约数、仅统计输出不含输入上下文），提前收尾以保证成本可控。`,
+        })
         ctx.emit({ kind: 'done', text: '任务已按预算收尾。如需继续，可在设置中调高单任务 token 预算。' })
         return
       }
@@ -208,7 +220,8 @@ export class Orchestrator implements AgentProvider {
     let text = ''
     let finishReason: string | undefined
 
-    const gen = this.llm.streamChatRaw(messages, signal)
+    // v0.9 M1②：tools 随请求体下发，tool_calls 分片累积逻辑自此真正生效
+    const gen = this.llm.streamChatRaw(messages, signal, { tools })
     try {
       while (true) {
         const { value, done } = await gen.next()
@@ -236,7 +249,6 @@ export class Orchestrator implements AgentProvider {
         /* ignore */
       }
     }
-    void tools
     return {
       text,
       toolCalls: [...pending.values()].sort((a, b) => a.index - b.index),

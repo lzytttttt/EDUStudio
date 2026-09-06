@@ -294,6 +294,10 @@ export default function ArtifactPanel() {
                         <span className="minor-info text-[0.625rem] text-ink-mute">{item.hint}</span>
                       </button>
                     ))}
+                    {/* 导出附注（v0.9 M3③）：不强制写页脚，水印仍由用户配置 */}
+                    <p className="border-t border-line px-3 py-2 text-[0.625rem] leading-relaxed text-ink-mute">
+                      导出内容含 AI 生成部分，请复核后使用
+                    </p>
                   </div>
                 </>
               )}

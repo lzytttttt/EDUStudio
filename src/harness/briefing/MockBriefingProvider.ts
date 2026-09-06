@@ -1,5 +1,5 @@
 import type { BriefingCard, BriefingGenContext, BriefingGenOptions, BriefingProvider, RoleId } from '../types'
-import { BRIEFING_DECKS } from '../scripts/briefing'
+import { BRIEFING_DECKS, DECK_GROUP_COUNT } from '../scripts/briefing'
 
 /** 个性化排序档位：0=收藏 tag 关联（前置） 1=默认 2=跳过 ≥2 次 tag（沉底） */
 const RANK_FAV = 0
@@ -31,13 +31,27 @@ export function personalize(deck: BriefingCard[], ctx: BriefingGenContext): Brie
     .map((x) => x.card)
 }
 
+/** 周粒度派生（v0.9 M6④）：dayIndex = floor(now / 86400000 / 7) → 组号（导出供单测） */
+export function deckGroupIndex(now: number): number {
+  return Math.floor(now / 86_400_000 / 7) % DECK_GROUP_COUNT
+}
+
+/** 组内确定性轮换：保持 8 张结构与六类占比，仅顺序变化（第 0 组不动 = 默认体验与回归基线不变） */
+export function rotateDeck(deck: BriefingCard[], group: number): BriefingCard[] {
+  const shift = deck.length ? (group * 3) % deck.length : 0
+  return [...deck.slice(shift), ...deck.slice(0, shift)]
+}
+
 export class MockBriefingProvider implements BriefingProvider {
   /**
    * 返回角色剧本的浅拷贝，避免调用方直接改动剧本；ctx 存在时做个性化排序。
    * v0.8.4：options.types 非空时按种类过滤静态剧本（空选/全选 = 不过滤，个性化排序保持不变）。
+   * v0.9 M6④：按 ctx.now（缺省 Date.now()）周粒度派生内容池分组，周更换序保持新鲜感。
    */
   getDeck(role: RoleId, ctx?: BriefingGenContext, options?: BriefingGenOptions): BriefingCard[] {
     let deck = (BRIEFING_DECKS[role] ?? []).map((c) => ({ ...c }))
+    const group = deckGroupIndex(ctx?.now ?? Date.now())
+    if (group > 0) deck = rotateDeck(deck, group)
     const types = options?.types
     if (types && types.length > 0) deck = deck.filter((c) => types.includes(c.type))
     return ctx ? personalize(deck, ctx) : deck

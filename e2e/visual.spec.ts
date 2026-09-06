@@ -10,7 +10,12 @@ import { expect, test, type Page } from '@playwright/test'
  * - 全局阈值 5%（playwright.config.ts expect.toHaveScreenshot）。
  * - v0.7：简报页堆叠卡视差（缩放/透明度内联化）与卡片动效调整影响 briefing 基线，
  *   合并后需执行 --update-snapshots 重新生成 briefing.png（其余页面不受影响）。
+ * - v0.9 M8②：clock 固定日期对齐 M6④ 卡组周派生——运行日期跨周后卡组轮换会使快照漂移；
+ *   固定在 2024-01-01（deckGroupIndex = 0，即原剧本组），基线与 v0.8 时代保持一致。
  */
+
+/** 视觉回归固定日期：floor(days/7) % 3 = 0 → 第 0 组（原剧本），快照不随运行日期漂移 */
+const FIXED_NOW = '2024-01-01T08:00:00'
 
 /** 账号密码登录（v0.6.1 登录页改版）：填表 → 选身份 → 提交 */
 async function loginAs(page: Page, role: 'teacher' | 'schoolAdmin' | 'bureau') {
@@ -61,6 +66,7 @@ for (const { name, setup } of SHOTS) {
         if (key.startsWith('edustudio:')) localStorage.removeItem(key)
       }
     })
+    await page.clock.install({ time: FIXED_NOW }) // v0.9 M8②：固定日期对齐派生卡组
     await page.goto('/')
     await setup(page)
     await page.waitForTimeout(400) // 等待入场动画结束

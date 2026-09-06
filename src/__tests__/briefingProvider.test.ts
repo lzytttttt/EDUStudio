@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { MockBriefingProvider, personalize } from '../harness/briefing/MockBriefingProvider'
+import {
+  MockBriefingProvider,
+  deckGroupIndex,
+  personalize,
+  rotateDeck,
+} from '../harness/briefing/MockBriefingProvider'
+import { BRIEFING_DECKS, DECK_GROUP_COUNT } from '../harness/scripts/briefing'
 import {
   ApiBriefingProvider,
   clampGenAttempts,
@@ -214,5 +220,48 @@ describe('生成参数 clamp（v0.8.4）', () => {
     expect(clampGenCount(2)).toBe(3)
     expect(clampGenCount(99)).toBe(10)
     expect(clampGenPrompt('  聚焦薄弱点  ')).toBe('聚焦薄弱点')
+  })
+})
+
+describe('卡组周派生（v0.9 M6④/M8①）', () => {
+  const DAY = 86_400_000
+  const mk = (i: number): BriefingCard => ({
+    id: `c${i}`,
+    role: 'teacher',
+    type: 'insight',
+    tag: '学情',
+    title: '',
+    body: '',
+    confidence: 2,
+    source: '',
+  })
+
+  it('deckGroupIndex：第 0 周为 0，按周递增并对组数取模回绕', () => {
+    expect(deckGroupIndex(0)).toBe(0)
+    expect(deckGroupIndex(6 * DAY)).toBe(0)
+    expect(deckGroupIndex(7 * DAY)).toBe(1)
+    expect(deckGroupIndex(7 * DAY * DECK_GROUP_COUNT)).toBe(0)
+  })
+
+  it('第 0 组回归：now=0 时 getDeck 与剧本原序一致（默认体验与回归基线不变）', () => {
+    const provider = new MockBriefingProvider()
+    const deck = provider.getDeck('teacher', { decisions: {}, favorites: [], now: 0 })
+    expect(deck.map((c) => c.id)).toEqual(BRIEFING_DECKS.teacher.map((c) => c.id))
+  })
+
+  it('非 0 组轮换：顺序变化但集合与张数不变（8 张结构保持）', () => {
+    const provider = new MockBriefingProvider()
+    const g0 = provider.getDeck('teacher', { decisions: {}, favorites: [], now: 0 })
+    const g1 = provider.getDeck('teacher', { decisions: {}, favorites: [], now: 7 * DAY })
+    expect(g1.length).toBe(g0.length)
+    expect(g1.map((c) => c.id)).not.toEqual(g0.map((c) => c.id))
+    expect([...g1.map((c) => c.id)].sort()).toEqual([...g0.map((c) => c.id)].sort())
+  })
+
+  it('rotateDeck 纯函数：确定性轮换（shift = group*3 % len），空卡组安全', () => {
+    const deck = Array.from({ length: 8 }, (_, i) => mk(i))
+    expect(rotateDeck(deck, 1).map((c) => c.id)).toEqual(['c3', 'c4', 'c5', 'c6', 'c7', 'c0', 'c1', 'c2'])
+    expect(rotateDeck(deck, 0).map((c) => c.id)).toEqual(deck.map((c) => c.id))
+    expect(rotateDeck([], 2)).toEqual([])
   })
 })

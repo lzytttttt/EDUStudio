@@ -233,6 +233,12 @@ export default function BriefingCardView({
             {meta.label} · {card.tag}
           </span>
           <span className="minor-info flex items-center gap-1" title={`置信度 ${card.confidence}/3`}>
+            {/* 低置信度强化（v0.9 M3②）：confidence=1 显示「建议人工核实」徽标 */}
+            {card.confidence === 1 && (
+              <span className="mr-0.5 rounded-full bg-amber-soft px-1.5 py-0.5 text-[0.5625rem] font-medium text-amber">
+                建议人工核实
+              </span>
+            )}
             {[1, 2, 3].map((i) => (
               <span key={i} className={cn('h-1.5 w-1.5 rounded-full', i <= card.confidence ? 'bg-mint' : 'bg-line')} />
             ))}

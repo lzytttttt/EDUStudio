@@ -24,11 +24,20 @@ export interface LLMDelta {
   finishReason?: string
 }
 
+/** streamChatRaw 可选参数（v0.9 M1）：tools 非空时随请求体下发（OpenAI 兼容 function-calling） */
+export interface StreamChatRawOptions {
+  /** 角色工具 JSON Schema 列表；非空数组合入请求体，缺省/空数组 = 不携带（向后兼容） */
+  tools?: unknown[]
+}
+
 export interface LLMProvider {
   /** 流式对话，逐块产出文本 */
   streamChat(messages: ChatMessage[], signal?: AbortSignal): AsyncGenerator<string>
-  /** 流式原始增量（含 tool_calls 分片）；未实现时视为该 provider 不支持 function-calling */
-  streamChatRaw?(messages: ChatMessage[], signal?: AbortSignal): AsyncGenerator<LLMDelta>
+  /**
+   * 流式原始增量（含 tool_calls 分片）；未实现时视为该 provider 不支持 function-calling。
+   * v0.9 M1③：增加可选 options 参数携带 tools 契约——Mock 实现缺省即不支持，语义不变。
+   */
+  streamChatRaw?(messages: ChatMessage[], signal?: AbortSignal, options?: StreamChatRawOptions): AsyncGenerator<LLMDelta>
 }
 
 /** LLM 调用错误：携带 HTTP 状态码，供回退策略判断 */

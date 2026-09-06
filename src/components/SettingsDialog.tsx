@@ -1,10 +1,11 @@
 import { useRef, useState } from 'react'
-import { X, Eye, EyeOff, RotateCcw, Trash2, User, Type, Database, ShieldCheck, Stamp, Focus } from 'lucide-react'
+import { X, Eye, EyeOff, RotateCcw, Trash2, User, Type, Database, ShieldCheck, Stamp, Focus, HardDrive, Download, Upload } from 'lucide-react'
 import {
   useSettingsStore, maskKey, clampPref, PREF_MAX_LEN,
   FONT_SIZE_MIN, FONT_SIZE_MAX, FONT_SIZE_DEFAULT,
 } from '../stores/settingsStore'
 import { checkApiKey, type KeyCheckResult } from '../lib/keyCheck'
+import { buildBackupFile, downloadBackup, parseBackupFile, importAll, type BackupFile } from '../lib/backup'
 import { cn } from '../lib/cn'
 import { useDialogA11y } from '../lib/useDialogA11y'
 
@@ -105,6 +106,45 @@ export default function SettingsDialog({ onClose }: { onClose: () => void }) {
   const [keyCheck, setKeyCheck] = useState<KeyCheckResult | null>(null)
   const [keyChecking, setKeyChecking] = useState(false)
   const dialogRef = useDialogA11y<HTMLDivElement>(true, onClose)
+  /* 数据备份（v0.9 M2③）：导出二次确认 / 导入待确认文件 / 结果提示 */
+  const [confirmExport, setConfirmExport] = useState(false)
+  const [pendingImport, setPendingImport] = useState<BackupFile | null>(null)
+  const [backupMsg, setBackupMsg] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  /** 导出备份：第一次点击弹提示（含 API Key 保管责任），再次点击确认下载 */
+  const handleExport = () => {
+    if (!confirmExport) {
+      setConfirmExport(true)
+      setTimeout(() => setConfirmExport(false), 5000)
+      return
+    }
+    setConfirmExport(false)
+    downloadBackup(buildBackupFile())
+    setBackupMsg('备份文件已开始下载，请妥善保管。')
+  }
+
+  /** 选择备份文件 → 校验 → 进入「覆盖确认」态（不立即写入） */
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0]
+    e.target.value = '' // 允许重复选择同一文件
+    if (!f) return
+    const parsed = parseBackupFile(await f.text())
+    if (!parsed.ok) {
+      setPendingImport(null)
+      setBackupMsg(parsed.message)
+      return
+    }
+    setBackupMsg(null)
+    setPendingImport(parsed.file)
+  }
+
+  /** 确认恢复：全量覆盖写入后 reload（store 重新从 LocalStorage 初始化） */
+  const confirmImport = () => {
+    if (!pendingImport) return
+    importAll(pendingImport)
+    window.location.reload()
+  }
 
   /** Key 有效性检测（v0.5 M5②）：无效自动清空，避免反复失败 */
   const runKeyCheck = async () => {
@@ -294,6 +334,10 @@ export default function SettingsDialog({ onClose }: { onClose: () => void }) {
                     </button>
                   </div>
                   {s.apiKey && <p className="mt-1 text-[0.6875rem] text-ink-mute">已保存：{maskKey(s.apiKey)}</p>}
+                  {/* Key 存储措辞（v0.9 M7④）：明示混淆而非加密，管理安全预期并引导生产环境走代理 */}
+                  <p className="mt-1 text-[0.6875rem] leading-relaxed text-ink-mute">
+                    Key 以混淆存储（防误窥，非加密）；生产环境建议使用轻后端代理，Key 只存服务端。
+                  </p>
                   {/* Key 有效性检测（v0.5 M5②） */}
                   <div className="mt-2 flex items-center gap-2">
                     <button
@@ -324,7 +368,9 @@ export default function SettingsDialog({ onClose }: { onClose: () => void }) {
                   onChange={(e) => s.update({ tokenBudget: Math.max(0, Number(e.target.value) || 0) })}
                   className="w-full rounded-xl border border-line bg-surface-2 px-3 py-2 text-sm text-ink outline-none transition-colors focus:border-primary"
                 />
-                <p className="mt-1 text-[0.6875rem] text-ink-mute">超出后 Agent 提前收尾以保证成本可控；0 表示不限制。</p>
+                <p className="mt-1 text-[0.6875rem] text-ink-mute">
+                  超出后 Agent 提前收尾以保证成本可控；0 表示不限制。预算为约数，仅统计模型输出（不含输入上下文）。
+                </p>
               </div>
               <p className="rounded-xl bg-amber-50 px-3 py-2 text-[0.6875rem] leading-relaxed text-amber-700">
                 ⚠️ Key 仅存本机浏览器。生产环境请使用轻后端代理（proxy/ 目录），避免 Key 暴露。
@@ -433,6 +479,77 @@ export default function SettingsDialog({ onClose }: { onClose: () => void }) {
             />
             启用专注模式（默认开启）
           </label>
+        </section>
+
+        {/* ── 数据备份（v0.9 M2）：全量导出 / 恢复 + 本机存储明示 ── */}
+        <section className="mb-6">
+          <div className="mb-3 flex items-center gap-2">
+            <HardDrive size={14} className="text-primary" />
+            <h3 className="text-sm font-semibold text-ink">数据备份</h3>
+          </div>
+          <p className="mb-3 text-xs leading-relaxed text-ink-mute">
+            所有数据仅保存在本机浏览器，不会上传；换设备或清理浏览器数据前请先导出备份。
+            备份包含会话、文档、收藏、技能、导入的成绩等全部内容。
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={handleExport}
+              data-testid="backup-export-btn"
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs transition-colors',
+                confirmExport
+                  ? 'border-primary bg-primary text-white'
+                  : 'border-line bg-surface-2 text-ink-soft hover:border-primary/40 hover:text-primary',
+              )}
+            >
+              <Download size={12} />
+              {confirmExport ? '确认导出？' : '导出备份'}
+            </button>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              data-testid="backup-import-btn"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-surface-2 px-3 py-2 text-xs text-ink-soft transition-colors hover:border-primary/40 hover:text-primary"
+            >
+              <Upload size={12} />
+              导入恢复
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="application/json,.json"
+              className="hidden"
+              onChange={(e) => void handleImportFile(e)}
+            />
+          </div>
+          {confirmExport && (
+            <p className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-[0.6875rem] leading-relaxed text-amber-700">
+              ⚠️ 导出文件包含 API Key 等登录配置，请妥善保管，不要分享给他人。
+            </p>
+          )}
+          {pendingImport && (
+            <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2" data-testid="backup-import-confirm">
+              <p className="text-[0.6875rem] leading-relaxed text-amber-700">
+                将覆盖当前本机数据（{pendingImport.exportedAt.slice(0, 10)} 导出的备份，共{' '}
+                {Object.keys(pendingImport.data).length} 项）。确认恢复？
+              </p>
+              <div className="mt-2 flex gap-2">
+                <button
+                  onClick={confirmImport}
+                  data-testid="backup-import-confirm-btn"
+                  className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-amber-700"
+                >
+                  确认恢复
+                </button>
+                <button
+                  onClick={() => setPendingImport(null)}
+                  className="rounded-lg border border-amber-300 px-3 py-1.5 text-xs text-amber-700 transition-colors hover:bg-amber-100"
+                >
+                  取消
+                </button>
+              </div>
+            </div>
+          )}
+          {backupMsg && <p className="mt-2 text-[0.6875rem] text-ink-mute">{backupMsg}</p>}
         </section>
 
         {/* ── 数据 ── */}
