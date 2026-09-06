@@ -1,8 +1,9 @@
 import type { BriefingCard, BriefingGenContext, BriefingGenOptions, BriefingProvider, RoleId } from '../types'
 import { BRIEFING_DECKS, DECK_GROUP_COUNT } from '../scripts/briefing'
 
-/** 个性化排序档位：0=收藏 tag 关联（前置） 1=默认 2=跳过 ≥2 次 tag（沉底） */
+/** 个性化排序档位：0=收藏 tag 关联（前置） 0.5=L3 语义偏好 tag（v0.9.1 注入 B） 1=默认 2=跳过 ≥2 次 tag（沉底） */
 const RANK_FAV = 0
+const RANK_PREF = 0.5
 const RANK_DEFAULT = 1
 const RANK_SKIPPED = 2
 const SKIP_SINK_THRESHOLD = 2
@@ -12,6 +13,7 @@ const SKIP_SINK_THRESHOLD = 2
  *  - 收藏过的 tag 关联卡前置（用户兴趣信号）；
  *  - 被跳过 ≥2 次的 tag 沉底（避免重复打扰）；
  *  - 同档位按原索引排序，保证顺序稳定、重载不闪烁。
+ * v0.9.1 注入 B：L3 语义偏好 tag 次优先前置（收藏 tag 之后、默认档之前）。
  */
 export function personalize(deck: BriefingCard[], ctx: BriefingGenContext): BriefingCard[] {
   const skipCount = new Map<string, number>()
@@ -21,10 +23,23 @@ export function personalize(deck: BriefingCard[], ctx: BriefingGenContext): Brie
     }
   }
   const favTags = new Set(ctx.favorites.map((f) => f.tag))
+  // v0.9.1 注入 B：L3 语义偏好标签（key 形如 `${role}.pref.card.tag.${tag}`）→ 次优先前置（收藏 > 偏好 > 默认）
+  const prefTags = new Set(
+    (ctx.prefs ?? [])
+      .map((e) => e.key?.match(/\.pref\.card\.tag\.(.+)$/)?.[1])
+      .filter((t): t is string => Boolean(t)),
+  )
   return deck
     .map((card, index) => {
       const skips = skipCount.get(card.tag) ?? 0
-      const rank = skips >= SKIP_SINK_THRESHOLD ? RANK_SKIPPED : favTags.has(card.tag) ? RANK_FAV : RANK_DEFAULT
+      const rank =
+        skips >= SKIP_SINK_THRESHOLD
+          ? RANK_SKIPPED
+          : favTags.has(card.tag)
+            ? RANK_FAV
+            : prefTags.has(card.tag)
+              ? RANK_PREF
+              : RANK_DEFAULT
       return { card, index, rank }
     })
     .sort((a, b) => a.rank - b.rank || a.index - b.index)

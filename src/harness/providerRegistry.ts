@@ -1,8 +1,18 @@
-import type { AgentProvider, BriefingProvider, ArtifactProvider, LLMProvider, ProviderMode } from './types'
+import type {
+  AgentProvider,
+  BriefingProvider,
+  ArtifactProvider,
+  Evaluator,
+  LLMProvider,
+  MemoryProvider,
+  ProviderMode,
+} from './types'
 import { getLLMProvider, type DeepSeekConfig } from './llm'
 import { getAgentProvider } from './agent'
 import { getBriefingProvider } from './briefing'
 import { getArtifactProvider } from './artifacts'
+import { getMemoryProvider } from './memory'
+import { getEvaluator } from './eval'
 import { useSettingsStore } from '../stores/settingsStore'
 
 export { ACTIVE_MODE } from './defaults'
@@ -12,6 +22,10 @@ export interface Providers {
   agent: AgentProvider
   briefing: BriefingProvider
   artifacts: ArtifactProvider
+  /** v0.9.1 记忆分层：本地实现不分 mode，随配置缓存构建 */
+  memory: MemoryProvider
+  /** v0.9.1 产出自评：规则版零 LLM 成本，本地实现不分 mode */
+  eval: Evaluator
 }
 
 /**
@@ -40,6 +54,9 @@ function buildProviders(s: {
     agent: getAgentProvider(s.mode, config),
     briefing: getBriefingProvider(s.mode, config),
     artifacts: getArtifactProvider(s.mode, config),
+    // v0.9.1：记忆 / 自评为本地实现，mock / api 共用（mode 参数预留二期分流）
+    memory: getMemoryProvider(),
+    eval: getEvaluator(),
   }
 }
 

@@ -105,6 +105,33 @@ describe('Mock 个性化排序', () => {
     first[0].title = ' mutated'
     expect(provider.getDeck('teacher')[0].title).not.toBe(' mutated')
   })
+
+  it('L3 语义偏好 tag 次优先前置（v0.9.1：收藏 > 偏好 > 默认，跳过仍沉底）', () => {
+    const prefCtx: BriefingGenContext = {
+      decisions: {},
+      favorites: [],
+      prefs: [
+        { t: 0, role: 'teacher', kind: 'semantic', key: 'teacher.pref.card.tag.成绩', value: true, confidence: 0.6 },
+      ],
+    }
+    const order = personalize(deck, prefCtx).map((c) => c.id)
+    expect(order[0]).toBe('c4') // 偏好 tag「成绩」前置（收藏缺失时次优先）
+    expect(order.slice(1)).toEqual(['c1', 'c2', 'c3']) // 其余保持原序
+    // 偏好 + 收藏并存：收藏档（0）优先于偏好档（0.5）
+    const bothCtx: BriefingGenContext = { ...prefCtx, favorites: [deck[1]] }
+    const both = personalize(deck, bothCtx).map((c) => c.id)
+    expect(both[0]).toBe('c2')
+    expect(both[1]).toBe('c4')
+    // 偏好与跳过并存：跳过 ≥2 次 tag 仍沉底
+    const sinkCtx: BriefingGenContext = {
+      decisions: { c1: 'skip', c3: 'skip' },
+      favorites: [],
+      prefs: prefCtx.prefs,
+    }
+    const sink = personalize(deck, sinkCtx).map((c) => c.id)
+    expect(sink[0]).toBe('c4')
+    expect(sink.slice(-2)).toEqual(['c1', 'c3'])
+  })
 })
 
 describe('ApiBriefingProvider 骨架', () => {

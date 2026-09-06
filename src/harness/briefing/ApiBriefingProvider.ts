@@ -18,6 +18,7 @@ import { useSettingsStore } from '../../stores/settingsStore'
 import { buildDocAttachments } from '../../stores/dataStore'
 import { buildDataContext } from '../sources/dataContext'
 import { MockBriefingProvider } from './MockBriefingProvider'
+import { formatSemanticLines } from '../memory/format'
 import { extractJsonArray, validateBriefingCard } from './validate'
 
 const TIMEOUT_MS = 12_000
@@ -141,6 +142,10 @@ export function composeBriefingUser(
   }
   if (ctx && refs?.favorites !== false && ctx.favorites.length) {
     lines.push(`收藏过的卡片（用户兴趣，可生成关联跟进卡）：${ctx.favorites.slice(0, 5).map((f) => `《${f.title}》`).join('、')}`)
+  }
+  // v0.9.1 注入 B：L3 语义偏好并入生成上下文（与收藏段同开关，同属「用户个性化参考资料」）
+  if (ctx && refs?.favorites !== false && ctx.prefs?.length) {
+    lines.push(`用户长期偏好（来自记忆分层，生成时请对齐）：\n${formatSemanticLines(ctx.prefs).map((l) => `- ${l}`).join('\n')}`)
   }
   const prompt = clampGenPrompt(options?.prompt)
   if (prompt) lines.push(`【自定义要求】（用户本次生成偏好，优先级高于默认要求）\n${prompt}`)

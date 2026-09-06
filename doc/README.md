@@ -27,6 +27,7 @@
 | [v0.8-03-briefing-entry-intro.md](./v0.8-03-briefing-entry-intro.md) | 增量 | v0.8.3 小型优化：简报卡牌生成切入动画——首进与重新过一遍均播放（无文字，设计风格对齐） |
 | [v0.8-04-briefing-regenerate-dialog.md](./v0.8-04-briefing-regenerate-dialog.md) | 增量 | v0.8.4 小型优化：简报自定义重新生成弹窗——提示词 / 种类 / 参考资料 / 高级自定义（数量 / 风格 / payload / 超时重试），Mock 按种类过滤 |
 | [v0.9-roadmap.md](./v0.9-roadmap.md) | — | v0.9 路线图总览：Agent 主路径修复、数据安全网、决策责任边界提示、导航与诊断打磨 |
+| [v0.9.1-roadmap.md](./v0.9.1-roadmap.md) | — | v0.9.1 路线图总览：AI Native 记忆分层（L2 情景 + L3 语义偏好）+ 产出自评闭环（规则版 Evaluator）+ 反馈收割 |
 
 ## 文档规范
 
@@ -45,3 +46,4 @@
 - v0.7（已交付）：智能简报（生成增强 / 卡片交互 / 落章动效 / 专注模式）
 - v0.8（已交付）：API 模式数据驱动闭环 + LLM 技能提炼落地；v0.8.1 小型优化（专注模式移动端操作 / 工作台多文档跳转），见 [v0.8-01-focus-mobile-doc-nav.md](./v0.8-01-focus-mobile-doc-nav.md)；v0.8.2 小型优化（简报保留卡物理动效 / 拖回重新批阅），见 [v0.8-02-briefing-kept-cards-physics.md](./v0.8-02-briefing-kept-cards-physics.md)；v0.8.3 小型优化（简报卡牌生成切入动画：首进与重新过一遍均播放），见 [v0.8-03-briefing-entry-intro.md](./v0.8-03-briefing-entry-intro.md)；v0.8.4 小型优化（简报自定义重新生成弹窗：提示词 / 种类 / 参考资料 / 高级自定义），见 [v0.8-04-briefing-regenerate-dialog.md](./v0.8-04-briefing-regenerate-dialog.md)
 - v0.9（已交付）：信任与健壮性专项（function-calling 接线 / 数据备份安全网 / 决策责任边界提示 / Mock 边界标识 / 导航与返回键 / 导入文档化与卡组周派生 / 诊断打磨 / 质量与发布），见 [v0.9-roadmap.md](./v0.9-roadmap.md)
+- v0.9.1（已完成）：AI Native 记忆分层 + 产出自评闭环（MemoryProvider：L2 情景 / L3 语义偏好；规则版 Evaluator；反馈收割三写点；单键 edustudio:memory 并入备份白名单），见 [v0.9.1-roadmap.md](./v0.9.1-roadmap.md)

@@ -4,6 +4,8 @@ import { runScript, type StepContext } from './stepRunner'
 import { matchSkill } from '../skills/library'
 import { distillSkill } from '../skills/distill'
 import { useSkillStore } from '../../stores/skillStore'
+import { getMemoryProvider } from '../memory'
+import { formatMemoryBlock } from '../memory/format'
 
 /**
  * MockOrchestrator —— 三层执行链（v0.6 M2①）：
@@ -32,6 +34,17 @@ export class MockOrchestrator implements AgentProvider {
     try {
       const store = useSkillStore.getState()
 
+      // v0.9.1 注入 A（Mock 演示视图）：剧本驱动不消费 systemPrompt，
+      // 以 reflect 事件展示「已注入记忆上下文」，让三连演示可见；无记忆/读取失败时静默
+      try {
+        const memory = getMemoryProvider()
+        const [episodic, semantic] = await Promise.all([memory.recentEpisodic(role, 3), memory.semanticFor(role)])
+        const block = formatMemoryBlock(episodic, semantic)
+        if (block) emit({ kind: 'reflect', text: `已注入记忆上下文：\n${block}` })
+      } catch {
+        /* 记忆读取失败不影响执行 */
+      }
+
       // 第一/二层：技能命中（学习技能优先于内置剧本技能，matchSkill 内部排序）
       const skill = matchSkill(role, goal, store.learned)
       if (skill) {
@@ -42,6 +55,7 @@ export class MockOrchestrator implements AgentProvider {
           emit({ kind: 'done', text: `已按技能「${skill.name}」（v${skill.version}）的沉淀步骤完成执行，无需从零推理。` })
         }
         store.recordUsage(skill.id, skill.origin)
+        await this.harvest(goal, role)
         return
       }
 
@@ -50,6 +64,7 @@ export class MockOrchestrator implements AgentProvider {
         const generic = buildGenericScript(role, goal)
         await runScript(generic.steps, ctx)
         this.distillAndEmit(goal, collected, role, emit)
+        await this.harvest(goal, role)
         return
       }
 
@@ -62,6 +77,15 @@ export class MockOrchestrator implements AgentProvider {
       }
       console.error('[MockOrchestrator] step failed:', err)
       emit({ kind: 'done', text: '执行中遇到问题，已停止。请重试或换个说法描述你的目标。' })
+    }
+  }
+
+  /** v0.9.1 记忆收割：任务完成（emit done 后）→ L2 情景（outcome='executed'），静默不阻断 */
+  private async harvest(goal: string, role: RoleId): Promise<void> {
+    try {
+      await getMemoryProvider().record({ t: Date.now(), role, kind: 'episodic', goal, outcome: 'executed' })
+    } catch {
+      /* 记忆写入失败不影响任务 */
     }
   }
 

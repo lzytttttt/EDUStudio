@@ -17,6 +17,8 @@ import { buildDocAttachments } from '../../stores/dataStore'
 import { matchSkill, summarizeSkill } from '../skills/library'
 import { LlmSkillDistiller, type SkillDistiller } from '../skills/distill'
 import { useSkillStore } from '../../stores/skillStore'
+import { getMemoryProvider } from '../memory'
+import type { MemoryEntry } from '../types'
 
 /** 循环护栏：最多 5 轮工具调用（v0.4 M1①：plan → tool → 观察 → 再 plan） */
 const MAX_TOOL_ROUNDS = 5
@@ -77,10 +79,23 @@ export class Orchestrator implements AgentProvider {
       : ''
 
     try {
+      // v0.9.1 注入 A：await 记忆（L2 情景 + L3 语义偏好）→ buildSystemPrompt 拼接
+      // （记忆读取按 role 过滤，教师记忆不进入其他角色会话；失败静默 = 无记忆输出，回归基线不变）
+      let memoryContext: { episodic: MemoryEntry[]; semantic: MemoryEntry[] } | undefined
+      try {
+        const memory = getMemoryProvider()
+        const [episodic, semantic] = await Promise.all([memory.recentEpisodic(role, 3), memory.semanticFor(role)])
+        memoryContext = episodic.length || semantic.length ? { episodic, semantic } : undefined
+      } catch {
+        memoryContext = undefined
+      }
       // v0.9 M6②：导入文档作为附件材料注入上下文（Orchestrator 仅 API 模式运行，Mock 走剧本不消费）
       const attachments = buildDocAttachments(role)
       const messages: ChatMessage[] = [
-        { role: 'system', content: buildSystemPrompt(preset, useSettingsStore.getState().preferences) + skillPrompt },
+        {
+          role: 'system',
+          content: buildSystemPrompt(preset, useSettingsStore.getState().preferences, memoryContext) + skillPrompt,
+        },
         ...history,
         {
           role: 'user',
@@ -93,6 +108,12 @@ export class Orchestrator implements AgentProvider {
         emit({ kind: 'skill_hit', skillId: skill.id, name: skill.name, version: skill.version, origin: skill.origin })
       }
       await this.runFunctionCallingLoop(messages, input, ctx)
+      // v0.9.1 记忆收割：任务 emit done → L2 情景（outcome='executed'），静默不阻断主链路
+      try {
+        await getMemoryProvider().record({ t: Date.now(), role, kind: 'episodic', goal, outcome: 'executed' })
+      } catch {
+        /* 记忆写入失败不影响任务结果 */
+      }
       if (skill) skillStore.recordUsage(skill.id, skill.origin)
       // v0.8 M4：LLM 复盘提炼（未命中技能且任务型才提炼，控制成本）→ 结果入库并广播
       if (!skill && this.looksLikeTask(goal)) {

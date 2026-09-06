@@ -1,9 +1,10 @@
 import { create } from 'zustand'
-import type { BriefingCard, BriefingGenContext, BriefingGenOptions, PayloadPatch, RoleId } from '../harness/types'
+import type { BriefingCard, BriefingGenContext, BriefingGenOptions, MemoryEntry, PayloadPatch, RoleId } from '../harness/types'
 import { getProviders } from '../harness/providerRegistry'
 import { buildDataCards } from '../harness/sources/dataCards'
 import { getSourceProvider, type SourceMeta } from '../harness/sources'
 import { loadJSON, saveJSON } from '../lib/storage'
+import { selectSemanticRole, useMemoryStore } from './memoryStore'
 
 export type CardDecision = 'skip' | 'fav' | 'accept'
 
@@ -91,8 +92,14 @@ export const useBriefingStore = create<BriefingState>((set, get) => ({
   },
   loadDeck: async (role, options) => {
     set({ loading: true })
+    // v0.9.1 注入 B：从记忆库读取该角色 L3 语义偏好装入 ctx.prefs（Mock 排序叠加 / API 生成上下文共用）
+    const prefs: MemoryEntry[] = selectSemanticRole(useMemoryStore.getState().semantic, role)
     // 个性化上下文（v0.7）：历史决策 + 收藏，Mock 排序 / API 生成共用
-    const ctx: BriefingGenContext = { decisions: get().decisions, favorites: get().favorites }
+    const ctx: BriefingGenContext = {
+      decisions: get().decisions,
+      favorites: get().favorites,
+      ...(prefs.length ? { prefs } : {}),
+    }
     // 重新生成选项（v0.8.4）：显式传入优先，否则沿用已存偏好（刷新/重播同样生效）
     const genOpts = options ?? get().genOptions
     const provider = getProviders().briefing
@@ -129,6 +136,21 @@ export const useBriefingStore = create<BriefingState>((set, get) => ({
       decision === 'fav'
         ? [card, ...favorites.filter((f) => f.id !== cardId)]
         : favorites.filter((f) => f.id !== cardId)
+    // v0.9.1 记忆收割：收藏/采纳 → L3 标签偏好（跳过不记负例，避免把正常浏览节奏当拒绝信号）
+    if (decision === 'fav' || decision === 'accept') {
+      try {
+        useMemoryStore.getState().upsertSemantic({
+          t: Date.now(),
+          role: card.role,
+          kind: 'semantic',
+          key: `${card.role}.pref.card.tag.${card.tag}`,
+          value: true,
+          confidence: 0.6,
+        })
+      } catch {
+        /* 记忆写入失败不影响决策 */
+      }
+    }
     set({
       decisions: nextDecisions,
       favorites: nextFavorites,

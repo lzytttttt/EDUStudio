@@ -4,11 +4,11 @@
 
 **面向 K12 教育从业者（教育局 / 学校管理 / 教师）的轻量 AI Agent 工作台**
 
-`v0.9.0` · `信任与健壮性 · 解耦 Harness · Mock 兜底 · DeepSeek 级低成本 · 离线可演示`
+`v0.9.1` · `记忆分层 · 产出自评 · 解耦 Harness · Mock 兜底 · DeepSeek 级低成本 · 离线可演示`
 
 [![license](https://img.shields.io/badge/license-CC%20BY--NC%204.0-blue.svg)](./LICENSE)
 [![stack](https://img.shields.io/badge/Vite-React%2018-646CFF.svg)](./package.json)
-[![tests](https://img.shields.io/badge/Vitest-181%20%E4%BE%8B-success.svg)](#-质量保障)
+[![tests](https://img.shields.io/badge/Vitest-214%20%E4%BE%8B-success.svg)](#-质量保障)
 [![e2e](https://img.shields.io/badge/Playwright-9%20%E7%94%A8%E4%BE%8B-brightgreen.svg)](#-质量保障)
 [![lighthouse](https://img.shields.io/badge/Lighthouse-%E2%89%A5%200.85-yellow.svg)](#-质量保障)
 [![budget](https://img.shields.io/badge/gzip-270KB%20%E9%97%A8%E7%A6%81-orange.svg)](#-质量保障)
@@ -48,6 +48,22 @@ EDUStudio 的产品形态是一条「**收件 → 批阅 → 处理**」的暗�
   <img src="./png/shot/wechat_2026-09-05_164200_306.png" width="800" alt="登录页 · 账号密码式 + 角色切换" />
   <br/><em>登录页 · 账号密码式 + 角色切换 + Mock 演示模式提示</em>
 </p>
+
+---
+
+## v0.9.1 新特性 · 记忆分层与产出自评闭环
+
+> 小型版本（4 个里程碑），随 v0.9.1 发布。
+> 状态：✅ 已完成 · 单测（214 例，+33）+ tsc 验证通过，零新依赖。
+
+让 AI「**记得你、评估自己、越用越懂你**」——记忆自动收割、偏好自动注入、产出自我评估，用户全程无感：
+
+- **记忆分层存储（M1）**：L2 情景记忆（时间 / 角色 / 目标 / 结果，环形上限 200 条）+ L3 语义偏好（键值 + 置信度），单键 `edustudio:memory` 本地持久化并纳入备份白名单，按角色前缀隔离（教师记忆不进入教育局会话）；
+- **产出自评（M2）**：文档生成完成后按类型规则评分（0-10 分 + 逐项检查 + 可执行建议，零 LLM 成本），界面诚实标注「AI 自评 · 仅供参考」，支持一键重新自评；
+- **偏好注入（M3）**：对话系统提示注入「场景记忆 + 用户偏好」段（无记忆时与现状逐字节一致）；简报卡组在历史决策 / 收藏之上叠加语义偏好排序（收藏 > 偏好 > 默认，跳过仍沉底）；Mock 模式以 reflect 事件展示注入内容；
+- **反馈闭环（M4）**：导出（编辑过 → 修改后采纳 / 未编辑 → 采纳）、文档「符合 / 不符合预期」反馈、简报卡片收藏 / 采纳——全部自动写入记忆并提炼偏好（出题数量 / 课时分钟 / 导出格式 / 负例回避）。
+
+> 详见 [doc/v0.9.1-roadmap.md](./doc/v0.9.1-roadmap.md)。
 
 ---
 
@@ -214,6 +230,8 @@ src/harness/
 ├── agent/               # ToolRegistry + MockOrchestrator（Plan→Act→Reflect 剧本驱动）+ API 骨架
 ├── briefing/            # 今日简报卡片 Provider
 ├── artifacts/           # 文档生成 Provider（教案 / 报告 / 通知模板）
+├── memory/              # 记忆分层 Provider（L2 情景 + L3 语义偏好，mock/api 共用）
+├── eval/                # 产出自评（规则版评分表，mock/api 共用）
 ├── roles/               # 三角色预设（system prompt + 工具集）
 ├── sources/             # SourceProvider 三级优先（CSV 导入 > 远端数据平台 > 静态 seed）
 └── scripts/             # 预制剧本：简报卡组 / Agent 步骤 / 文档模板（含降级剧本）
@@ -249,7 +267,7 @@ Agent 在执行过程中**自动发现 → 自动提炼 → 沉淀 → 复用 �
 | --- | --- |
 | 数据源 | SourceProvider 三级优先：**CSV 导入 > 远端数据平台 > 静态 seed**，远端失败自动降级并在 UI 标注「演示数据」 |
 | 数据上下文 | 按角色聚合真实数据 → 格式化为 prompt 文本 · 来源标注 + 1800 字符截断护栏 + 单源失败不阻断 |
-| 持久化 | 会话 / 收藏 / 文档 / 版本历史 / 偏好画像 / 登录态 / 学习技能均存 LocalStorage（`edustudio:` 前缀）；设置弹层可一键清空 |
+| 持久化 | 会话 / 收藏 / 文档 / 版本历史 / 偏好画像 / 登录态 / 学习技能 / **记忆分层** 均存 LocalStorage（`edustudio:` 前缀）；设置弹层可一键清空 |
 | 教师专属 | 简报页可导入班级成绩 CSV（宽表 / 长表通吃，列名模糊匹配 + 预览确认），简报首卡即基于真实数据生成 |
 
 ---
@@ -287,7 +305,7 @@ npm install
 npm run dev      # 开发（端口被占用时 Vite 自动顺延）
 npm run build    # 类型检查 + 生产构建（前置 Vitest 单测 + tsc）
 npm run preview  # 预览生产构建
-npm test         # Vitest 单测（149 例）
+npm test         # Vitest 单测（214 例）
 npm run e2e      # Playwright 关键路径 E2E
 ```
 
@@ -339,7 +357,7 @@ DEEPSEEK_KEY=sk-xxx docker compose up -d        # PowerShell：$env:DEEPSEEK_KEY
 
 | 闸门 | 说明 |
 | --- | --- |
-| **Vitest 单测** | `npm test` 运行 Vitest 单测（**157 例**），覆盖 SSE 解析 / 增量归一化 / Markdown 渲染 / 工具注册 / 剧本与模板匹配 / 存储往返 / 偏好注入 / 导出工具 / CSV 成绩解析 / 数据源降级 / 上下文压缩 / 技能提炼与检索 / 简报卡校验与个性化排序 / 简报交互覆盖层与决策撤回 / 后台任务泵 / 数据上下文聚合与截断 / LLM 技能提炼校验与去重进化 / 简报重新生成选项注入与种类过滤 |
+| **Vitest 单测** | `npm test` 运行 Vitest 单测（**214 例**），覆盖 SSE 解析 / 增量归一化 / Markdown 渲染 / 工具注册 / 剧本与模板匹配 / 存储往返 / 偏好注入 / 导出工具 / CSV 成绩解析 / 数据源降级 / 上下文压缩 / 技能提炼与检索 / 简报卡校验与个性化排序 / 简报交互覆盖层与决策撤回 / 后台任务泵 / 数据上下文聚合与截断 / LLM 技能提炼校验与去重进化 / 简报重新生成选项注入与种类过滤 / 记忆环形裁剪与语义合并 / 偏好提炼与注入组装 / 文档规则评分 |
 | **构建闸门** | `npm run build` 前置执行单测 + tsc 类型检查，**双闸门**保障交付质量 |
 | **Playwright E2E** | 3 条关键路径 + 2 条自进化演示 |
 | **视觉回归** | 4 张基线视觉回归（阈值 5%，首月观察期） |
@@ -352,6 +370,7 @@ DEEPSEEK_KEY=sk-xxx docker compose up -d        # PowerShell：$env:DEEPSEEK_KEY
 
 | 版本 | 主题 | 一句话 |
 | --- | --- | --- |
+| **v0.9.1** | 记忆分层与产出自评闭环 | L2 情景 + L3 语义偏好本地记忆（环形 200 条 + 角色隔离）+ 对话 / 简报偏好注入 + 文档规则版自评（0-10 分 + 可执行建议）+ 导出 / 反馈 / 卡片决策自动收割闭环 |
 | **v0.9.0** | 信任与健壮性 | function-calling 接线（tools 下发请求体）+ 数据备份安全网（全量导出/恢复 + 白名单兼容）+ 决策责任边界提示 + Mock 边界标识 + 浏览器返回键历史集成 + 导入文档化（附件直通 LLM + 用途指令）+ 卡组周派生 + 连接错误分类诊断 |
 | **v0.8.4** | 简报自定义重新生成 | 顶栏「重新生成」弹窗：提示词 / 六类卡片种类 / 参考资料开关 / 高级自定义（数量 3-10 / 风格 / payload / 超时重试）；API 模式注入生成约束，Mock 按种类过滤剧本；选项持久化回填 |
 | **v0.8.3** | 简报卡牌生成切入动画 | 首次进入简报与「重新过一遍」时：三张卡牌自右下依次飞入落叠 + 落卡迸光 + 顶卡生成微光，卡组就绪后微缩淡出无缝交棒；全程无文字，弱动效偏好跳过 |
@@ -369,22 +388,12 @@ DEEPSEEK_KEY=sk-xxx docker compose up -d        # PowerShell：$env:DEEPSEEK_KEY
 
 ---
 
-## 下一步 · v0.9 信任与健壮性
+## 下一步
 
-v0.9 主线：**修复 API 模式 Agent 主路径的接线缺口，为纯 LocalStorage 数据补上「备份 — 恢复」安全网，
-并为 AI 驱动的教育决策补上合理提示与 Mock 边界标识 —— 让产品从「可演示」走向「敢托付」**。
+- **v0.9.1 已落地**：记忆分层（L2 情景 + L3 语义偏好）、产出自评（规则版）、偏好注入（对话 + 简报）、反馈闭环（导出 / 反馈 / 卡片决策自动收割），方案见 [doc/v0.9.1-roadmap.md](./doc/v0.9.1-roadmap.md)；
+- **二期候选**：LLM 版偏好提炼与自评（`getMemoryProvider` / `getEvaluator` 已预留 mode 分流）、云端记忆同步（设计文档「不做清单」，按需启动）。
 
-| 里程碑 | 优先级 | 内容 |
-| --- | --- | --- |
-| M1 Agent 主路径修复 | P0 | `streamChatRaw` 请求体携带 `tools`，Orchestrator 真正接线 function-calling（此前 100% 走 Plan-JSON 降级） |
-| M2 数据安全网 | P0 | `lib/backup.ts` 全量导出 / 恢复（JSON 快照 + 键名白名单）+ 设置页「数据仅存本机」明示 |
-| M3 决策责任边界提示 | P1 | 简报页常驻「AI 生成内容仅供参考，采纳前请人工复核」；低置信度卡片「建议人工核实」徽标 |
-| M4 Mock 边界标识 | P1 | Mock 模式对话流「演示」徽标、导出文档追加演示标注（提示而非阻断） |
-| M5 导航与返回键 | P1 | `pushState` / `popstate` 集成（无路由库），移动端「← 简报」明确返回入口 |
-| M6 导入文档化 | P2 | 全角色统一「导入文档」（文档原文 + 用户 prompt 作为附件直通 LLM）；卡组按周派生 |
-| M7 诊断打磨 | P2 | 连接错误中文分类、E2E 去硬编码、token 预算文案、Key 措辞审查（混淆存储，非加密） |
-
-完整方案见 [doc/v0.9-roadmap.md](./doc/v0.9-roadmap.md)，全部迭代文档见 [doc/README.md](./doc/README.md)。
+全部迭代文档见 [doc/README.md](./doc/README.md)。
 
 ---
 

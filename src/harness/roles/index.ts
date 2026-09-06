@@ -1,6 +1,7 @@
-import type { RoleId, RolePreset } from '../types'
+import type { MemoryEntry, RoleId, RolePreset } from '../types'
 import type { UserPreferences } from '../../stores/settingsStore'
 import { TEACHER_TOOLS, SCHOOL_ADMIN_TOOLS, BUREAU_TOOLS } from '../agent/tools'
+import { formatEpisodicLines, formatSemanticLines } from '../memory/format'
 
 export const TEACHER_PRESET: RolePreset = {
   id: 'teacher',
@@ -57,14 +58,25 @@ export function listRoles(): RolePreset[] {
 
 /**
  * 将用户偏好画像拼接进 system prompt（v0.3 专项 ③）。
- * 无偏好时原样返回；Mock 剧本模式不受影响（剧本驱动，不走此注入）。
+ * v0.9.1 注入 A：新增可选记忆参数（L2 情景 + L3 语义偏好，由调用方在 async 上下文 await 后传入，
+ * 保持本函数同步签名）——输出段序：【场景记忆】→【用户偏好】（用户画像行与语义偏好合并同段）。
+ * 无偏好且无记忆时逐字节返回 preset.systemPrompt（回归基线不变）；
+ * Mock 剧本模式不受影响（剧本驱动，不走此注入，改用 reflect 事件展示注入内容）。
  */
-export function buildSystemPrompt(preset: RolePreset, p?: UserPreferences): string {
-  if (!p) return preset.systemPrompt
+export function buildSystemPrompt(
+  preset: RolePreset,
+  p?: UserPreferences,
+  memory?: { episodic: MemoryEntry[]; semantic: MemoryEntry[] },
+): string {
+  const sections: string[] = []
+  const epiLines = memory ? formatEpisodicLines(memory.episodic) : []
+  if (epiLines.length) sections.push(`【场景记忆】\n${epiLines.map((l) => `- ${l}`).join('\n')}`)
   const lines = [
-    p.nickname.trim() && `用户称呼：${p.nickname.trim()}，回复时自然使用该称呼。`,
-    p.stage.trim() && `用户背景：${p.stage.trim()}。`,
-    p.style.trim() && `表达偏好：${p.style.trim()}。`,
+    p?.nickname.trim() && `用户称呼：${p.nickname.trim()}，回复时自然使用该称呼。`,
+    p?.stage.trim() && `用户背景：${p.stage.trim()}。`,
+    p?.style.trim() && `表达偏好：${p.style.trim()}。`,
+    ...(memory ? formatSemanticLines(memory.semantic) : []),
   ].filter(Boolean) as string[]
-  return lines.length ? `${preset.systemPrompt}\n\n【用户偏好】\n${lines.join('\n')}` : preset.systemPrompt
+  if (lines.length) sections.push(`【用户偏好】\n${lines.join('\n')}`)
+  return sections.length ? `${preset.systemPrompt}\n\n${sections.join('\n\n')}` : preset.systemPrompt
 }

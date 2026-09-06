@@ -98,6 +98,8 @@ export interface BriefingGenContext {
   decisions: Record<string, BriefingDecision>
   /** 收藏过的卡片（个性化前置依据） */
   favorites: BriefingCard[]
+  /** 该角色 L3 语义偏好（v0.9.1 记忆分层）：Mock 排序叠加 / API 生成上下文；缺省 = 既有行为 */
+  prefs?: MemoryEntry[]
   /** 生成时间（测试注入用，缺省 Date.now()） */
   now?: number
 }
@@ -231,4 +233,77 @@ export interface ToolDef {
   /** 参数 JSON Schema（function-calling 映射用；缺省视为无参对象） */
   parameters?: { type: 'object'; properties: Record<string, unknown>; required?: string[] }
   run(args: Record<string, unknown>): Promise<ToolResult>
+}
+
+/* ---------- 记忆分层（v0.9.1） ---------- */
+
+/** 任务/交互结果（反馈回路的产出方向） */
+export type MemoryOutcome = 'accepted' | 'rejected' | 'edited' | 'executed'
+
+/**
+ * 记忆条目（v0.9.1 记忆分层，设计文档 2.4 草案落地）：
+ * - episodic：情景记忆（L2）——"上次做过什么"，goal/outcome/ref 有效；
+ * - semantic：语义偏好（L3）——"这个用户偏好什么"，key/value/confidence 有效。
+ */
+export interface MemoryEntry {
+  /** 时间戳（ms） */
+  t: number
+  role: RoleId
+  kind: 'episodic' | 'semantic'
+  /** 语义偏好键（semantic 用），按角色前缀隔离：如 'teacher.pref.quiz.count' */
+  key?: string
+  /** 语义偏好值（semantic 用） */
+  value?: unknown
+  /** 任务目标摘要（episodic 用） */
+  goal?: string
+  /** 任务/交互结果（episodic 用） */
+  outcome?: MemoryOutcome
+  /** 关联 artifact/skill/card id（如 'artifact:doc-abc' / 'card:tag'） */
+  ref?: string
+  /** 置信度 0-1（semantic 用） */
+  confidence?: number
+}
+
+/**
+ * 记忆分层契约（v0.9.1）：mock / api 共用同一本地实现（纯前端轻定位，不做服务端同步）。
+ * 所有方法按 role 隔离——教师记忆不进入教育局会话（跨角色共享是特性级禁用）。
+ */
+export interface MemoryProvider {
+  /** 记录一次任务/交互结果（episodic 直接入环形队列；semantic 合并进偏好 map） */
+  record(input: MemoryEntry): Promise<void>
+  /** 取某角色的近期情景记忆（供注入 A），按时间倒序取 limit 条（缺省 3） */
+  recentEpisodic(role: RoleId, limit?: number): Promise<MemoryEntry[]>
+  /** 取某角色的语义偏好（供注入 A/B），按置信度降序 */
+  semanticFor(role: RoleId): Promise<MemoryEntry[]>
+  /** 偏好提炼：从采纳/拒绝等结果推导 L3（规则版，导出规则供单测） */
+  extractPrefs(entry: MemoryEntry): Promise<MemoryEntry[]>
+}
+
+export interface MemoryProviderConfig {
+  /** 情景记忆上限（环形裁剪），缺省 200 */
+  episodicLimit?: number
+}
+
+/* ---------- 产出自评（v0.9.1） ---------- */
+
+/** 单项检查结果（weight 为该检查占满分 10 的权重） */
+export interface EvalCheck {
+  name: string
+  pass: boolean
+  weight: number
+}
+
+/** 自评结果：加权合成分 + 逐项检查 + 可执行建议（诚实标注"AI 自评"） */
+export interface EvalResult {
+  score: number
+  checks: EvalCheck[]
+  suggestions: string[]
+}
+
+/**
+ * 产出自评契约（v0.9.1）：v1.0 为规则版（零 LLM 成本），LLM 版二期再引入。
+ * 评分结果仅供参考（UI 需标注"AI 自评"），不阻断产出使用。
+ */
+export interface Evaluator {
+  evaluate(doc: { kind: ArtifactKind; content: string; role: RoleId }): Promise<EvalResult>
 }

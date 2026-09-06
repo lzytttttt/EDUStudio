@@ -1,9 +1,9 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Eye, Pencil, Copy, Trash2, FileText, Check, X, Download, History, Save, Plus, RotateCcw, LayoutTemplate, Share2, Link2,
-  MessageSquare, RefreshCw, Crosshair, ChevronLeft, ChevronRight, ChevronDown,
+  MessageSquare, RefreshCw, Crosshair, ChevronLeft, ChevronRight, ChevronDown, Gauge, ThumbsUp, ThumbsDown,
 } from 'lucide-react'
-import { useArtifactStore } from '../../stores/artifactStore'
+import { useArtifactStore, type ArtifactRevision } from '../../stores/artifactStore'
 import { useAuthStore } from '../../stores/authStore'
 import { useNotificationStore } from '../../stores/notificationStore'
 import { renderMarkdown } from '../../lib/markdown'
@@ -12,6 +12,9 @@ import { exportDoc, type ExportFormat } from '../../lib/exporters'
 import { buildShareUrl, type ShareAnnotation, type ShareSnapshot } from '../../lib/share'
 import { getApiBase, apiJson } from '../../lib/api'
 import { listTemplates } from '../../harness/scripts/artifacts'
+import { getEvaluator } from '../../harness/eval'
+import { getMemoryProvider } from '../../harness/memory'
+import type { EvalResult } from '../../harness/types'
 import { cn } from '../../lib/cn'
 
 const KIND_LABEL: Record<string, string> = {
@@ -34,6 +37,16 @@ function fmtTime(ts: number): string {
   return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
+/**
+ * v0.9.1 反馈判定：以最近一次「生成完成」快照为基线，判断当前内容是否被编辑过。
+ * 导出收割据此区分 outcome：edited（修改后采纳）/ accepted（直接采纳）；
+ * 无基线（手动创建等）视为未编辑。纯函数，导出行为经单测固化。
+ */
+export function isEditedAgainstGen(revs: ArtifactRevision[], content: string): boolean {
+  const base = [...revs].reverse().find((r) => r.label === '生成完成')
+  return base ? base.content !== content : false
+}
+
 export default function ArtifactPanel() {
   const role = useAuthStore((s) => s.role)
   const { docs, revisions, shareRefs, setShareRef, activeId, setActive, updateContent, remove, createManual, saveRevision, restoreRevision, removeRevision } =
@@ -54,10 +67,42 @@ export default function ArtifactPanel() {
   // 收到的批注（v0.5 M2②）：短链登记后从轻后端拉取评审回传
   const [annoList, setAnnoList] = useState<ShareAnnotation[]>([])
   const [annoLoading, setAnnoLoading] = useState(false)
+  // 自评卡（v0.9.1）：文档生成完成后自动评估一次，支持手动重新自评
+  const [evalResult, setEvalResult] = useState<EvalResult | null>(null)
+  const evalDocIdRef = useRef<string | null>(null)
+  // 反馈状态（每文档一次）：accepted/rejected 写回记忆形成正负例
+  const [feedback, setFeedback] = useState<Record<string, 'accepted' | 'rejected'>>({})
   const editorRef = useRef<HTMLTextAreaElement>(null)
   const html = useMemo(() => (doc ? renderMarkdown(doc.content) : ''), [doc?.content])
   const docRevisions = doc ? revisions[doc.id] ?? [] : []
   const templates = role ? listTemplates(role) : []
+  const docId = doc?.id
+  const docKind = doc?.kind
+  const docRole = doc?.role
+  const docSource = doc?.source
+  const docContent = doc?.content
+  const genDone = docRevisions.some((r) => r.label === '生成完成')
+
+  /* 自动评估（v0.9.1）：「生成完成」快照出现（agent 流式定稿）或手动创建后触发一次；
+     流式期间不评估半成品；后续编辑不自动重评（避免打字抖动），可手动「重新自评」 */
+  useEffect(() => {
+    if (!docId || !docContent || !docKind || !docRole) return
+    if (evalDocIdRef.current === docId) return
+    if (!(genDone || docSource === 'manual')) return
+    evalDocIdRef.current = docId
+    let cancelled = false
+    getEvaluator()
+      .evaluate({ kind: docKind, content: docContent, role: docRole })
+      .then((r) => {
+        if (!cancelled) setEvalResult(r)
+      })
+      .catch(() => {
+        if (!cancelled) setEvalResult(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [docId, docContent, docKind, docRole, docSource, genDone])
 
   /* 多文档切换（v0.8.1）：专注模式批量生成后逐份查看，上一份/下一份 + 清单直达 */
   const docIndex = docs.findIndex((d) => d.id === activeId)
@@ -86,8 +131,46 @@ export default function ArtifactPanel() {
   }
 
   const doExport = (format: ExportFormat) => {
-    if (doc?.content) exportDoc(doc.content, doc.title, format)
+    if (doc?.content) {
+      exportDoc(doc.content, doc.title, format)
+      // v0.9.1 记忆收割：导出即采纳；相对「生成完成」基线有改动 → edited（反馈闭环正例，record 内部提炼 L3）
+      void getMemoryProvider()
+        .record({
+          t: Date.now(),
+          role: doc.role,
+          kind: 'episodic',
+          goal: `导出《${doc.title}》（${EXPORT_ITEMS.find((i) => i.format === format)?.label ?? format}）`,
+          outcome: isEditedAgainstGen(docRevisions, doc.content) ? 'edited' : 'accepted',
+          ref: `artifact:${doc.id}`,
+        })
+        .catch(() => undefined)
+    }
     setExportOpen(false)
+  }
+
+  /* 重新自评（v0.9.1）：按当前内容重跑规则评估 */
+  const rerunEval = () => {
+    if (!doc?.content) return
+    getEvaluator()
+      .evaluate({ kind: doc.kind, content: doc.content, role: doc.role })
+      .then(setEvalResult)
+      .catch(() => setEvalResult(null))
+  }
+
+  /* 反馈闭环（v0.9.1）：符合/不符合预期 → L2 情景（accepted/rejected），record 内部提炼 L3 偏好；静默不阻断 */
+  const sendFeedback = (outcome: 'accepted' | 'rejected') => {
+    if (!doc?.content || feedback[doc.id]) return
+    setFeedback((m) => ({ ...m, [doc.id]: outcome }))
+    void getMemoryProvider()
+      .record({
+        t: Date.now(),
+        role: doc.role,
+        kind: 'episodic',
+        goal: `《${doc.title}》${KIND_LABEL[doc.kind] ?? '文档'}产出${outcome === 'accepted' ? '符合预期' : '不符合预期'}`,
+        outcome,
+        ref: `artifact:${doc.id}`,
+      })
+      .catch(() => undefined)
   }
 
   /* 拉取收到的批注（v0.5 M2②）：短链登记后从轻后端读取评审回传；新批注进通知中心 */
@@ -415,6 +498,89 @@ export default function ArtifactPanel() {
           className="md-body min-h-0 flex-1 overflow-y-auto px-5 py-4"
           dangerouslySetInnerHTML={{ __html: html }}
         />
+      )}
+
+      {/* 自评卡（v0.9.1）：诚实标注「AI 自评 · 仅供参考」，支持重新自评与反馈闭环 */}
+      {doc && evalResult && !editing && (
+        <section data-testid="eval-card" className="mx-4 mb-3 shrink-0 rounded-2xl border border-line bg-surface-2 px-4 py-3">
+          <div className="flex items-center justify-between">
+            <p className="flex items-center gap-1.5 text-xs font-semibold text-ink">
+              <Gauge size={13} className="text-primary" />
+              AI 自评
+              <span className="font-normal text-ink-mute">· 仅供参考</span>
+            </p>
+            <button
+              onClick={rerunEval}
+              data-testid="eval-rerun"
+              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[0.625rem] text-primary transition-colors hover:bg-primary-soft"
+            >
+              <RotateCcw size={10} />
+              重新自评
+            </button>
+          </div>
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+            <p className="flex items-baseline gap-0.5">
+              <span data-testid="eval-score" className="text-lg font-semibold tabular-nums text-ink">{evalResult.score}</span>
+              <span className="text-[0.625rem] text-ink-mute">/ 10</span>
+            </p>
+            {evalResult.checks.map((c) => (
+              <span
+                key={c.name}
+                className={cn(
+                  'inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[0.625rem]',
+                  c.pass ? 'bg-mint/10 text-mint' : 'bg-coral-soft text-coral',
+                )}
+              >
+                {c.pass ? <Check size={9} /> : <X size={9} />}
+                {c.name}
+              </span>
+            ))}
+          </div>
+          {evalResult.suggestions.length > 0 && (
+            <ul data-testid="eval-suggestions" className="mt-2 space-y-1">
+              {evalResult.suggestions.map((s) => (
+                <li key={s} className="text-[0.6875rem] leading-relaxed text-ink-soft">
+                  {s}
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="mt-2.5 flex items-center gap-2 border-t border-line pt-2">
+            <span className="text-[0.625rem] text-ink-mute">这份产出符合预期吗？</span>
+            <div className="ml-auto flex gap-1.5">
+              <button
+                onClick={() => sendFeedback('accepted')}
+                disabled={!!feedback[doc.id]}
+                data-testid="eval-feedback-accept"
+                className={cn(
+                  'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[0.625rem] font-medium transition-colors',
+                  feedback[doc.id] === 'accepted'
+                    ? 'bg-mint/15 text-mint'
+                    : 'bg-surface text-ink-soft hover:bg-primary-soft hover:text-primary',
+                  feedback[doc.id] === 'rejected' && 'opacity-40',
+                )}
+              >
+                <ThumbsUp size={10} />
+                {feedback[doc.id] === 'accepted' ? '已记录' : '符合预期'}
+              </button>
+              <button
+                onClick={() => sendFeedback('rejected')}
+                disabled={!!feedback[doc.id]}
+                data-testid="eval-feedback-reject"
+                className={cn(
+                  'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[0.625rem] font-medium transition-colors',
+                  feedback[doc.id] === 'rejected'
+                    ? 'bg-coral-soft text-coral'
+                    : 'bg-surface text-ink-soft hover:bg-coral-soft hover:text-coral',
+                  feedback[doc.id] === 'accepted' && 'opacity-40',
+                )}
+              >
+                <ThumbsDown size={10} />
+                {feedback[doc.id] === 'rejected' ? '已记录' : '不符合预期'}
+              </button>
+            </div>
+          </div>
+        </section>
       )}
 
       {/* 底部元信息（超大字号档隐藏） */}
