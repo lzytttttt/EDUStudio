@@ -142,13 +142,13 @@ export function markdownToWordHtml(md: string, title: string, options: ExportOpt
   const cover = [
     '<div class="cover">',
     `<div class="cover-title">${esc(title)}</div>`,
-    `<div class="cover-meta">${esc(options.author ?? 'EDUStudio')} · ${fmtDate()}</div>`,
+    `<div class="cover-meta">${esc(options.author ?? '智教工坊 · EDUStudio')} · ${fmtDate()}</div>`,
     '<hr class="cover-rule" />',
     '</div>',
   ].join('\n')
 
   // 页眉行（Word 兼容 HTML 的 mso 页眉易失效，采用文档首行页眉带，打印同样可见）
-  const headerBand = `<div class="header-band"><span>${esc(title)}</span><span>EDUStudio 教育智能工作台</span></div>`
+  const headerBand = `<div class="header-band"><span>${esc(title)}</span><span>智教工坊 · EDUStudio · 教育智能工作台</span></div>`
 
   // 页脚水印（v0.5 M5③）：机构 · 人员 · 日期
   const wm = options.watermark

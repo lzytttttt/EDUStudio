@@ -52,7 +52,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
             <Sparkles size={15} />
           </div>
           <div>
-            <p className="text-sm font-bold leading-tight">EDUStudio</p>
+            <p className="text-sm font-bold leading-tight">智教工坊 · EDUStudio</p>
             <p className="minor-info text-[0.625rem] text-ink-mute">{mode === 'mock' ? 'Mock 演示模式' : 'API 模式'}</p>
           </div>
         </button>

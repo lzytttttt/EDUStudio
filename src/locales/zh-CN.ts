@@ -3,7 +3,7 @@
  * 新增界面文案统一走 t(key)，为多语言扩展预留结构。
  */
 export const zhCN = {
-  'app.name': 'EDUStudio',
+  'app.name': '智教工坊 · EDUStudio',
   'nav.list': '列表',
   'nav.chat': '会话',
   'nav.docs': '文档',

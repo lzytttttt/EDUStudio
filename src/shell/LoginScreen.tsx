@@ -225,7 +225,7 @@ export default function LoginScreen() {
               <Sparkles size={20} />
             </div>
             <div>
-              <p className="text-lg font-bold leading-tight tracking-tight">EDUStudio</p>
+              <p className="text-lg font-bold leading-tight tracking-tight">智教工坊 · EDUStudio</p>
               <p className="text-xs text-ink-mute">教育 Agent 工作台</p>
             </div>
           </div>

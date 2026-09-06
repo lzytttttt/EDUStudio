@@ -103,7 +103,7 @@ const report: ArtifactTemplate = {
 3. **推广经验**：将示范课资源纳入区域教研平台，扩大互动性教学培训
 
 ---
-*本报告由 EDUStudio Agent 基于区域数据平台生成，数据截至本期。*`,
+*本报告由智教工坊（EDUStudio）Agent 基于区域数据平台生成，数据截至本期。*`,
 }
 
 const notice: ArtifactTemplate = {
@@ -164,7 +164,7 @@ const generic: ArtifactTemplate = {
 建议按「先试点、再推广、后评估」的节奏推进，每阶段设置检查点，确保目标可达。
 
 ---
-*本文档由 EDUStudio Agent 生成，可在右侧直接编辑修改。*`,
+*本文档由智教工坊（EDUStudio）Agent 生成，可在右侧直接编辑修改。*`,
 }
 
 export const ARTIFACT_TEMPLATES: ArtifactTemplate[] = [lessonPlan, report, notice, generic]

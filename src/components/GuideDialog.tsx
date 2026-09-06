@@ -21,7 +21,7 @@ const WORKBENCH_STEPS = [
 /** 操作说明引导（v0.3 UI 专项）：首次进入自动弹出，可从侧栏「使用指南」随时重看 */
 export default function GuideDialog({ stage, onClose }: { stage: GuideStage; onClose: () => void }) {
   const steps = stage === 'briefing' ? BRIEFING_STEPS : WORKBENCH_STEPS
-  const title = stage === 'briefing' ? '欢迎使用 EDUStudio' : '工作台使用指南'
+  const title = stage === 'briefing' ? '欢迎使用智教工坊（EDUStudio）' : '工作台使用指南'
   const dialogRef = useDialogA11y<HTMLDivElement>(true, onClose)
 
   return (

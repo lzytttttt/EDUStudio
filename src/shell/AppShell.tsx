@@ -64,7 +64,7 @@ export default function AppShell() {
             className="rounded-lg px-2 py-1 text-sm font-semibold transition-colors hover:bg-surface-2"
             title="返回今日简报"
           >
-            EDUStudio
+            智教工坊 · EDUStudio
           </button>
         </div>
         <ChatPanel />

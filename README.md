@@ -1,6 +1,6 @@
 <div align="center">
 
-# EDUStudio · 教育 Agent 工作台
+# 智教工坊 · EDUStudio · 教育 Agent 工作台
 
 **面向 K12 教育从业者（教育局 / 学校管理 / 教师）的轻量 AI Agent 工作台**
 
@@ -20,7 +20,7 @@
 ## 项目定位
 
 通用 Agent Harness（Codex / CodeBuddy 类）对教育从业者太臃肿、成本高；
-EDUStudio 以 **解耦 Harness + Mock 兜底 + DeepSeek 级低成本模型** 的模式，
+智教工坊（EDUStudio）以 **解耦 Harness + Mock 兜底 + DeepSeek 级低成本模型** 的模式，
 构建开箱即用、离线可演示的教育工作台：登录即批阅，批示即立项，落章即留痕。
 
 | 维度 | 通用 Agent Harness | **EDUStudio** |

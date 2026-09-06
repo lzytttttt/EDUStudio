@@ -352,7 +352,7 @@ export default function ShareView() {
           </section>
 
           <p className="minor-info mt-4 pb-6 text-center text-[0.625rem] text-ink-mute">
-            由 EDUStudio 生成 · 内容为分享时的只读快照
+            由智教工坊（EDUStudio）生成 · 内容为分享时的只读快照
           </p>
         </div>
       </div>
