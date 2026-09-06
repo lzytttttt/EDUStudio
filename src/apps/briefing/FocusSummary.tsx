@@ -1,4 +1,4 @@
-import { Check, CircleAlert, Clock, LayoutDashboard, Loader2, RotateCcw, Star, X } from 'lucide-react'
+import { Check, ChevronRight, CircleAlert, Clock, LayoutDashboard, Loader2, RotateCcw, Star, X } from 'lucide-react'
 import type { BackgroundTask, BackgroundTaskStatus } from '../../stores/focusStore'
 import { cn } from '../../lib/cn'
 
@@ -7,6 +7,8 @@ interface FocusSummaryProps {
   stats: { accept: number; fav: number; skip: number }
   onEnterWorkbench: () => void
   onReplay: () => void
+  /** 点击任务直达对应任务会话（一卡一任务） */
+  onSelectTask?: (task: BackgroundTask) => void
 }
 
 export const STATUS_META: Record<BackgroundTaskStatus, { label: string; cls: string }> = {
@@ -25,7 +27,7 @@ export function StatusIcon({ status }: { status: BackgroundTaskStatus }) {
 }
 
 /** 批示完成总结层（v0.7 专注模式）：决策统计 + 后台任务实时状态 + 统一处理入口 */
-export default function FocusSummary({ tasks, stats, onEnterWorkbench, onReplay }: FocusSummaryProps) {
+export default function FocusSummary({ tasks, stats, onEnterWorkbench, onReplay, onSelectTask }: FocusSummaryProps) {
   const pending = tasks.filter((t) => t.status === 'queued' || t.status === 'running').length
   const failed = tasks.filter((t) => t.status === 'failed').length
   return (
@@ -57,18 +59,36 @@ export default function FocusSummary({ tasks, stats, onEnterWorkbench, onReplay 
         </div>
 
         <div className="mt-5 max-h-[224px] space-y-2 overflow-y-auto" data-testid="focus-task-list">
-          {tasks.map((t) => (
-            <div key={t.id} className="flex items-center gap-3 rounded-2xl border border-line px-4 py-3">
-              <StatusIcon status={t.status} />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{t.title}</p>
-                <p className="truncate text-xs text-ink-mute">{t.goal}</p>
+          {tasks.map((t) => {
+            const row = (
+              <>
+                <StatusIcon status={t.status} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{t.title}</p>
+                  <p className="truncate text-xs text-ink-mute">{t.goal}</p>
+                </div>
+                <span className={cn('shrink-0 text-[0.6875rem] font-medium', STATUS_META[t.status].cls)}>
+                  {STATUS_META[t.status].label}
+                </span>
+              </>
+            )
+            /* 一卡一任务：任务行可点击，直达本卡专属任务会话 */
+            return onSelectTask && t.sessionId ? (
+              <button
+                key={t.id}
+                onClick={() => onSelectTask(t)}
+                data-testid="focus-task-item"
+                className="flex w-full items-center gap-3 rounded-2xl border border-line px-4 py-3 text-left transition-colors hover:border-primary/40 hover:bg-primary-soft/40"
+              >
+                {row}
+                <ChevronRight size={13} className="shrink-0 text-ink-mute" />
+              </button>
+            ) : (
+              <div key={t.id} className="flex items-center gap-3 rounded-2xl border border-line px-4 py-3">
+                {row}
               </div>
-              <span className={cn('shrink-0 text-[0.6875rem] font-medium', STATUS_META[t.status].cls)}>
-                {STATUS_META[t.status].label}
-              </span>
-            </div>
-          ))}
+            )
+          })}
         </div>
 
         {/* 移动端纵向堆叠（v0.8.1）：小屏两按钮并排易溢出 */}

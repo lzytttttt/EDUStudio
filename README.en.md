@@ -8,7 +8,7 @@
 
 [![license](https://img.shields.io/badge/license-CC%20BY--NC%204.0-blue.svg)](./LICENSE)
 [![stack](https://img.shields.io/badge/Vite-React%2018-646CFF.svg)](./package.json)
-[![tests](https://img.shields.io/badge/Vitest-228%20cases-success.svg)](#-quality-assurance)
+[![tests](https://img.shields.io/badge/Vitest-232%20cases-success.svg)](#-quality-assurance)
 [![e2e](https://img.shields.io/badge/Playwright-9%20cases-brightgreen.svg)](#-quality-assurance)
 [![lighthouse](https://img.shields.io/badge/Lighthouse-%E2%89%A5%200.85-yellow.svg)](#-quality-assurance)
 [![budget](https://img.shields.io/badge/gzip-270KB%20budget-orange.svg)](#-quality-assurance)
@@ -352,7 +352,7 @@ Frontend Settings → Mode "Proxy", endpoint `http://<host>:8787/v1`; audit logs
 
 | Version | Theme | One-liner |
 | --- | --- | --- |
-| **v0.9.2** | Workbench UI polish · educator's view | Human-readable traces (display contract for 13 tools + "show tech details" toggle) + role-default right-panel tab + sidebar task cards (summary + relative time + always-visible delete) + center-column progress dashboard (step N/M · parallel N groups) + dispatch pending-receipt badge |
+| **v0.9.2** | Workbench UI polish · educator's view | Human-readable traces (display contract for 13 tools + "show tech details" toggle) + role-default right-panel tab + sidebar task cards (summary + relative time + always-visible delete) + center-column progress dashboard (step N/M · parallel N groups) + dispatch pending-receipt badge + briefing one-card-one-task (each adopted card gets its own task session) |
 | **v0.9.1** | Layered memory & output self-eval loop | L2 episodic + L3 semantic preference local memory (ring buffer of 200 + role isolation) + preference injection for chat / briefing + rule-based doc self-eval (0-10 score + actionable advice) + harvesting loop for exports / feedback / card decisions |
 | **v0.9.0** | Trust & robustness | Function-calling wiring (tools in request body) + data backup safety net (full export/restore + key whitelist) + decision accountability notices + Mock boundary labels + browser back-key history integration + document import (attachments straight to LLM + purpose instructions) + weekly deck derivation + connection error classification |
 | **v0.8.4** | Briefing custom regeneration | Top-bar "Regenerate" dialog: prompt / six card types / reference toggles / advanced options (count 3–10 / style / payload / timeout-retry); API mode injects generation constraints, Mock filters scripts by type; options persist and refill |

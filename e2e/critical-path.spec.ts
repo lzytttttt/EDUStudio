@@ -71,9 +71,14 @@ test('① 登录 → 简报 → 采纳（后台执行）→ 批示完成 → 统
   await expect(page.getByTestId('focus-enter-workbench')).toBeVisible({ timeout: 5_000 })
   await expect(page.getByTestId('focus-task-list')).toBeVisible()
 
+  // 一卡一任务：后台任务 N 条 ↔ 侧栏任务 N 条，不再全挤在一个会话里
+  const adopted = await page.getByTestId('focus-task-item').count()
+  expect(adopted).toBeGreaterThan(1)
+
   // 一键「统一处理」→ 进入工作台
   await page.getByTestId('focus-enter-workbench').click()
   await expect(page.getByTestId('chat-input')).toBeVisible({ timeout: 10_000 })
+  await expect(page.getByTestId('task-item')).toHaveCount(adopted)
 })
 
 test('② 对话出题 → 出题工作台联动', async ({ page }) => {

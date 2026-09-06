@@ -6,7 +6,7 @@ import {
 import { useAuthStore } from '../../stores/authStore'
 import { useBriefingStore } from '../../stores/briefingStore'
 import { useChatStore } from '../../stores/chatStore'
-import { useFocusStore } from '../../stores/focusStore'
+import { useFocusStore, type BackgroundTask } from '../../stores/focusStore'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { useUiStore } from '../../stores/uiStore'
 import { getRolePreset } from '../../harness/roles'
@@ -145,6 +145,15 @@ export default function BriefingPage() {
     [setGenOptions, resetDeck, loadDeck, role],
   )
 
+  /* 点击后台任务 → 聚焦本卡任务会话并进入工作台（一卡一任务） */
+  const openTask = useCallback(
+    (task: BackgroundTask) => {
+      if (task.sessionId) useChatStore.getState().setActive(task.sessionId)
+      setStage('workbench')
+    },
+    [setStage],
+  )
+
   const stale = isStale(meta)
   /* 导入入口（v0.9 M6①）：教师 / 校管 / 教育局三角色统一开放「导入文档」 */
   const canImport = role === 'teacher' || role === 'schoolAdmin' || role === 'bureau'
@@ -164,21 +173,25 @@ export default function BriefingPage() {
     [revertDecision],
   )
 
-  /* 卡片跳转分发（v0.7）：source→数据源 / task→工作台任务 / favorite→收藏夹 */
+  /* 卡片跳转分发（v0.7）：source→数据源 / task→工作台任务 / favorite→收藏夹
+   * 一卡一任务：task 分支按卡片建/复用独立任务会话，不用挤进当前会话 */
+  const currentId = current?.id
   const handleLink = useCallback(
     (link: CardLink) => {
       if (link.kind === 'source') {
         if (canImport) setImportOpen(true)
         else handleRefresh()
       } else if (link.kind === 'task') {
-        if (link.goal) void sendMessage(link.goal)
+        if (link.goal) {
+          void sendMessage(link.goal, currentId ? { cardId: currentId, title: current?.title } : undefined)
+        }
         setStage('workbench')
       } else {
         useUiStore.getState().setSidebarTab('fav')
         setStage('workbench')
       }
     },
-    [canImport, handleRefresh, sendMessage, setStage],
+    [canImport, handleRefresh, sendMessage, setStage, currentId, current?.title],
   )
 
   const handleDecide = useCallback(
@@ -218,10 +231,11 @@ export default function BriefingPage() {
               : null
           const goal = selected ? `${decided.action.goal}（已选：${selected}）` : decided.action.goal
           if (focusMode) {
-            /* 专注模式：任务转入后台执行，留在简报页继续批示 */
+            /* 专注模式：任务转入后台执行（各自落在本卡任务会话），留在简报页继续批示 */
             useFocusStore.getState().acceptTask(decided, goal)
           } else {
-            void sendMessage(goal)
+            /* 一卡一任务：以卡片标题为任务名建/复用独立会话并聚焦 */
+            void sendMessage(goal, { cardId: decided.id, title: decided.title })
             setStage('workbench')
           }
         }
@@ -447,6 +461,7 @@ export default function BriefingPage() {
               tasks={focusTasks}
               stats={stats}
               onEnterWorkbench={() => setStage('workbench')}
+              onSelectTask={openTask}
               onReplay={() => {
                 clearTasks()
                 replayDeck()
@@ -619,6 +634,10 @@ export default function BriefingPage() {
           tasks={focusTasks}
           onClose={() => setTaskSheetOpen(false)}
           onEnterWorkbench={() => setStage('workbench')}
+          onSelectTask={(task) => {
+            openTask(task)
+            setTaskSheetOpen(false)
+          }}
         />
       )}
     </div>

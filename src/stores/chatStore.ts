@@ -27,18 +27,32 @@ export interface ChatSession {
   entries: ChatEntry[]
   createdAt: number
   updatedAt: number
+  /** 来源简报卡 id（一卡一任务）：采纳产生的任务与卡片一一对应，缺省 = 手动新建的任务 */
+  cardId?: string
+}
+
+/** sendMessage 可选参数（一卡一任务）：显式指定落点会话与标题 */
+export interface SendMessageOptions {
+  /** 指定写入的会话（后台任务按卡执行时用），不存在时回退到 ensureSession */
+  sessionId?: string
+  /** 归属简报卡 id：已存在该卡任务时复用，避免拖回重批后重复采纳产生重复任务 */
+  cardId?: string
+  /** 任务标题（缺省取目标前 18 字） */
+  title?: string
 }
 
 interface ChatState {
   sessions: ChatSession[]
   activeId: string | null
   streaming: boolean
-  ensureSession: (role: RoleId, title?: string) => string
+  ensureSession: (role: RoleId, title?: string, cardId?: string) => string
+  /** 按简报卡取/建任务会话（一卡一任务）：已存在则复用，避免拖回重批后重复采纳产生重复任务 */
+  ensureCardSession: (role: RoleId, cardId: string, title?: string, opts?: { focus?: boolean }) => string
   setActive: (id: string) => void
-  newSession: (role: RoleId, title?: string) => string
+  newSession: (role: RoleId, title?: string, cardId?: string) => string
   removeSession: (id: string) => void
   /** 发送任务：返回 assistant 条目 id（v0.7 专注模式追踪用；单飞占用/参数非法时返回 null） */
-  sendMessage: (goal: string) => Promise<string | null>
+  sendMessage: (goal: string, opts?: SendMessageOptions) => Promise<string | null>
   /** 失败重试（v0.4 M1④）：清空失败条目并按原目标重新执行 */
   retry: (entryId: string) => Promise<void>
   abort: () => void
@@ -79,15 +93,33 @@ export const useChatStore = create<ChatState>((set, get) => {
     activeId: persistedSessions[0]?.id ?? null,
     streaming: false,
 
-    ensureSession: (role, title) => {
+    ensureSession: (role, title, cardId) => {
+      /* 一卡一任务：带 cardId 时按卡片归属复用，不再无脑追加进当前会话 */
+      if (cardId) return get().ensureCardSession(role, cardId, title)
       const active = get().sessions.find((s) => s.id === get().activeId)
       if (active && active.role === role) return active.id
       return get().newSession(role, title)
     },
 
+    ensureCardSession: (role, cardId, title, opts) => {
+      const owned = get().sessions.find((s) => s.cardId === cardId && s.role === role)
+      if (owned) {
+        if (opts?.focus !== false && get().activeId !== owned.id) set({ activeId: owned.id })
+        return owned.id
+      }
+      /* 后台执行（focus=false）不抢焦点：保留用户当前浏览的任务 */
+      if (opts?.focus === false) {
+        const prevActive = get().activeId
+        const id = get().newSession(role, title, cardId)
+        set({ activeId: prevActive })
+        return id
+      }
+      return get().newSession(role, title, cardId)
+    },
+
     setActive: (id) => set({ activeId: id }),
 
-    newSession: (role, title) => {
+    newSession: (role, title, cardId) => {
       const id = nextId('sess')
       const session: ChatSession = {
         id,
@@ -96,6 +128,7 @@ export const useChatStore = create<ChatState>((set, get) => {
         entries: [],
         createdAt: Date.now(),
         updatedAt: Date.now(),
+        ...(cardId ? { cardId } : {}),
       }
       set({ sessions: [session, ...get().sessions], activeId: id })
       persist(get().sessions)
@@ -116,13 +149,18 @@ export const useChatStore = create<ChatState>((set, get) => {
       activeController = null
     },
 
-    sendMessage: async (goal) => {
+    sendMessage: async (goal, opts) => {
       const role = useAuthStore.getState().role
       if (!role || get().streaming) return null
       const trimmed = goal.trim()
       if (!trimmed) return null
 
-      const sessionId = get().ensureSession(role, trimmed.slice(0, 18))
+      const title = opts?.title ?? trimmed.slice(0, 18)
+      /* 显式 sessionId 优先（专注模式后台任务按卡落点）；会话可能已被删除，存在性校验后回退 */
+      const sessionId =
+        opts?.sessionId && get().sessions.some((s) => s.id === opts.sessionId)
+          ? opts.sessionId
+          : get().ensureSession(role, title, opts?.cardId)
       const entryId = nextId('asst')
       const userEntry: ChatEntry = { id: nextId('user'), role: 'user', content: trimmed, trace: [] }
       const asstEntry: ChatEntry = { id: entryId, role: 'assistant', content: '', trace: [], streaming: true, goal: trimmed }
@@ -131,7 +169,7 @@ export const useChatStore = create<ChatState>((set, get) => {
         streaming: true,
         sessions: get().sessions.map((s) =>
           s.id === sessionId
-            ? { ...s, title: s.entries.length === 0 ? trimmed.slice(0, 18) : s.title, entries: [...s.entries, userEntry, asstEntry], updatedAt: Date.now() }
+            ? { ...s, title: s.entries.length === 0 ? title : s.title, entries: [...s.entries, userEntry, asstEntry], updatedAt: Date.now() }
             : s,
         ),
       })

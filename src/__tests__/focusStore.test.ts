@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useFocusStore } from '../stores/focusStore'
-import { useChatStore, type ChatSession } from '../stores/chatStore'
+import { useAuthStore } from '../stores/authStore'
+import { useChatStore, type ChatSession, type SendMessageOptions } from '../stores/chatStore'
 import type { BriefingCard } from '../harness/types'
 
-/* focusStore v0.7：后台任务入队、泵顺序执行、done/failed 判定、单飞占用回队 */
+/* focusStore v0.7：后台任务入队、泵顺序执行、done/failed 判定、单飞占用回队
+ * 追加：一卡一任务（采纳即建/复用本卡专属任务会话） */
 
 const card: BriefingCard = {
   id: 't1', role: 'teacher', type: 'creation', tag: '创作', title: '生成讲稿',
@@ -72,5 +74,58 @@ describe('focusStore 后台任务泵', () => {
     expect(useFocusStore.getState().tasks.length).toBe(1)
     useFocusStore.getState().clearTasks()
     expect(useFocusStore.getState().tasks.length).toBe(0)
+  })
+})
+
+describe('focusStore 一卡一任务', () => {
+  beforeEach(() => {
+    useAuthStore.setState({ role: 'teacher' })
+  })
+
+  it('采纳不同卡片 → 各建独立任务会话，标题取卡片标题', () => {
+    useFocusStore.getState().acceptTask(card, '目标A')
+    useFocusStore.getState().acceptTask({ ...card, id: 't2', title: '第二张' }, '目标B')
+
+    const sessions = useChatStore.getState().sessions
+    expect(sessions.length).toBe(2)
+    expect(sessions.map((s) => s.cardId).sort()).toEqual(['t1', 't2'])
+    expect(sessions.find((s) => s.cardId === 't1')?.title).toBe('生成讲稿')
+
+    /* 每条后台任务绑定各自会话 */
+    const tasks = useFocusStore.getState().tasks
+    expect(new Set(tasks.map((t) => t.sessionId)).size).toBe(2)
+    expect(tasks.map((t) => t.sessionId).sort()).toEqual(sessions.map((s) => s.id).sort())
+  })
+
+  it('后台建会话不抢当前焦点', () => {
+    const manual = useChatStore.getState().newSession('teacher', '手动任务')
+    useFocusStore.getState().acceptTask(card, '目标A')
+    expect(useChatStore.getState().activeId).toBe(manual)
+  })
+
+  it('同一张卡重复采纳 → 复用同一会话', () => {
+    useFocusStore.getState().acceptTask(card, '目标A')
+    const first = useChatStore.getState().sessions[0].id
+    useFocusStore.getState().acceptTask(card, '目标A')
+    expect(useChatStore.getState().sessions.length).toBe(1)
+    expect(useFocusStore.getState().tasks[1].sessionId).toBe(first)
+  })
+
+  it('泵执行时按任务自带会话落点，各任务互不串会话', async () => {
+    const seen: Array<{ goal: string; sessionId?: string }> = []
+    useChatStore.setState({
+      sendMessage: async (goal: string, opts?: SendMessageOptions) => {
+        seen.push({ goal, sessionId: opts?.sessionId })
+        return 'entry-1'
+      },
+    })
+
+    useFocusStore.getState().acceptTask(card, '目标A')
+    useFocusStore.getState().acceptTask({ ...card, id: 't2', title: '第二张' }, '目标B')
+    await waitUntil(() => useFocusStore.getState().tasks.every((t) => t.status === 'done'))
+
+    expect(seen.map((s) => s.goal)).toEqual(['目标A', '目标B'])
+    expect(seen[0].sessionId).toBeTruthy()
+    expect(seen[0].sessionId).not.toBe(seen[1].sessionId)
   })
 })

@@ -144,6 +144,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
                 <div
                   key={s.id}
                   onClick={() => { setActive(s.id); onNavigate?.() }}
+                  data-testid="task-item"
                   className={cn(
                     'group flex cursor-pointer items-start gap-2.5 rounded-xl px-3 py-2.5 transition-colors',
                     activeId === s.id ? 'bg-primary-soft text-primary' : 'hover:bg-surface-2',

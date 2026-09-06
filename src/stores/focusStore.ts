@@ -4,9 +4,13 @@
  * 采纳的简报不再立即跳工作台，而是入队后台顺序执行：
  * chatStore.sendMessage 有单飞约束（streaming 标志），因此用泵逐个 await，
  * 完成后按条目 error 判定 done / failed。内存态即可（chat 会话本身已持久化）。
+ *
+ * 一卡一任务：入队即为该卡片建/复用独立任务会话（sessionId），
+ * 执行结果写入自己的会话，工作台任务列表按卡分条，不再全挤在一个会话里。
  */
 import { create } from 'zustand'
 import type { BriefingCard } from '../harness/types'
+import { useAuthStore } from './authStore'
 import { useChatStore, type ChatEntry } from './chatStore'
 
 export type BackgroundTaskStatus = 'queued' | 'running' | 'done' | 'failed'
@@ -17,6 +21,8 @@ export interface BackgroundTask {
   cardId: string
   title: string
   goal: string
+  /** 本卡专属任务会话 id（一卡一任务）：点击任务可直达对应会话 */
+  sessionId: string | null
   /** chatStore 条目 id，供总结层实时展示执行状态 */
   entryId: string | null
   status: BackgroundTaskStatus
@@ -53,7 +59,12 @@ async function pump(): Promise<void> {
       useFocusStore.setState((s) => ({
         tasks: s.tasks.map((t) => (t.id === next.id ? { ...t, status: 'running' } : t)),
       }))
-      const entryId = await useChatStore.getState().sendMessage(next.goal)
+      /* 按卡落点执行（一卡一任务）：结果只写入本卡任务会话，任务间互不串上下文 */
+      const entryId = await useChatStore.getState().sendMessage(next.goal, {
+        sessionId: next.sessionId ?? undefined,
+        cardId: next.cardId,
+        title: next.title,
+      })
       if (entryId === null) {
         // 单飞被占用（用户正在工作台手动执行任务）：回队等待，本轮泵退出避免忙等
         useFocusStore.setState((s) => ({
@@ -75,11 +86,17 @@ export const useFocusStore = create<FocusState>((set, get) => ({
   tasks: [],
   acceptTask: (card, goal) => {
     seq += 1
+    /* 一卡一任务：入队即建/复用本卡任务会话，后台创建不抢当前焦点 */
+    const role = useAuthStore.getState().role
+    const sessionId = role
+      ? useChatStore.getState().ensureCardSession(role, card.id, card.title, { focus: false })
+      : null
     const task: BackgroundTask = {
       id: `bg-${Date.now().toString(36)}-${seq}`,
       cardId: card.id,
       title: card.title,
       goal,
+      sessionId,
       entryId: null,
       status: 'queued',
     }

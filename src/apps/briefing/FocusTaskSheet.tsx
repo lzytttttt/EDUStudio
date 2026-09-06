@@ -1,4 +1,4 @@
-import { CheckCircle2, LayoutDashboard, Loader2, X } from 'lucide-react'
+import { CheckCircle2, ChevronRight, LayoutDashboard, Loader2, X } from 'lucide-react'
 import type { BackgroundTask } from '../../stores/focusStore'
 import { STATUS_META, StatusIcon } from './FocusSummary'
 import { cn } from '../../lib/cn'
@@ -7,10 +7,12 @@ interface FocusTaskSheetProps {
   tasks: BackgroundTask[]
   onClose: () => void
   onEnterWorkbench: () => void
+  /** 点击任务直达对应任务会话（一卡一任务） */
+  onSelectTask?: (task: BackgroundTask) => void
 }
 
 /** 后台任务浮层（v0.8.1 专注模式移动端优化）：批示过程中点击指示器随时查看任务明细与状态 */
-export default function FocusTaskSheet({ tasks, onClose, onEnterWorkbench }: FocusTaskSheetProps) {
+export default function FocusTaskSheet({ tasks, onClose, onEnterWorkbench, onSelectTask }: FocusTaskSheetProps) {
   const active = tasks.filter((t) => t.status === 'queued' || t.status === 'running').length
   const done = tasks.filter((t) => t.status === 'done').length
   return (
@@ -47,18 +49,37 @@ export default function FocusTaskSheet({ tasks, onClose, onEnterWorkbench }: Foc
         </p>
 
         <ul className="mt-3 max-h-56 space-y-1.5 overflow-y-auto" data-testid="focus-sheet-task-list">
-          {tasks.map((t) => (
-            <li key={t.id} className="flex items-center gap-3 rounded-2xl border border-line px-3 py-2.5">
-              <StatusIcon status={t.status} />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-xs font-medium">{t.title}</p>
-                <p className="truncate text-[0.625rem] text-ink-mute">{t.goal}</p>
-              </div>
-              <span className={cn('shrink-0 text-[0.625rem] font-medium', STATUS_META[t.status].cls)}>
-                {STATUS_META[t.status].label}
-              </span>
-            </li>
-          ))}
+          {tasks.map((t) => {
+            const row = (
+              <>
+                <StatusIcon status={t.status} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-xs font-medium">{t.title}</p>
+                  <p className="truncate text-[0.625rem] text-ink-mute">{t.goal}</p>
+                </div>
+                <span className={cn('shrink-0 text-[0.625rem] font-medium', STATUS_META[t.status].cls)}>
+                  {STATUS_META[t.status].label}
+                </span>
+              </>
+            )
+            /* 一卡一任务：任务行可点击，直达本卡专属任务会话 */
+            return (
+              <li key={t.id}>
+                {onSelectTask && t.sessionId ? (
+                  <button
+                    onClick={() => onSelectTask(t)}
+                    data-testid="focus-sheet-task-item"
+                    className="flex w-full items-center gap-3 rounded-2xl border border-line px-3 py-2.5 text-left transition-colors hover:border-primary/40 hover:bg-primary-soft/40"
+                  >
+                    {row}
+                    <ChevronRight size={12} className="shrink-0 text-ink-mute" />
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-3 rounded-2xl border border-line px-3 py-2.5">{row}</div>
+                )}
+              </li>
+            )
+          })}
         </ul>
 
         <button
