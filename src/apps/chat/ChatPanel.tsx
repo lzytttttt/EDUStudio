@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Sparkles, Zap, CheckCircle2, ArrowLeft, RotateCcw, AlertCircle, GraduationCap, Plus } from 'lucide-react'
+import { Sparkles, Zap, CheckCircle2, ArrowLeft, RotateCcw, AlertCircle, GraduationCap, Plus, FileText, X } from 'lucide-react'
 import { useAuthStore } from '../../stores/authStore'
 import { useChatStore } from '../../stores/chatStore'
 import { useBriefingStore } from '../../stores/briefingStore'
 import { useSettingsStore } from '../../stores/settingsStore'
+import { useUiStore } from '../../stores/uiStore'
+import { useArtifactStore } from '../../stores/artifactStore'
+import { DEFAULT_RIGHT_TAB, BOARD_LABEL } from '../../lib/rightPanel'
 import { getRolePreset } from '../../harness/roles'
 import AgentTraceView from './AgentTraceView'
 import ChatInput from './ChatInput'
@@ -92,6 +95,20 @@ export default function ChatPanel() {
   /* 头部仪表盘用：提前取出角色，避免 JSX 闭包内失去 narrowing */
   const headerRole = session?.role
 
+  /* 回退路径（v0.9.3 P0-A③）：文档占位自动切「文档」后，中栏常驻一条可收起的轻提示，
+   * 一键回到角色主工作台；仅在生成中显示，不弹窗、不打断流式 */
+  const rightTab = useUiStore((s) => s.rightTab)
+  const setRightTab = useUiStore((s) => s.setRightTab)
+  const docNoticeDismissed = useUiStore((s) => s.docNoticeDismissed)
+  const dismissDocNotice = useUiStore((s) => s.dismissDocNotice)
+  const generatingIds = useArtifactStore((s) => s.generatingIds)
+  const docFocusNotice =
+    generatingIds.length > 0 && rightTab === 'doc' && !docNoticeDismissed && !!headerRole && DEFAULT_RIGHT_TAB[headerRole] !== 'doc'
+  const backToBoard = () => {
+    if (headerRole) setRightTab(DEFAULT_RIGHT_TAB[headerRole])
+    dismissDocNotice()
+  }
+
   /* 头部仪表盘（v0.9.2 P1-B）：从 trace 实时计算步骤进度与并行组数——
    * 总步数取「plan 步骤数」与「tool_call 数」的较大者（无 plan 事件时仍有进度），
    * 已完成步数 = tool_result 数，并行组数 = group 字段去重。 */
@@ -167,6 +184,35 @@ export default function ChatPanel() {
             新建任务
           </button>
         </header>
+      )}
+
+      {/* 回退轻提示（v0.9.3 P0-A③）：自动切「文档」后仍可一键回到角色主工作台 */}
+      {docFocusNotice && headerRole && (
+        <div
+          data-testid="doc-focus-notice"
+          className="flex shrink-0 items-center gap-2 border-b border-line bg-primary-soft/60 px-4 py-1.5 md:px-5"
+        >
+          <FileText size={12} className="shrink-0 text-primary" />
+          <p className="min-w-0 flex-1 truncate text-[0.6875rem] text-ink-soft">
+            文档已切到右栏逐字生成，可边看边改
+          </p>
+          <button
+            onClick={backToBoard}
+            data-testid="doc-focus-back"
+            className="inline-flex shrink-0 items-center gap-1 rounded-full bg-surface px-2.5 py-1 text-[0.625rem] font-medium text-primary shadow-soft transition-all hover:shadow-pop active:scale-95"
+          >
+            <ArrowLeft size={10} />
+            返回{BOARD_LABEL[headerRole]}
+          </button>
+          <button
+            onClick={dismissDocNotice}
+            data-testid="doc-focus-dismiss"
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-ink-mute transition-colors hover:bg-surface-2 hover:text-ink"
+            aria-label="收起提示"
+          >
+            <X size={12} />
+          </button>
+        </div>
       )}
 
       {/* 消息流（v0.4 M4②：content-visibility 原生虚拟化，长会话跳过屏外渲染） */}

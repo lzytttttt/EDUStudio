@@ -4,11 +4,11 @@
 
 **A lightweight AI Agent workbench for K-12 education practitioners (education bureaus / school admins / teachers)**
 
-`v0.9.2` · `Educator's View · Human-readable Traces · Decoupled Harness · Mock Fallback · DeepSeek-level Low Cost · Offline Demo-ready`
+`v0.9.3` · `Demo Polish · Streamed Docs in View · Decoupled Harness · Mock Fallback · DeepSeek-level Low Cost · Offline Demo-ready`
 
 [![license](https://img.shields.io/badge/license-CC%20BY--NC%204.0-blue.svg)](./LICENSE)
 [![stack](https://img.shields.io/badge/Vite-React%2018-646CFF.svg)](./package.json)
-[![tests](https://img.shields.io/badge/Vitest-232%20cases-success.svg)](#-quality-assurance)
+[![tests](https://img.shields.io/badge/Vitest-253%20cases-success.svg)](#-quality-assurance)
 [![e2e](https://img.shields.io/badge/Playwright-9%20cases-brightgreen.svg)](#-quality-assurance)
 [![lighthouse](https://img.shields.io/badge/Lighthouse-%E2%89%A5%200.85-yellow.svg)](#-quality-assurance)
 [![budget](https://img.shields.io/badge/gzip-270KB%20budget-orange.svg)](#-quality-assurance)
@@ -352,6 +352,7 @@ Frontend Settings → Mode "Proxy", endpoint `http://<host>:8787/v1`; audit logs
 
 | Version | Theme | One-liner |
 | --- | --- | --- |
+| **v0.9.3** | Demo-presentation polish | Streamed documents into view (auto-switch to the Docs tab + generating badge + back-to-workbench hint) + arrow-key guard while editing (`shouldIgnoreDecisionKey`) + live briefing date & seed freshness + streaming render throttling & selector subscriptions |
 | **v0.9.2** | Workbench UI polish · educator's view | Human-readable traces (display contract for 13 tools + "show tech details" toggle) + role-default right-panel tab + sidebar task cards (summary + relative time + always-visible delete) + center-column progress dashboard (step N/M · parallel N groups) + dispatch pending-receipt badge + briefing one-card-one-task (each adopted card gets its own task session) |
 | **v0.9.1** | Layered memory & output self-eval loop | L2 episodic + L3 semantic preference local memory (ring buffer of 200 + role isolation) + preference injection for chat / briefing + rule-based doc self-eval (0-10 score + actionable advice) + harvesting loop for exports / feedback / card decisions |
 | **v0.9.0** | Trust & robustness | Function-calling wiring (tools in request body) + data backup safety net (full export/restore + key whitelist) + decision accountability notices + Mock boundary labels + browser back-key history integration + document import (attachments straight to LLM + purpose instructions) + weekly deck derivation + connection error classification |
@@ -373,7 +374,8 @@ Frontend Settings → Mode "Proxy", endpoint `http://<host>:8787/v1`; audit logs
 
 ## Next
 
-- **v0.9.2 shipped**: workbench UI polish · educator's view (human-readable traces / role-default panel tab / sidebar task cards & relative time / center-column progress dashboard / dispatch pending-receipt badge) — see [doc/v0.9.2-roadmap.md](./doc/v0.9.2-roadmap.md);
+- **v0.9.3 shipped**: demo-presentation polish (P0) — streamed documents brought into view, arrow-key guard while editing, demo date & data-freshness fixes, streaming render throttling — see [doc/v0.9.3-roadmap.md](./doc/v0.9.3-roadmap.md);
+- **v0.9.3 deferred**: P1 (wizard pacing / first-entry guides & demo fast-lane / asset consistency) and P2 (StrictMode dedupe / persist debounce / unused `react-icons` removal / promo-film one-command re-render) remain on the roadmap;
 - **Phase-2 candidates**: LLM-based preference distillation & self-eval (`getMemoryProvider` / `getEvaluator` already reserve mode switches), cloud memory sync (on the "won't do" list in the design doc, start on demand).
 
 ---

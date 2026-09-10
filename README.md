@@ -4,11 +4,11 @@
 
 **面向 K12 教育从业者（教育局 / 学校管理 / 教师）的轻量 AI Agent 工作台**
 
-`v0.9.2` · `教育者视角 · 轨迹人话 · 解耦 Harness · Mock 兜底 · DeepSeek 级低成本 · 离线可演示`
+`v0.9.3` · `演示演出 · 生成即见 · 解耦 Harness · Mock 兜底 · DeepSeek 级低成本 · 离线可演示`
 
 [![license](https://img.shields.io/badge/license-CC%20BY--NC%204.0-blue.svg)](./LICENSE)
 [![stack](https://img.shields.io/badge/Vite-React%2018-646CFF.svg)](./package.json)
-[![tests](https://img.shields.io/badge/Vitest-232%20%E4%BE%8B-success.svg)](#-质量保障)
+[![tests](https://img.shields.io/badge/Vitest-253%20%E4%BE%8B-success.svg)](#-质量保障)
 [![e2e](https://img.shields.io/badge/Playwright-9%20%E7%94%A8%E4%BE%8B-brightgreen.svg)](#-质量保障)
 [![lighthouse](https://img.shields.io/badge/Lighthouse-%E2%89%A5%200.85-yellow.svg)](#-质量保障)
 [![budget](https://img.shields.io/badge/gzip-270KB%20%E9%97%A8%E7%A6%81-orange.svg)](#-质量保障)
@@ -48,6 +48,22 @@ EDUStudio 的产品形态是一条「**收件 → 批阅 → 处理**」的暗�
   <img src="./png/shot/wechat_2026-09-05_164200_306.png" width="800" alt="登录页 · 账号密码式 + 角色切换" />
   <br/><em>登录页 · 账号密码式 + 角色切换 + Mock 演示模式提示</em>
 </p>
+
+---
+
+## v0.9.3 新特性 · 演示演出打磨：让「看得见的聪明」不掉帧
+
+> 小型版本（4 个 P0 里程碑），随 v0.9.3 发布。
+> 状态：✅ 已完成 · 单测（253 例，+21）+ tsc 验证通过，零新依赖。
+
+不重设计、不换风格，只修演示主链路的断点、节奏与掉帧：
+
+- **生成即见（P0-A）**：新文档占位创建时右栏自动切「文档」且仅触发一次（不回退 v0.9.2 的角色默认 tab）；「文档」tab 增加生成中呼吸点与完成未读点，窄屏抽屉入口同款角标；中栏与文档面板提供「返回主工作台」轻提示，不弹窗、不打断流式；
+- **编辑态方向键防误触（P0-B）**：抽出纯函数 `shouldIgnoreDecisionKey(e)`，命中 `isComposing` / `input` / `textarea` / `select` / `[contenteditable]` 时不触发决策；引导 / 重新生成 / 导入文档 / 后台任务浮层打开时全局决策键不响应，正常态 ← / ↑ / → 行为不变；
+- **演示日期与数据新鲜度（P0-C）**：简报头日期改为实时渲染，公文模板落款年月同步动态化；`seedMeta` 基线改为「今天 − 1 天」派生（保持可注入 `now`），seed 模式不再默认「建议刷新」，remote / CSV 超 7 天仍正确提示；
+- **流式渲染节流（P0-D）**：文档流式期间按 ~100ms 时间窗合并刷新（rAF + 尾帧补齐），`finalize` 时全量渲染一次；组件从全量 store 订阅改为字段选择器，对话区仅在视口接近底部时自动滚动（不再用 `smooth` 高频抢占视口）。
+
+> 详见 [doc/v0.9.3-roadmap.md](./doc/v0.9.3-roadmap.md)。
 
 ---
 
@@ -375,7 +391,7 @@ DEEPSEEK_KEY=sk-xxx docker compose up -d        # PowerShell：$env:DEEPSEEK_KEY
 
 | 闸门 | 说明 |
 | --- | --- |
-| **Vitest 单测** | `npm test` 运行 Vitest 单测（**232 例**），覆盖 SSE 解析 / 增量归一化 / Markdown 渲染 / 工具注册 / 剧本与模板匹配 / 存储往返 / 偏好注入 / 导出工具 / CSV 成绩解析 / 数据源降级 / 上下文压缩 / 技能提炼与检索 / 简报卡校验与个性化排序 / 简报交互覆盖层与决策撤回 / 后台任务泵 / 数据上下文聚合与截断 / LLM 技能提炼校验与去重进化 / 简报重新生成选项注入与种类过滤 / 记忆环形裁剪与语义合并 / 偏好提炼与注入组装 / 文档规则评分 / 相对时间与工具 display 文案 |
+| **Vitest 单测** | `npm test` 运行 Vitest 单测（**253 例**），覆盖 SSE 解析 / 增量归一化 / Markdown 渲染 / 工具注册 / 剧本与模板匹配 / 存储往返 / 偏好注入 / 导出工具 / CSV 成绩解析 / 数据源降级 / 上下文压缩 / 技能提炼与检索 / 简报卡校验与个性化排序 / 简报交互覆盖层与决策撤回 / 后台任务泵 / 数据上下文聚合与截断 / LLM 技能提炼校验与去重进化 / 简报重新生成选项注入与种类过滤 / 记忆环形裁剪与语义合并 / 偏好提炼与注入组装 / 文档规则评分 / 相对时间与工具 display 文案 / 决策键守卫矩阵 / 日期与新鲜度 / 文档流可见性 |
 | **构建闸门** | `npm run build` 前置执行单测 + tsc 类型检查，**双闸门**保障交付质量 |
 | **Playwright E2E** | 3 条关键路径 + 2 条自进化演示 |
 | **视觉回归** | 4 张基线视觉回归（阈值 5%，首月观察期） |
@@ -388,6 +404,7 @@ DEEPSEEK_KEY=sk-xxx docker compose up -d        # PowerShell：$env:DEEPSEEK_KEY
 
 | 版本 | 主题 | 一句话 |
 | --- | --- | --- |
+| **v0.9.3** | 演示演出打磨 | 生成即见的文档流（占位即切 tab + 生成中 / 未读角标 + 返回主工作台）+ 编辑态方向键防误触（`shouldIgnoreDecisionKey` 守卫矩阵）+ 简报日期实时化与 seed 新鲜度 + 流式渲染节流与选择器订阅 |
 | **v0.9.2** | 工作台 UI 优化 · 教育者视角 | 执行轨迹业务化（13 工具 display 文案 + 技术细节开关）+ 角色主工作台默认激活 + 侧栏任务卡（摘要 + 相对时间 + 删除常显）+ 中栏进度仪表盘（第 N/M 步 · 并行 N 组）+ 下发待回执角标 + 简报「一卡一任务」（采纳卡片各自成独立任务会话，重复采纳幂等） |
 | **v0.9.1** | 记忆分层与产出自评闭环 | L2 情景 + L3 语义偏好本地记忆（环形 200 条 + 角色隔离）+ 对话 / 简报偏好注入 + 文档规则版自评（0-10 分 + 可执行建议）+ 导出 / 反馈 / 卡片决策自动收割闭环 |
 | **v0.9.0** | 信任与健壮性 | function-calling 接线（tools 下发请求体）+ 数据备份安全网（全量导出/恢复 + 白名单兼容）+ 决策责任边界提示 + Mock 边界标识 + 浏览器返回键历史集成 + 导入文档化（附件直通 LLM + 用途指令）+ 卡组周派生 + 连接错误分类诊断 |
@@ -409,7 +426,8 @@ DEEPSEEK_KEY=sk-xxx docker compose up -d        # PowerShell：$env:DEEPSEEK_KEY
 
 ## 下一步
 
-- **v0.9.2 已落地**：工作台 UI 优化（执行轨迹业务化 / 角色主工作台默认激活 / 侧栏任务卡与相对时间 / 中栏进度仪表盘 / 下发待回执角标），方案见 [doc/v0.9.2-roadmap.md](./doc/v0.9.2-roadmap.md)；
+- **v0.9.3 已落地**：演示演出打磨 P0 四项——生成即见的文档流（新文档自动切「文档」页签 + 生成中角标）、编辑态方向键防误触、演示日期与数据新鲜度校正、流式渲染节流与选择器订阅，方案见 [doc/v0.9.3-roadmap.md](./doc/v0.9.3-roadmap.md)；
+- **v0.9.3 顺延项**：P1（演示向导节奏 / 首进引导与演示直达 / 物料一致性）与 P2（StrictMode 去重 / 持久化 debounce / 移除未使用 `react-icons` / 宣传片一键复渲）仍在路线图，未随本次交付；
 - **二期候选**：LLM 版偏好提炼与自评（`getMemoryProvider` / `getEvaluator` 已预留 mode 分流）、云端记忆同步（设计文档「不做清单」，按需启动）。
 
 全部迭代文档见 [doc/README.md](./doc/README.md)。

@@ -114,3 +114,29 @@ test('③ 文档新建 → 导出下载', async ({ page }) => {
   ])
   expect(download.suggestedFilename()).toMatch(/\.md$/)
 })
+
+test('④ 生成即见：教案任务后文档面板自动可见且正文持续增长', async ({ page }) => {
+  await loginAsTeacher(page)
+
+  // 教师默认停在角色主工作台（v0.9.2 P0-B）
+  await expect(page.getByTestId('tab-board')).toHaveClass(/border-primary/)
+
+  // 发送教案目标（Mock 剧本：genLessonPlan → 教案文档流式生成）
+  await page.getByTestId('chat-input').fill('帮我备一节《摩擦力》公开课')
+  await page.getByTestId('chat-send').click()
+
+  // 占位即切（v0.9.3 P0-A①②）：无需手点 tab，右栏自动切「文档」并显示生成中提示
+  await expect(page.getByTestId('doc-generating-bar')).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByTestId('tab-doc')).toHaveClass(/border-primary/)
+  await expect(page.getByTestId('doc-focus-notice')).toBeVisible()
+
+  // 正文逐字增长（流式渲染，而非生成完一次性出现）
+  const body = page.getByTestId('doc-body')
+  await expect(body).toBeVisible()
+  const first = (await body.innerText()).length
+  await expect.poll(async () => (await body.innerText()).length, { timeout: 15_000 }).toBeGreaterThan(first)
+
+  // 生成收敛：生成中提示与中栏轻提示自动收起（v0.9.3 P0-A③）
+  await expect(page.getByTestId('doc-generating-bar')).toBeHidden({ timeout: 20_000 })
+  await expect(page.getByTestId('doc-focus-notice')).toBeHidden()
+})

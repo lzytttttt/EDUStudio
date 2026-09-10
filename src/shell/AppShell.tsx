@@ -7,6 +7,7 @@ import NotificationPanel from './NotificationPanel'
 import GuideDialog from '../components/GuideDialog'
 import Resizer from './Resizer'
 import { useAuthStore } from '../stores/authStore'
+import { useArtifactStore } from '../stores/artifactStore'
 import { useSettingsStore, DEFAULT_COLUMN_WIDTHS, clampColumnWidth } from '../stores/settingsStore'
 import { useNotificationStore, unreadCount } from '../stores/notificationStore'
 import { t } from '../lib/i18n'
@@ -30,6 +31,9 @@ export default function AppShell() {
   const closePanel = useNotificationStore((s) => s.closePanel)
   const notifItems = useNotificationStore((s) => s.items)
   const unread = unreadCount(notifItems)
+  /* 文档生成中 / 未读（v0.9.3 P0-A②）：窄屏抽屉入口同款角标，避免文档产出被抽屉深藏 */
+  const docGenerating = useArtifactStore((s) => s.generatingIds.length > 0)
+  const docUnread = useArtifactStore((s) => s.unreadDocIds.length > 0)
 
   return (
     <div className="flex h-full overflow-hidden bg-bg">
@@ -82,7 +86,7 @@ export default function AppShell() {
         style={{ width: columnWidths.right }}
         className="hidden xl:flex shrink-0 bg-surface"
       >
-        <RightPanel />
+        <RightPanel variant="desktop" />
       </aside>
       {artifactOpen && (
         <div className="fixed inset-0 z-40 xl:hidden">
@@ -96,7 +100,7 @@ export default function AppShell() {
               >
                 <X size={16} />
               </button>
-              <RightPanel />
+              <RightPanel variant="drawer" />
             </div>
           </aside>
         </div>
@@ -126,11 +130,20 @@ export default function AppShell() {
         </button>
         <button
           onClick={() => setArtifactOpen(true)}
-          className="flex flex-1 flex-col items-center gap-0.5 py-2 text-[0.625rem] text-ink-soft transition-colors hover:text-ink"
+          className="relative flex flex-1 flex-col items-center gap-0.5 py-2 text-[0.625rem] text-ink-soft transition-colors hover:text-ink"
           aria-label="打开文档面板"
         >
           <FileText size={18} />
           {t('nav.docs')}
+          {/* 生成中呼吸点 / 未读点（v0.9.3 P0-A②）：与右栏「文档」tab 同口径 */}
+          {docGenerating ? (
+            <span data-testid="nav-doc-generating" className="absolute right-1/4 top-1.5 flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-mint opacity-75" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-mint" />
+            </span>
+          ) : docUnread ? (
+            <span data-testid="nav-doc-unread" className="absolute right-1/4 top-1.5 h-2 w-2 rounded-full bg-coral" />
+          ) : null}
         </button>
       </nav>
 

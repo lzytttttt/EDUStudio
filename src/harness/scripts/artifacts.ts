@@ -1,4 +1,5 @@
 import type { ArtifactKind, RoleId } from '../types'
+import { formatCnYearMonth } from '../../lib/date'
 
 /** 文档模板：按 kind + 角色生成 Markdown 骨架，占位符用 goal/topic 填充 */
 
@@ -139,7 +140,7 @@ const notice: ArtifactTemplate = {
 特此通知。
 
 教育局基教科
-2026 年 9 月`,
+${formatCnYearMonth()}`,
 }
 
 const generic: ArtifactTemplate = {

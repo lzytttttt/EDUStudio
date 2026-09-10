@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { ArtifactDoc, ArtifactKind, RoleId } from '../harness/types'
 import { loadJSON, saveJSON } from '../lib/storage'
 import { getTemplateById } from '../harness/scripts/artifacts'
+import { useUiStore } from './uiStore'
 
 /** 文档版本快照（v0.3 专项 ②：版本历史） */
 export interface ArtifactRevision {
@@ -48,6 +49,12 @@ export interface ArtifactState {
   removeRevision: (id: string, revisionId: string) => void
   /** 登记分享短链（v0.5 M2①） */
   setShareRef: (id: string, ref: ShareRef) => void
+  /** 生成中标识（v0.9.3 P0-A ②）：agent 占位创建 → finalize / 非流式整体写入期间保持；仅内存态不落盘 */
+  generatingIds: string[]
+  /** 生成完成但尚未查看的文档 id（v0.9.3 P0-A ②：进入文档 tab 后清除）；仅内存态不落盘 */
+  unreadDocIds: string[]
+  /** 清空未查看标记（进入文档 tab 时调用） */
+  markDocsRead: () => void
 }
 
 const MAX_REVISIONS = 20
@@ -82,12 +89,19 @@ function pushRevision(list: ArtifactRevision[], rev: ArtifactRevision): Artifact
   return next.length > MAX_REVISIONS ? next.slice(next.length - MAX_REVISIONS) : next
 }
 
+/** 从 id 列表移除（不存在时返回原数组，避免无谓引用变更触发重渲染） */
+function without(list: string[], id: string): string[] {
+  return list.includes(id) ? list.filter((x) => x !== id) : list
+}
+
 export const useArtifactStore = create<ArtifactState>((set, get) => ({
   docs: persisted.docs,
   revisions: persisted.revisions,
   shareRefs: persisted.shareRefs ?? {},
   activeId: persisted.docs[0]?.id ?? null,
   lastTemplate: persisted.lastTemplate,
+  generatingIds: [],
+  unreadDocIds: [],
 
   createPlaceholder: (id, title, kind, role, source) => {
     // 同角色同标题重建：先快照旧文档，避免覆盖丢失（v0.3-02 要求）
@@ -102,7 +116,11 @@ export const useArtifactStore = create<ArtifactState>((set, get) => ({
       })
     }
     const doc: ArtifactDoc = { id, title, kind, role, content: '', createdAt: Date.now(), source }
-    set({ docs: [doc, ...get().docs], activeId: id, revisions })
+    /* 生成中标识 + 占位即切「文档」（v0.9.3 P0-A ①②）：仅 agent 占位触发，
+     * 手动创建（出题工作台「插入到文档」等）不夺走当前 tab，也不进入生成中态 */
+    const generatingIds = source === 'manual' ? get().generatingIds : [...get().generatingIds, id]
+    if (source !== 'manual') useUiStore.getState().requestDocFocus()
+    set({ docs: [doc, ...get().docs], activeId: id, revisions, generatingIds })
     persist(get())
   },
 
@@ -124,9 +142,14 @@ export const useArtifactStore = create<ArtifactState>((set, get) => ({
         createdAt: Date.now(),
       })
     }
+    /* 生成收敛（v0.9.3 P0-A ②）：清「生成中」；流式产出完成后留未读点（进入文档 tab 即清除） */
+    const unreadDocIds =
+      get().generatingIds.includes(id) && prev?.content ? [...without(get().unreadDocIds, id), id] : get().unreadDocIds
     set({
       docs: get().docs.map((d) => (d.id === id ? { ...d, title, kind } : d)),
       revisions,
+      generatingIds: without(get().generatingIds, id),
+      unreadDocIds,
     })
     persist(get())
   },
@@ -144,7 +167,12 @@ export const useArtifactStore = create<ArtifactState>((set, get) => ({
         createdAt: Date.now(),
       })
     }
-    set({ docs: get().docs.map((d) => (d.id === id ? { ...d, content } : d)), revisions })
+    set({
+      docs: get().docs.map((d) => (d.id === id ? { ...d, content } : d)),
+      revisions,
+      /* 非流式整体写入（如文档合并工具）视为已产出（v0.9.3 P0-A ②） */
+      generatingIds: without(get().generatingIds, id),
+    })
     persist(get())
   },
 
@@ -159,7 +187,13 @@ export const useArtifactStore = create<ArtifactState>((set, get) => ({
     const docs = get().docs.filter((d) => d.id !== id)
     const revisions = { ...get().revisions }
     delete revisions[id]
-    set({ docs, revisions, activeId: get().activeId === id ? (docs[0]?.id ?? null) : get().activeId })
+    set({
+      docs,
+      revisions,
+      activeId: get().activeId === id ? (docs[0]?.id ?? null) : get().activeId,
+      generatingIds: without(get().generatingIds, id),
+      unreadDocIds: without(get().unreadDocIds, id),
+    })
     persist(get())
   },
 
@@ -229,5 +263,10 @@ export const useArtifactStore = create<ArtifactState>((set, get) => ({
   setShareRef: (id, ref) => {
     set({ shareRefs: { ...get().shareRefs, [id]: ref } })
     persist(get())
+  },
+
+  /** 进入文档 tab 即视为已查看（v0.9.3 P0-A ②） */
+  markDocsRead: () => {
+    if (get().unreadDocIds.length) set({ unreadDocIds: [] })
   },
 }))

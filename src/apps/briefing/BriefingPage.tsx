@@ -22,6 +22,8 @@ import FocusSummary from './FocusSummary'
 import FocusTaskSheet from './FocusTaskSheet'
 import GuideDialog from '../../components/GuideDialog'
 import { cn } from '../../lib/cn'
+import { shouldIgnoreDecisionKey } from '../../lib/decisionKeys'
+import { formatCnDate } from '../../lib/date'
 
 type Direction = 'left' | 'up' | 'right'
 
@@ -244,16 +246,19 @@ export default function BriefingPage() {
     [current, exiting, drag, decide, isDesktop, focusMode, sendMessage, setStage, intro],
   )
 
-  /* 键盘：← 跳过 / ↑ 收藏 / → 采纳 */
+  /* 键盘：← 跳过 / ↑ 收藏 / → 采纳。
+   * v0.9.3 P0-B：编辑态（输入元素 / contenteditable）、输入法组词与弹层打开时由守卫拦截，防误触决策 */
+  const overlayOpen = guideOpen || importOpen || regenOpen || taskSheetOpen
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (shouldIgnoreDecisionKey(e, { overlayOpen })) return
       if (e.key === 'ArrowLeft') handleDecide('left')
       else if (e.key === 'ArrowUp') handleDecide('up')
       else if (e.key === 'ArrowRight') handleDecide('right')
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [handleDecide])
+  }, [handleDecide, overlayOpen])
 
   /* 指针拖拽：capture 到卡片容器；位移超过阈值才判定为拖拽，避免影响卡内点击 */
   const onPointerDown = (e: React.PointerEvent) => {
@@ -343,7 +348,8 @@ export default function BriefingPage() {
           <div>
             <p className="text-sm font-semibold leading-tight">今日简报</p>
             <p className="text-[0.6875rem] text-ink-mute">
-              <span className="minor-info hidden sm:inline">2026 年 9 月 4 日 · </span>
+              {/* 日期实时化（v0.9.3 P0-C）：本地化年月日，演示日不再显示硬编码 */}
+              <span className="minor-info hidden sm:inline">{formatCnDate()} · </span>
               {preset?.name ?? '访客'} · 已处理 {processed}/{total}
             </p>
           </div>

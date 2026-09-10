@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>EDUStudio · 60s Film</title>
+<style>
+:root{
+  --bg:#F3FAFC;
+  --white:#FFFFFF;
+  --teal:#1FA2C4;
+  --teal-d:#0B7A99;
+  --teal-l:#8EDCEA;
+  --teal-xl:#DFF3F9;
+  --green:#2CC08B;
+  --green-l:#A7E9CE;
+  --green-xl:#E2F7EE;
+  --amber:#F5A623;
+  --amber-l:#FFE1AB;
+  --red:#EE5A54;
+  --red-l:#FFD9D7;
+  --ink:#0F2F3B;
+  --ink2:#6A8D9B;
+  --line:#DCEEF4;
+  --W:1280px;
+  --H:720px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{background:#0b1a20;overflow:hidden;width:100%;height:100%;}
+body{font-family:"Microsoft YaHei","PingFang SC","Hiragino Sans GB","Source Han Sans SC",sans-serif;
+     -webkit-font-smoothing:antialiased;}
+
+#stage{position:absolute;left:0;top:0;width:var(--W);height:var(--H);overflow:hidden;
+  background:radial-gradient(120% 100% at 50% 8%, #FFFFFF 0%, #F3FAFC 45%, #E7F5F9 100%);}
+#camera{position:absolute;inset:0;transform-origin:640px 360px;will-change:transform;}
+.scene{position:absolute;inset:0;opacity:0;will-change:opacity;}
+.scene.off{display:none;}
+
+/* ---------- 背景光斑 ---------- */
+.blob{position:absolute;border-radius:50%;filter:blur(38px);opacity:.55;will-change:transform;}
+.gridbg{position:absolute;inset:0;opacity:0;
+  background-image:radial-gradient(circle, #BCE6F0 1.1px, transparent 1.1px);
+  background-size:34px 34px;}
+
+/* ---------- 通用卡片 ---------- */
+.card{position:absolute;background:var(--white);border-radius:18px;
+  box-shadow:0 8px 24px rgba(20,80,100,.10), 0 2px 6px rgba(20,80,100,.06);
+  will-change:transform,opacity;}
+.card.soft{box-shadow:0 6px 18px rgba(20,80,100,.08);}
+
+/* ---------- 英雄卡片 ---------- */
+.hero-card{position:absolute;left:0;top:0;width:236px;height:296px;
+  transform-origin:118px 148px;will-change:transform,opacity;opacity:0;}
+.hero-card .hc-body{position:absolute;inset:0;background:#fff;border-radius:20px;
+  box-shadow:0 14px 40px rgba(15,90,115,.16), 0 3px 10px rgba(15,90,115,.08);overflow:hidden;}
+.hero-card .hc-accent{position:absolute;left:0;top:0;width:100%;height:6px;
+  background:linear-gradient(90deg,var(--teal),var(--teal-l));}
+.hero-card .hc-title{position:absolute;left:22px;top:24px;font-size:21px;font-weight:700;color:var(--ink);
+  letter-spacing:.5px;}
+.hero-card .hc-sub{position:absolute;left:22px;top:54px;width:56px;height:5px;border-radius:3px;background:var(--teal-xl);}
+.hero-card .hc-chart{position:absolute;left:20px;top:106px;width:196px;height:104px;}
+.hero-card .hc-delta{position:absolute;left:22px;top:78px;font-size:15px;font-weight:700;color:var(--red);
+  letter-spacing:.5px;}
+.hero-card .hc-dot{position:absolute;right:22px;top:76px;width:14px;height:14px;border-radius:50%;
+  background:var(--red);box-shadow:0 0 0 5px var(--red-l);}
+.hero-card .hc-dot.ok{background:var(--green);box-shadow:0 0 0 5px var(--green-l);}
+.hero-card .hc-dot .tick{position:absolute;inset:0;opacity:0;}
+.hero-card .hc-lines{position:absolute;left:22px;bottom:26px;width:150px;}
+.hero-card .hc-lines i{display:block;height:6px;border-radius:3px;background:#EAF4F7;margin-bottom:9px;}
+.hero-card .hc-lines i:nth-child(2){width:110px;}
+.hero-card .hc-lines i:nth-child(3){width:74px;}
+.hero-card .hc-edge{position:absolute;inset:-3px;border-radius:23px;padding:3px;opacity:0;
+  background:conic-gradient(from 0deg, transparent 0deg, var(--teal) 45deg, var(--teal-l) 90deg, transparent 150deg, transparent 360deg);
+  -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor; mask-composite:exclude; will-change:opacity;}
+.hero-card .hc-halo{position:absolute;left:50%;top:50%;width:236px;height:296px;margin:-148px 0 0 -118px;
+  border-radius:24px;border:3px solid var(--teal);opacity:0;will-change:transform,opacity;}
+.hero-card .hc-shine{position:absolute;inset:0;border-radius:20px;opacity:0;
+  background:linear-gradient(115deg, transparent 35%, rgba(255,255,255,.95) 50%, transparent 65%);}
+
+/* ---------- 指针 ---------- */
+#cursor{position:absolute;left:0;top:0;width:34px;height:34px;opacity:0;will-change:transform,opacity;}
+#cursor svg{display:block;filter:drop-shadow(0 3px 5px rgba(15,60,80,.28));}
+#cursor .ripple{position:absolute;left:-9px;top:-9px;width:34px;height:34px;border-radius:50%;
+  border:3px solid var(--teal);opacity:0;will-change:transform,opacity;}
+
+/* ---------- 节点 ---------- */
+.node{position:absolute;width:78px;height:78px;margin:-39px 0 0 -39px;border-radius:50%;
+  background:#fff;box-shadow:0 8px 20px rgba(20,80,100,.12);display:flex;align-items:center;justify-content:center;
+  will-change:transform,opacity;}
+.node .nring{position:absolute;inset:-6px;border-radius:50%;border:2.5px solid var(--teal);opacity:0;
+  will-change:transform,opacity;}
+.node .ico{width:38px;height:38px;color:#9FB9C4;transition:none;}
+.node .halo{position:absolute;inset:-14px;border-radius:50%;background:var(--teal);opacity:0;filter:blur(12px);}
+.edge{position:absolute;height:4px;border-radius:2px;background:linear-gradient(90deg,var(--teal-xl),var(--teal-l));
+  transform-origin:0 50%;will-change:transform,opacity;}
+
+/* ---------- 颗粒 ---------- */
+.grain{position:absolute;width:9px;height:9px;border-radius:50%;background:var(--teal);
+  margin:-4.5px 0 0 -4.5px;opacity:0;will-change:transform,opacity;}
+
+/* ---------- 面板 ---------- */
+.panel{position:absolute;background:#fff;border-radius:20px;overflow:hidden;
+  box-shadow:0 10px 28px rgba(20,80,100,.10);will-change:transform,opacity;}
+.bar{position:absolute;bottom:0;width:100%;border-radius:6px 6px 0 0;background:var(--teal-l);transform-origin:50% 100%;}
+.bar.hl{background:var(--red);}
+.bar.ok{background:var(--green);}
+
+/* ---------- 文档 ---------- */
+.doc{position:absolute;background:#fff;border-radius:12px;overflow:hidden;
+  box-shadow:0 10px 26px rgba(20,80,100,.12);will-change:transform,opacity;}
+.doc .dt{position:absolute;left:0;top:0;width:100%;height:9px;background:var(--teal-xl);}
+.doc .dl{position:absolute;height:7px;border-radius:4px;background:#EAF4F7;}
+
+/* ---------- 题目卡 ---------- */
+.qcard{position:absolute;background:#fff;border-radius:10px;overflow:hidden;
+  box-shadow:0 5px 14px rgba(20,80,100,.10);will-change:transform,opacity;}
+.qcard .qt{position:absolute;left:0;top:0;width:5px;height:100%;}
+.qcard .qs{position:absolute;left:11px;top:11px;display:flex;gap:4px;}
+.qcard .qs b{width:7px;height:7px;border-radius:2px;transform:rotate(45deg);display:block;}
+
+/* ---------- 课堂 ---------- */
+#classroom{position:absolute;inset:0;opacity:0;will-change:opacity,transform;}
+
+/* ---------- Skill ---------- */
+#skill{position:absolute;left:0;top:0;width:210px;height:262px;transform-origin:105px 131px;opacity:0;
+  will-change:transform,opacity;}
+#skill .sk-body{position:absolute;inset:0;background:#fff;border-radius:18px;overflow:hidden;
+  box-shadow:0 12px 32px rgba(15,90,115,.16);}
+#skill .sk-accent{position:absolute;left:0;top:0;width:100%;height:7px;background:linear-gradient(90deg,var(--green),var(--green-l));}
+#skill .sk-ico{position:absolute;left:0;top:34px;width:100%;display:flex;flex-wrap:wrap;gap:10px;justify-content:center;padding:0 20px;}
+#skill .sk-ico div{width:38px;height:38px;border-radius:11px;background:var(--green-xl);display:flex;align-items:center;justify-content:center;}
+#skill .sk-name{position:absolute;left:0;bottom:30px;width:100%;text-align:center;font-size:15px;font-weight:700;color:var(--ink);}
+#skill .sk-link{position:absolute;left:24px;bottom:16px;right:24px;height:6px;border-radius:3px;background:var(--green-xl);}
+#skill .sk-edge{position:absolute;inset:-3px;border-radius:21px;padding:3px;opacity:0;
+  background:conic-gradient(from 0deg, transparent 0deg, var(--green) 45deg, var(--amber) 100deg, transparent 165deg, transparent 360deg);
+  -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor; mask-composite:exclude;}
+
+/* ---------- 能力库 ---------- */
+.shelf{position:absolute;border-radius:20px;background:rgba(255,255,255,.72);
+  border:2px dashed #C9E6EF;will-change:transform,opacity;}
+.slot{position:absolute;border-radius:14px;background:#F1FAFC;border:1.5px solid #DCEEF4;}
+
+/* ---------- 尾板 ---------- */
+#outro{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  opacity:0;will-change:opacity,transform;}
+#outro .logo{display:flex;align-items:center;gap:18px;}
+#outro .mark{width:66px;height:66px;border-radius:18px;
+  background:linear-gradient(140deg,var(--teal),#39C7B5);display:flex;align-items:center;justify-content:center;
+  box-shadow:0 12px 28px rgba(31,162,196,.28);}
+#outro .word{font-size:52px;font-weight:800;color:var(--ink);letter-spacing:1px;}
+#outro .tag{margin-top:22px;font-size:23px;color:var(--ink2);letter-spacing:3px;}
+
+/* ---------- 小标签（极少文字） ---------- */
+.tag-mini{position:absolute;font-size:13px;font-weight:700;color:var(--ink2);letter-spacing:1px;opacity:.9;}
+
+/* 小刻度/伪内容 */
+.ph{position:absolute;border-radius:4px;background:#E9F4F7;}
+
+.icon{display:block;}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="gridbg" class="gridbg"></div>
+  <div id="blobs"></div>
+  <div id="camera">
+    <div class="scene" id="sc1"></div>
+    <div class="scene" id="sc2"></div>
+    <div class="scene" id="sc3"></div>
+    <div class="scene" id="sc4"></div>
+    <div class="scene" id="sc5"></div>
+    <div class="scene" id="sc6"></div>
+    <div class="scene" id="sc7"></div>
+    <div id="hero" class="hero-card">
+      <div class="hc-halo"></div>
+      <div class="hc-edge"></div>
+      <div class="hc-body">
+        <div class="hc-accent"></div>
+        <div class="hc-title">八年级 3 班</div>
+        <div class="hc-sub"></div>
+        <div class="hc-delta">↓12%</div>
+        <div class="hc-dot"><svg class="tick" viewBox="0 0 14 14"><path d="M3 7.4 L5.9 10.2 L11 4.6" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <svg class="hc-chart" viewBox="0 0 196 104">
+          <line x1="6" y1="92" x2="190" y2="92" stroke="#E4F0F4" stroke-width="3" stroke-linecap="round"/>
+          <polyline id="trDown" points="12,20 56,32 100,52 144,68 186,80" fill="none" stroke="#EE5A54" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <polyline id="trUp" points="12,80 56,70 100,52 144,32 186,18" fill="none" stroke="#2CC08B" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" opacity="0"/>
+          <circle id="trUpDot" cx="186" cy="18" r="6" fill="#2CC08B" opacity="0"/>
+        </svg>
+        <div class="hc-lines"><i></i><i></i><i></i></div>
+        <div class="hc-shine"></div>
+      </div>
+    </div>
+    <div id="cursor">
+      <svg viewBox="0 0 34 34" width="34" height="34">
+        <path d="M6 3 L6 26 L11.5 21 L15 29 L19 27 L15.5 19.5 L23 19 Z" fill="#0F2F3B" stroke="#fff" stroke-width="2" stroke-linejoin="round"/>
+      </svg>
+      <div class="ripple"></div>
+    </div>
+    <div id="skill">
+      <div class="sk-edge"></div>
+      <div class="sk-body">
+        <div class="sk-accent"></div>
+        <div class="sk-ico" id="skIco"></div>
+        <div class="sk-name">学情闭环</div>
+        <div class="sk-link"></div>
+      </div>
+    </div>
+    <div id="outro">
+      <div class="logo">
+        <div class="mark">
+          <svg viewBox="0 0 40 40" width="40" height="40">
+            <rect x="6" y="24" width="28" height="5" rx="2.5" fill="#fff" opacity=".75"/>
+            <rect x="6" y="16" width="20" height="5" rx="2.5" fill="#fff" opacity=".9"/>
+            <rect x="6" y="8" width="12" height="5" rx="2.5" fill="#fff"/>
+          </svg>
+        </div>
+        <div class="word">EDUStudio</div>
+      </div>
+      <div class="tag">让 AI 把教育任务做完。</div>
+    </div>
+  </div>
+</div>
+<script src="film.js"></script>
+</body>
+</html>

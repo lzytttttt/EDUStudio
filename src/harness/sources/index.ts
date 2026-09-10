@@ -54,19 +54,22 @@ export interface SourceProvider {
 
 /* ---------- 元信息工具 ---------- */
 
-/** seed 基线时间：以 2026-09-01 为演示基线（可演示的「较旧」状态） */
-const SEED_BASELINE = new Date('2026-09-01T08:00:00').getTime()
-
-export function seedMeta(label = '演示数据'): SourceMeta {
-  return { fetchedAt: SEED_BASELINE, kind: 'seed', label }
+/** seed 基线（v0.9.3 P0-C）：以「今天 − 1 天」派生，演示中不出现常驻「建议刷新」；
+ *  remote / CSV 链路的新鲜度判定不受影响。now 可注入便于单测固化。 */
+export function seedBaseline(now: number = Date.now()): number {
+  return now - 24 * 3600 * 1000
 }
 
-/** 数据是否过期（默认 7 天，见 v0.5 M1④） */
+export function seedMeta(label = '演示数据', now: number = Date.now()): SourceMeta {
+  return { fetchedAt: seedBaseline(now), kind: 'seed', label }
+}
+
+/** 数据是否过期（默认 7 天，见 v0.5 M1④）；now 可注入便于单测固化 */
 export const STALE_AFTER_MS = 7 * 24 * 3600 * 1000
 
-export function isStale(meta: SourceMeta | null | undefined, maxAgeMs = STALE_AFTER_MS): boolean {
+export function isStale(meta: SourceMeta | null | undefined, maxAgeMs = STALE_AFTER_MS, now: number = Date.now()): boolean {
   if (!meta) return false
-  return Date.now() - meta.fetchedAt > maxAgeMs
+  return now - meta.fetchedAt > maxAgeMs
 }
 
 /** 相对时间描述：刚刚 / N 分钟前 / N 小时前 / N 天前 / 具体日期 */

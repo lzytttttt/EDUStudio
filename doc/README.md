@@ -30,6 +30,7 @@
 | [v0.9.1-roadmap.md](./v0.9.1-roadmap.md) | — | v0.9.1 路线图总览：AI Native 记忆分层（L2 情景 + L3 语义偏好）+ 产出自评闭环（规则版 Evaluator）+ 反馈收割 |
 | [v0.9.2-roadmap.md](./v0.9.2-roadmap.md) | — | v0.9.2 路线图总览：工作台 UI 优化·教育者视角（执行轨迹业务化 / 角色主工作台默认激活 / 任务列表卡片化与相对时间 / 中栏任务仪表盘 / 下发待回执角标） |
 | [v0.9.2-01-briefing-one-card-one-task.md](./v0.9.2-01-briefing-one-card-one-task.md) | 增量 | v0.9.2 里程碑：简报「一卡一任务」——采纳的卡片各自成独立任务会话（会话归属 `cardId` / 后台任务绑定 `sessionId` / 任务直达），不升版本号 |
+| [v0.9.3-roadmap.md](./v0.9.3-roadmap.md) | — | v0.9.3 路线图总览：演示演出打磨（生成即见的文档流 / 编辑态方向键防误触 / 演示日期与数据新鲜度 / 流式渲染节流与订阅治理 / 向导节奏与首进体验 / 宣传片工程化） |
 
 ## 文档规范
 
@@ -50,3 +51,4 @@
 - v0.9（已交付）：信任与健壮性专项（function-calling 接线 / 数据备份安全网 / 决策责任边界提示 / Mock 边界标识 / 导航与返回键 / 导入文档化与卡组周派生 / 诊断打磨 / 质量与发布），见 [v0.9-roadmap.md](./v0.9-roadmap.md)
 - v0.9.1（已完成）：AI Native 记忆分层 + 产出自评闭环（MemoryProvider：L2 情景 / L3 语义偏好；规则版 Evaluator；反馈收割三写点；单键 edustudio:memory 并入备份白名单），见 [v0.9.1-roadmap.md](./v0.9.1-roadmap.md)
 - v0.9.2（已完成）：工作台 UI 优化·教育者视角（ToolDef `display` 契约 + 13 工具人话文案与「显示技术细节」开关、角色默认 tab、侧栏任务卡与相对时间、中栏进度仪表盘、下发待回执角标），见 [v0.9.2-roadmap.md](./v0.9.2-roadmap.md)；追加里程碑「简报一卡一任务」（采纳卡片各自成独立任务会话），见 [v0.9.2-01-briefing-one-card-one-task.md](./v0.9.2-01-briefing-one-card-one-task.md)
+- v0.9.3（已完成）：演示演出打磨（生成即见的文档流与文档 tab 角标、编辑态方向键防误触、演示日期与数据新鲜度、流式渲染节流与订阅治理、演示向导节奏与首进体验、宣传片工程化），见 [v0.9.3-roadmap.md](./v0.9.3-roadmap.md)

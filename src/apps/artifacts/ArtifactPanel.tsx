@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Eye, Pencil, Copy, Trash2, FileText, Check, X, Download, History, Save, Plus, RotateCcw, LayoutTemplate, Share2, Link2,
-  MessageSquare, RefreshCw, Crosshair, ChevronLeft, ChevronRight, ChevronDown, Gauge, ThumbsUp, ThumbsDown,
+  MessageSquare, RefreshCw, Crosshair, ChevronLeft, ChevronRight, ChevronDown, Gauge, ThumbsUp, ThumbsDown, ArrowLeft,
 } from 'lucide-react'
 import { useArtifactStore, type ArtifactRevision } from '../../stores/artifactStore'
 import { useAuthStore } from '../../stores/authStore'
+import { useUiStore } from '../../stores/uiStore'
 import { useNotificationStore } from '../../stores/notificationStore'
+import { DEFAULT_RIGHT_TAB, BOARD_LABEL } from '../../lib/rightPanel'
 import { renderMarkdown } from '../../lib/markdown'
 import { copyText } from '../../lib/clipboard'
 import { exportDoc, type ExportFormat } from '../../lib/exporters'
@@ -82,6 +84,15 @@ export default function ArtifactPanel() {
   const docSource = doc?.source
   const docContent = doc?.content
   const genDone = docRevisions.some((r) => r.label === '生成完成')
+  /* 生成中标识 + 回退入口（v0.9.3 P0-A②③）：流式期间面板内可见进度，可一键回主工作台 */
+  const setRightTab = useUiStore((s) => s.setRightTab)
+  const dismissDocNotice = useUiStore((s) => s.dismissDocNotice)
+  const generatingIds = useArtifactStore((s) => s.generatingIds)
+  const docGenerating = !!doc && generatingIds.includes(doc.id)
+  const backToBoard = () => {
+    if (role) setRightTab(DEFAULT_RIGHT_TAB[role])
+    dismissDocNotice()
+  }
 
   /* 自动评估（v0.9.1）：「生成完成」快照出现（agent 流式定稿）或手动创建后触发一次；
      流式期间不评估半成品；后续编辑不自动重评（避免打字抖动），可手动「重新自评」 */
@@ -452,6 +463,30 @@ export default function ArtifactPanel() {
         )}
       </header>
 
+      {/* 生成可见性（v0.9.3 P0-A②③）：流式期间面板内可见进度，并提供回主工作台轻入口 */}
+      {docGenerating && (
+        <div
+          data-testid="doc-generating-bar"
+          className="flex shrink-0 items-center gap-2 border-b border-line bg-mint-soft px-4 py-1.5"
+        >
+          <span className="relative flex h-1.5 w-1.5 shrink-0">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-mint opacity-75" />
+            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-mint" />
+          </span>
+          <p className="min-w-0 flex-1 truncate text-[0.6875rem] text-ink-soft">AI 正在逐字生成，完成后可编辑 / 导出</p>
+          {role && DEFAULT_RIGHT_TAB[role] !== 'doc' && (
+            <button
+              onClick={backToBoard}
+              data-testid="doc-back-board"
+              className="inline-flex shrink-0 items-center gap-1 rounded-full bg-surface px-2.5 py-1 text-[0.625rem] font-medium text-primary shadow-soft transition-all hover:shadow-pop active:scale-95"
+            >
+              <ArrowLeft size={10} />
+              返回{BOARD_LABEL[role]}
+            </button>
+          )}
+        </div>
+      )}
+
       {/* 内容 */}
       {!doc ? (
         <div className="flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto px-6 py-8 text-center">
@@ -495,6 +530,7 @@ export default function ArtifactPanel() {
         />
       ) : (
         <div
+          data-testid="doc-body"
           className="md-body min-h-0 flex-1 overflow-y-auto px-5 py-4"
           dangerouslySetInnerHTML={{ __html: html }}
         />
