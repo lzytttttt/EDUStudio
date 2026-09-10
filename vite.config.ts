@@ -15,7 +15,8 @@ export default defineConfig({
         manualChunks(id) {
           if (!id.includes('node_modules')) return
           if (/[\\/]node_modules[\\/](react|react-dom|scheduler|zustand)[\\/]/.test(id)) return 'vendor-react'
-          if (/[\\/]node_modules[\\/](lucide-react|react-icons)[\\/]/.test(id)) return 'vendor-icons'
+          /* v0.9.3 P2-A④：移除未使用的 react-icons（分组仅剩 lucide-react） */
+          if (/[\\/]node_modules[\\/]lucide-react[\\/]/.test(id)) return 'vendor-icons'
         },
       },
     },

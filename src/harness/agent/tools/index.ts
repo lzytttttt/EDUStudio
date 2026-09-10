@@ -37,7 +37,8 @@ export const queryClassLearning: ToolDef = {
     }
     const src = meta.kind === 'csv' ? '（本地导入数据）' : meta.degraded ? '（演示数据）' : ''
     const result: ToolResult = {
-      summary: `${c.className}${src}：均分 ${c.scores.map((s) => `${s.subject} ${s.avg}`).join(' / ')}，作业完成率 ${c.homeworkCompletion}%，专注度 ${c.attentionIndex}`,
+      /* 薄弱点随结果回显（v0.9.3 P1-C①）：剧本「掌握率仅 61%」的判断与工具数据同源可对账 */
+      summary: `${c.className}${src}：均分 ${c.scores.map((s) => `${s.subject} ${s.avg}`).join(' / ')}，作业完成率 ${c.homeworkCompletion}%，专注度 ${c.attentionIndex}${c.weakPoints.length ? `，薄弱点 ${c.weakPoints.join('、')}` : ''}`,
       payload: c,
     }
     return result

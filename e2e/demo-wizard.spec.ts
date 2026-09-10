@@ -39,6 +39,9 @@ test('自进化演示：三幕走完 发现 → 复用 → 进化', async ({ pag
   await expect(page.getByText('已沉淀新技能').first()).toBeVisible({ timeout: 30_000 })
   await expect(page.getByTestId('demo-wizard')).toContainText('新技能已沉淀', { timeout: 10_000 })
 
+  // 常驻入口（v0.9.3 P1-A③）：会话已有内容时，中栏头部入口依然可打开演示
+  await expect(page.getByTestId('demo-entry-top')).toBeVisible()
+
   // 幕2：同类任务 → 命中学习技能（轨迹出现「命中技能」徽标）
   await page.getByTestId('demo-run').click()
   await expect(page.getByTestId('demo-act-title')).toContainText('技能复用')
@@ -54,16 +57,24 @@ test('自进化演示：三幕走完 发现 → 复用 → 进化', async ({ pag
   await expect(page.getByText('v2').first()).toBeVisible({ timeout: 10_000 })
 })
 
-test('重置演示：清空学习技能，可重复演示', async ({ page }) => {
+test('重置演示：清空技能 / 记忆 / 会话，可重复演示', async ({ page }) => {
   await loginAsTeacher(page)
 
   await page.getByTestId('demo-entry').click()
   await page.getByTestId('demo-run').click()
   await expect(page.getByText('已沉淀新技能').first()).toBeVisible({ timeout: 30_000 })
 
-  // 重置 → 学习技能清空，回到第一幕
+  // 重置需二次确认（v0.9.3 P1-A④），先取消再确认
   await page.getByTestId('demo-reset').click()
+  await expect(page.getByTestId('demo-reset-cancel')).toBeVisible()
+  await page.getByTestId('demo-reset-cancel').click()
+  await expect(page.getByTestId('demo-reset-cancel')).toBeHidden()
+  await page.getByTestId('demo-reset').click()
+  await page.getByTestId('demo-reset').click()
+
+  // 回到第一幕，且演示会话一并清除（空状态入口重新可见）
   await expect(page.getByTestId('demo-act-title')).toContainText('技能发现')
+  await expect(page.getByTestId('demo-entry')).toBeVisible()
 
   // 再次演示幕1 仍可沉淀（v1 而非 v2）
   await page.getByTestId('demo-run').click()

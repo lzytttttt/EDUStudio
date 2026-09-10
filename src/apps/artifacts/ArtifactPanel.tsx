@@ -3,12 +3,15 @@ import {
   Eye, Pencil, Copy, Trash2, FileText, Check, X, Download, History, Save, Plus, RotateCcw, LayoutTemplate, Share2, Link2,
   MessageSquare, RefreshCw, Crosshair, ChevronLeft, ChevronRight, ChevronDown, Gauge, ThumbsUp, ThumbsDown, ArrowLeft,
 } from 'lucide-react'
+import { useShallow } from 'zustand/react/shallow'
+import { packRow, unpackRow } from '../../lib/storeRows'
 import { useArtifactStore, type ArtifactRevision } from '../../stores/artifactStore'
 import { useAuthStore } from '../../stores/authStore'
 import { useUiStore } from '../../stores/uiStore'
 import { useNotificationStore } from '../../stores/notificationStore'
 import { DEFAULT_RIGHT_TAB, BOARD_LABEL } from '../../lib/rightPanel'
 import { renderMarkdown } from '../../lib/markdown'
+import { useThrottledValue } from '../../lib/throttle'
 import { copyText } from '../../lib/clipboard'
 import { exportDoc, type ExportFormat } from '../../lib/exporters'
 import { buildShareUrl, type ShareAnnotation, type ShareSnapshot } from '../../lib/share'
@@ -16,7 +19,7 @@ import { getApiBase, apiJson } from '../../lib/api'
 import { listTemplates } from '../../harness/scripts/artifacts'
 import { getEvaluator } from '../../harness/eval'
 import { getMemoryProvider } from '../../harness/memory'
-import type { EvalResult } from '../../harness/types'
+import type { ArtifactKind, EvalResult } from '../../harness/types'
 import { cn } from '../../lib/cn'
 
 const KIND_LABEL: Record<string, string> = {
@@ -51,9 +54,33 @@ export function isEditedAgainstGen(revs: ArtifactRevision[], content: string): b
 
 export default function ArtifactPanel() {
   const role = useAuthStore((s) => s.role)
-  const { docs, revisions, shareRefs, setShareRef, activeId, setActive, updateContent, remove, createManual, saveRevision, restoreRevision, removeRevision } =
-    useArtifactStore()
-  const doc = docs.find((d) => d.id === activeId)
+  /* 字段选择器订阅（v0.9.3 P0-D③）：正文流式只让「当前文档」变化触发重渲染，
+     其余文档 / 分享登记 / 版本表的改动不再连带整块面板重渲染 */
+  const doc = useArtifactStore((s) => s.docs.find((d) => d.id === s.activeId))
+  /* 文档清单只订阅渲染所需字段（P0-D③）：压成稳定字符串键，正文流式不改变键 ⇒
+     清单与「上一份 / 下一份」不随 chunk 重渲染（原文档对象数组每次都是新引用，浅比较不成立） */
+  const docKeys = useArtifactStore(
+    useShallow((s) => s.docs.map((d) => packRow([d.id, d.title, d.kind, d.createdAt, d.content ? 1 : 0]))),
+  )
+  const docs = useMemo(
+    () =>
+      docKeys.map((key) => {
+        const [id, title, kind, createdAt, hasContent] = unpackRow(key)
+        return { id, title, kind: kind as ArtifactKind, createdAt: Number(createdAt), empty: hasContent === '0' }
+      }),
+    [docKeys],
+  )
+  const revisions = useArtifactStore((s) => s.revisions)
+  const activeId = useArtifactStore((s) => s.activeId)
+  const shareRefs = useArtifactStore((s) => s.shareRefs)
+  const setShareRef = useArtifactStore((s) => s.setShareRef)
+  const setActive = useArtifactStore((s) => s.setActive)
+  const updateContent = useArtifactStore((s) => s.updateContent)
+  const remove = useArtifactStore((s) => s.remove)
+  const createManual = useArtifactStore((s) => s.createManual)
+  const saveRevision = useArtifactStore((s) => s.saveRevision)
+  const restoreRevision = useArtifactStore((s) => s.restoreRevision)
+  const removeRevision = useArtifactStore((s) => s.removeRevision)
   const [editing, setEditing] = useState(false)
   const [copyState, setCopyState] = useState<'idle' | 'ok' | 'fail'>('idle')
   const [exportOpen, setExportOpen] = useState(false)
@@ -75,7 +102,6 @@ export default function ArtifactPanel() {
   // 反馈状态（每文档一次）：accepted/rejected 写回记忆形成正负例
   const [feedback, setFeedback] = useState<Record<string, 'accepted' | 'rejected'>>({})
   const editorRef = useRef<HTMLTextAreaElement>(null)
-  const html = useMemo(() => (doc ? renderMarkdown(doc.content) : ''), [doc?.content])
   const docRevisions = doc ? revisions[doc.id] ?? [] : []
   const templates = role ? listTemplates(role) : []
   const docId = doc?.id
@@ -89,6 +115,10 @@ export default function ArtifactPanel() {
   const dismissDocNotice = useUiStore((s) => s.dismissDocNotice)
   const generatingIds = useArtifactStore((s) => s.generatingIds)
   const docGenerating = !!doc && generatingIds.includes(doc.id)
+  /* 渲染节流（v0.9.3 P0-D①）：流式期间正文按 100ms 时间窗合并刷新（尾帧补齐），
+     收敛后直通原值 —— finalize 全量渲染一次，编辑态零延迟 */
+  const throttledContent = useThrottledValue(doc?.content ?? '', 100, docGenerating)
+  const html = useMemo(() => (doc ? renderMarkdown(throttledContent) : ''), [doc, throttledContent])
   const backToBoard = () => {
     if (role) setRightTab(DEFAULT_RIGHT_TAB[role])
     dismissDocNotice()
@@ -451,7 +481,7 @@ export default function ArtifactPanel() {
                       <p className={cn('truncate text-xs font-medium', active && 'text-primary')}>{d.title}</p>
                       <p className="minor-info mt-0.5 text-[0.625rem] text-ink-mute">
                         {KIND_LABEL[d.kind] ?? '文档'} · {fmtTime(d.createdAt)}
-                        {!d.content && ' · 生成中'}
+                        {d.empty && ' · 生成中'}
                       </p>
                     </div>
                     {active && <Check size={12} className="shrink-0 text-primary" />}

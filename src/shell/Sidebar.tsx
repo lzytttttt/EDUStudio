@@ -1,10 +1,12 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   Sparkles, Plus, MessageSquare, Star, Trash2, Settings, ChevronRight, ChevronLeft, FileText, CircleHelp, Bell,
 } from 'lucide-react'
 import { useAuthStore } from '../stores/authStore'
 import { useChatStore, type ChatEntry } from '../stores/chatStore'
 import { relativeTime } from '../lib/relativeTime'
+import { packRow, unpackRow } from '../lib/storeRows'
+import { useShallow } from 'zustand/react/shallow'
 import { useBriefingStore } from '../stores/briefingStore'
 import { useArtifactStore } from '../stores/artifactStore'
 import { useSettingsStore } from '../stores/settingsStore'
@@ -19,10 +21,11 @@ import { cn } from '../lib/cn'
 
 const ROLE_BADGE = { teacher: 'bg-mint-soft text-mint', schoolAdmin: 'bg-primary-soft text-primary', bureau: 'bg-coral-soft text-coral' } as const
 
-/** 任务摘要（v0.9.2 P1-A）：取末条 user/assistant 内容压平截断一行，让任务按「内容」可找 */
+/** 任务摘要（v0.9.2 P1-A）：取末条 user/assistant 内容压平截断一行，让任务按「内容」可找。
+ *  先截断后压平（v0.9.3 P0-D③）：流式正文增长不再产生 O(全文) 正则开销，最多看末两条 */
 function sessionSummary(entries: ChatEntry[]): string {
-  for (let i = entries.length - 1; i >= 0; i--) {
-    const flat = entries[i].content.replace(/\s+/g, ' ').trim()
+  for (let i = entries.length - 1, seen = 0; i >= 0 && seen < 2; i--, seen++) {
+    const flat = entries[i].content.slice(0, 200).replace(/\s+/g, ' ').trim()
     if (flat) return flat.length > 40 ? `${flat.slice(0, 40)}…` : flat
   }
   return ''
@@ -32,10 +35,34 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const role = useAuthStore((s) => s.role)
   const setStage = useAuthStore((s) => s.setStage)
   const logout = useAuthStore((s) => s.logout)
-  const { sessions, activeId, setActive, newSession, removeSession } = useChatStore()
+  /* 字段选择器订阅（v0.9.3 P0-D③）：把任务行压成稳定字符串键（时间取整到秒），
+     流式期间同一秒内的多次 patch 不产生新键 ⇒ 侧栏不再逐 chunk 重渲染 */
+  const rowKeys = useChatStore(
+    useShallow((s) => s.sessions.map((x) => packRow([x.id, x.title, Math.floor(x.updatedAt / 1000) * 1000, sessionSummary(x.entries)]))),
+  )
+  const rows = useMemo(
+    () =>
+      rowKeys.map((key) => {
+        const [id, title, updatedAt, summary] = unpackRow(key)
+        return { id, title, updatedAt: Number(updatedAt), summary }
+      }),
+    [rowKeys],
+  )
+  const activeId = useChatStore((s) => s.activeId)
+  const setActive = useChatStore((s) => s.setActive)
+  const newSession = useChatStore((s) => s.newSession)
+  const removeSession = useChatStore((s) => s.removeSession)
   const favorites = useBriefingStore((s) => s.favorites)
   const removeFavorite = useBriefingStore((s) => s.removeFavorite)
-  const docs = useArtifactStore((s) => s.docs)
+  const docKeys = useArtifactStore(useShallow((s) => s.docs.map((d) => packRow([d.id, d.title, d.createdAt]))))
+  const docs = useMemo(
+    () =>
+      docKeys.map((key) => {
+        const [id, title, createdAt] = unpackRow(key)
+        return { id, title, createdAt: Number(createdAt) }
+      }),
+    [docKeys],
+  )
   const setActiveDoc = useArtifactStore((s) => s.setActive)
   const mode = useSettingsStore((s) => s.mode)
   const learnedCount = useSkillStore((s) => s.learned.length)
@@ -132,14 +159,13 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       <div className="mt-2 flex-1 space-y-1 overflow-y-auto px-3 pb-3">
         {tab === 'tasks' && (
           <>
-            {sessions.length === 0 && (
+            {rows.length === 0 && (
               <p className="px-2 py-6 text-center text-xs leading-relaxed text-ink-mute">
                 暂无任务<br />从简报采纳卡片，或直接说需求开始新任务
               </p>
             )}
             {/* 「最近工作」卡片（v0.9.2 P1-A）：标题 + 内容摘要 + 相对时间，按内容找任务 */}
-            {sessions.map((s) => {
-              const summary = sessionSummary(s.entries)
+            {rows.map((s) => {
               return (
                 <div
                   key={s.id}
@@ -154,7 +180,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[0.8125rem] font-semibold leading-tight">{s.title}</p>
                     <p className="minor-info mt-0.5 truncate text-[0.625rem] text-ink-mute">
-                      {summary ? `${summary} · ` : ''}
+                      {s.summary ? `${s.summary} · ` : ''}
                       {relativeTime(s.updatedAt)}
                     </p>
                   </div>

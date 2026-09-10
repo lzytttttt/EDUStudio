@@ -65,8 +65,17 @@ export class Orchestrator implements AgentProvider {
     const preset = getRolePreset(role)
     /** 收集事件供任务完成后 LLM 提炼（v0.6 骨架预留） */
     const collected: AgentTraceEvent[] = []
+    /**
+     * v0.9.3 P1-A①：收尾 done 延迟到技能沉淀之后下发（沉淀高光前置）。
+     * 用对象包装避免 TS 对闭包赋值的控制流窄化；其余事件仍即时 emit。
+     */
+    const deferred = { done: null as AgentTraceEvent | null }
     const track = (e: AgentTraceEvent) => {
       collected.push(e)
+      if (e.kind === 'done') {
+        deferred.done = e
+        return
+      }
       emit(e)
     }
     const ctx: StepContext = { role, goal, artifacts: this.artifacts, emit: track, signal }
@@ -131,6 +140,8 @@ export class Orchestrator implements AgentProvider {
           })
         }
       }
+      // v0.9.3 P1-A①：沉淀高光之后才收尾（Mock 同序：artifact → skill_learned → done）
+      if (deferred.done) emit(deferred.done)
     } catch (err) {
       if ((err as Error)?.name === 'AbortError') {
         emit({ kind: 'done', text: '任务已取消。' })

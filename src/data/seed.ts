@@ -97,7 +97,8 @@ export const CLASS_LEARNING: ClassLearning[] = [
     ],
     homeworkCompletion: 93,
     attentionIndex: 86,
-    weakPoints: ['函数单调性判定', '受力分析斜面模型', '氧化还原配平'],
+    /* 薄弱点带掌握率（v0.9.3 P1-C①）：与 Mock 剧本 / 宣传片「函数单调性 61%」同组数字 */
+    weakPoints: ['函数单调性判定（掌握率 61%）', '受力分析斜面模型', '氧化还原配平'],
   },
   {
     classId: 'c2',

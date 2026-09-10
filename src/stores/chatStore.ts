@@ -6,6 +6,7 @@ import { useArtifactStore } from './artifactStore'
 import { useSettingsStore } from './settingsStore'
 import { loadJSON, saveJSON } from '../lib/storage'
 import { typewriter } from '../lib/typewriter'
+import { createStreamBuffer } from '../lib/throttle'
 
 export interface ChatEntry {
   id: string
@@ -72,6 +73,12 @@ const persistedSessions = loadJSON<ChatSession[]>('chat', [])
 
 /** 当前执行中的 AbortController（sendMessage / retry 共用） */
 let activeController: AbortController | null = null
+
+/** 文档 chunk 批处理缓冲（v0.9.3 P0-D②）：同帧 chunk 合并为一次 artifactStore 写入，
+ *  finalize / 任务结束（含中断）前强制 flush，保证不丢内容 */
+const artifactChunks = createStreamBuffer<{ id: string; chunk: string }>((items) => {
+  useArtifactStore.getState().appendChunks(items)
+})
 
 export const useChatStore = create<ChatState>((set, get) => {
   const patchEntry = (sessionId: string, entryId: string, patch: Partial<ChatEntry>) => {
@@ -266,10 +273,12 @@ async function runAgentTask(
         return
       }
       case 'artifact_chunk': {
-        artifactStore.appendChunk(e.artifactId, e.chunk)
+        artifactChunks.push({ id: e.artifactId, chunk: e.chunk })
         return
       }
       case 'artifact_done': {
+        /* 先写出缓冲（P0-D②）：保证 finalize 快照包含全部 chunk */
+        artifactChunks.flush()
         artifactStore.finalize(e.artifactId, e.title, e.docKind as never)
         return
       }
@@ -300,6 +309,8 @@ async function runAgentTask(
       patchEntry(sessionId, entryId, { error: msg })
     }
   } finally {
+    /* 中断 / 异常收尾也先落缓冲（P0-D②）：已生成的正文不回退 */
+    artifactChunks.flush()
     patchEntry(sessionId, entryId, { streaming: false })
     set({ streaming: false })
     activeController = null

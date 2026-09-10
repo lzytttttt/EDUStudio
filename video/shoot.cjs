@@ -5,8 +5,9 @@ const { chromium } = require('playwright');
 const DIR = __dirname;
 const FRAMES = path.join(DIR, 'frames');
 const MODE = process.argv[2] || 'smoke';
-const FPS = 30;
+let FPS = 30; let DUR = 60;
 
+/* 抽帧检查点：取自 film.js 60s 时间轴（fps/duration 由 window.__FILM 提供） */
 const SMOKE_TS = [0.6, 2.0, 3.2, 4.4, 6.3, 8.5, 11.0, 13.5, 16.2, 20.5, 24.0, 28.5, 32.0, 34.5, 37.6, 41.0, 43.0, 47.8, 50.2, 52.4, 54.6, 57.2, 59.2];
 
 (async () => {
@@ -18,6 +19,9 @@ const SMOKE_TS = [0.6, 2.0, 3.2, 4.4, 6.3, 8.5, 11.0, 13.5, 16.2, 20.5, 24.0, 28
   page.on('console', m => { if (m.type() === 'error') errs.push('console: ' + m.text()); });
   await page.goto('file:///' + path.join(DIR, 'film.html').replace(/\\/g, '/'));
   await page.waitForTimeout(700);
+  const f0 = await page.evaluate(() => window.__FILM || {});
+  if (f0.fps) FPS = f0.fps;
+  if (f0.duration) DUR = f0.duration;
 
   const t0 = Date.now();
   if (MODE === 'smoke') {
@@ -27,7 +31,7 @@ const SMOKE_TS = [0.6, 2.0, 3.2, 4.4, 6.3, 8.5, 11.0, 13.5, 16.2, 20.5, 24.0, 28
       await page.screenshot({ path: path.join(FRAMES, 'smoke_' + String(i).padStart(2, '0') + '_t' + t.toFixed(1) + '.jpg'), type: 'jpeg', quality: 88 });
     }
   } else {
-    const N = 60 * FPS;
+    const N = Math.round(DUR * FPS);
     for (let i = 0; i < N; i++) {
       await page.evaluate(tt => window.__seek(tt), i / FPS);
       await page.screenshot({ path: path.join(FRAMES, 'f' + String(i).padStart(5, '0') + '.jpg'), type: 'jpeg', quality: 90 });

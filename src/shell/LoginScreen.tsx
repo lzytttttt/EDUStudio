@@ -1,11 +1,13 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   GraduationCap, School, Landmark, Sparkles, ArrowRight, Eye, EyeOff, User, LockKeyhole,
-  LoaderCircle,
+  LoaderCircle, Zap,
 } from 'lucide-react'
 import { listRoles } from '../harness/roles'
 import type { RolePreset } from '../harness/types'
 import { useAuthStore } from '../stores/authStore'
+import { useSettingsStore } from '../stores/settingsStore'
+import { frameScheduler } from '../lib/throttle'
 import { cn } from '../lib/cn'
 
 const ROLE_ICONS = { teacher: GraduationCap, schoolAdmin: School, bureau: Landmark } as const
@@ -134,14 +136,34 @@ export default function LoginScreen() {
     [],
   )
 
-  /** 鼠标视差：归一化 -1..1 写入 CSS 变量，漂浮元素按深度系数跟随 */
+  /**
+   * 鼠标视差（v0.9.3 P2-A③）：指针位置先入缓存，帧合并后统一写 CSS 变量——
+   * 高刷屏 / 快速划动下每帧至多一次样式写入，避免逐事件 setProperty 触发多余样式计算。
+   */
+  const parallaxRef = useRef<{ x: number; y: number; handle: unknown }>({ x: 0, y: 0, handle: null })
+
   const handleMouseMove = (e: React.MouseEvent) => {
     if (reduced || !rootRef.current) return
-    const mx = (e.clientX / window.innerWidth - 0.5) * 2
-    const my = (e.clientY / window.innerHeight - 0.5) * 2
-    rootRef.current.style.setProperty('--mx', mx.toFixed(3))
-    rootRef.current.style.setProperty('--my', my.toFixed(3))
+    const p = parallaxRef.current
+    p.x = (e.clientX / window.innerWidth - 0.5) * 2
+    p.y = (e.clientY / window.innerHeight - 0.5) * 2
+    if (p.handle !== null) return
+    p.handle = frameScheduler.schedule(() => {
+      p.handle = null
+      const root = rootRef.current
+      if (!root) return
+      root.style.setProperty('--mx', p.x.toFixed(3))
+      root.style.setProperty('--my', p.y.toFixed(3))
+    })
   }
+
+  /* 卸载时撤销未执行的尾帧，避免对已卸载节点写样式 */
+  useEffect(() => {
+    const p = parallaxRef.current
+    return () => {
+      if (p.handle !== null) frameScheduler.cancel(p.handle)
+    }
+  }, [])
 
   /** 点击响应：任意点击迸裂光环 + 粒子 */
   const handlePointerDown = (e: React.MouseEvent) => {
@@ -149,6 +171,19 @@ export default function LoginScreen() {
     const id = ++burstId.current
     setBursts((b) => [...b.slice(-4), { id, x: e.clientX, y: e.clientY }])
     window.setTimeout(() => setBursts((b) => b.filter((x) => x.id !== id)), 800)
+  }
+
+  /** 当前所选身份的中文名（演示直达按钮文案随选中角色变化） */
+  const roleName = roles.find((r) => r.id === role)?.name ?? '教师'
+
+  /**
+   * 演示直达（v0.9.3 P1-B②）：跳过手输与 420ms 假鉴权延迟，按当前所选身份一键进入简报，
+   * 并预置「引导已看过」——展会 / 路演现场 ≤1 次点击开演；URL 版直达见 lib/demoEntry.ts（?demo=1）。
+   */
+  const fastLogin = () => {
+    if (submitting) return
+    useSettingsStore.getState().markGuideSeen()
+    login(role)
   }
 
   const submit = (e: React.FormEvent) => {
@@ -331,8 +366,25 @@ export default function LoginScreen() {
               )}
             </button>
 
+            {/* 演示直达（v0.9.3 P1-B②）：一键跳过手输与首次引导，按当前身份直接进入简报 */}
+            <div className="flex items-center gap-2 pt-0.5">
+              <span className="h-px flex-1 bg-line" />
+              <span className="text-[0.625rem] text-ink-mute">或</span>
+              <span className="h-px flex-1 bg-line" />
+            </div>
+            <button
+              type="button"
+              onClick={fastLogin}
+              disabled={submitting}
+              data-testid="demo-login"
+              className="group flex h-10 w-full items-center justify-center gap-1.5 rounded-2xl border border-primary/40 bg-primary-soft text-xs font-semibold text-primary transition-all hover:border-primary/70 hover:shadow-soft active:scale-[0.98] disabled:opacity-70"
+            >
+              <Zap size={14} className="transition-transform group-hover:-translate-y-0.5" />
+              演示直达 · 以{roleName}身份进入简报
+            </button>
+
             <p className="text-center text-[0.6875rem] leading-relaxed text-ink-mute">
-              Mock 演示模式 · 任意账号密码即可登录，数据仅存本机
+              Mock 演示模式 · 任意账号密码可登录；演示直达跳过手输与首次引导，数据仅存本机
             </p>
           </form>
         </div>

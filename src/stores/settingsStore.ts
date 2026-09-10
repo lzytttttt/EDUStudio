@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { ProviderMode, RoleId } from '../harness/types'
 import { ACTIVE_MODE, DEFAULT_LLM_BASEURL, DEFAULT_LLM_MODEL } from '../harness/defaults'
 import { clearAll, loadJSON, saveJSON } from '../lib/storage'
+import { createDebouncedWriter } from '../lib/debouncedWrite'
 import { conceal, reveal } from '../lib/secretBox'
 
 /** 数据源模式（v0.5 M1①）：seed 内置演示数据 / remote 远端数据平台 */
@@ -170,6 +171,23 @@ function persist(s: SettingsState): void {
   })
 }
 
+/**
+ * 合并写盘（v0.9.3 P2-A②）：字号滑杆 / 栏宽拖拽逐帧触发，
+ * 300ms trailing 窗口内的连续变更只落盘一次；拖拽结束 / 页面隐藏时强制 flush。
+ */
+const persistSoon = createDebouncedWriter(() => persist(useSettingsStore.getState()))
+
+/** 立即写出待处理变更（Resizer 拖拽结束、main.tsx 在 visibilitychange / pagehide 兜底调用） */
+export function flushSettingsPersist(): void {
+  persistSoon.flush()
+}
+
+/** 立即全量落盘并撤销待合并写入（本节点已把最新 state 完整写出，避免窗口到期后重复写） */
+function persistNow(): void {
+  persistSoon.cancel()
+  persist(useSettingsStore.getState())
+}
+
 export const useSettingsStore = create<SettingsState>((set) => ({
   ...DEFAULT_LLM_SETTINGS,
   ...persisted,
@@ -186,42 +204,46 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   showTechDetails: persisted.showTechDetails ?? false,
   setFocusMode: (enabled) => {
     set({ focusMode: enabled })
-    persist(useSettingsStore.getState())
+    persistNow()
   },
   setShowTechDetails: (enabled) => {
     set({ showTechDetails: enabled })
-    persist(useSettingsStore.getState())
+    persistNow()
   },
   update: (patch) => {
     set(patch)
-    persist(useSettingsStore.getState())
+    persistNow()
   },
   updatePreferences: (patch) => {
     set({ preferences: { ...useSettingsStore.getState().preferences, ...patch } })
-    persist(useSettingsStore.getState())
+    persistNow()
   },
+  /* 字号滑杆连续触发：合并写盘（v0.9.3 P2-A②） */
   setFontSize: (px) => {
     set({ fontSize: normalizeFontSize(px) })
-    persist(useSettingsStore.getState())
+    persistSoon.schedule()
   },
   setWatermark: (patch) => {
     set({ watermark: { ...useSettingsStore.getState().watermark, ...patch } })
-    persist(useSettingsStore.getState())
+    persistNow()
   },
+  /* 栏宽拖拽逐帧触发：合并写盘，拖拽结束由 Resizer onEnd 强制 flush（v0.9.3 P2-A②） */
   setColumnWidth: (side, width) => {
     const cur = useSettingsStore.getState().columnWidths
     set({ columnWidths: { ...cur, [side]: clampColumnWidth(side, width) } })
-    persist(useSettingsStore.getState())
+    persistSoon.schedule()
   },
   markGuideSeen: () => {
     set({ guideSeen: true })
-    persist(useSettingsStore.getState())
+    persistNow()
   },
   resetLLMSettings: () => {
     set({ ...DEFAULT_LLM_SETTINGS, tokenBudget: DEFAULT_TOKEN_BUDGET })
-    persist(useSettingsStore.getState())
+    persistNow()
   },
   clearAllData: () => {
+    /* 清库前撤销待合并写入，避免窗口到期把旧值写回（v0.9.3 P2-A②） */
+    persistSoon.cancel()
     clearAll()
     set({
       ...DEFAULT_LLM_SETTINGS,

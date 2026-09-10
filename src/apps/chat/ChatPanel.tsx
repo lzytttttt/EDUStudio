@@ -82,12 +82,19 @@ function BackToBriefingCard() {
 }
 
 export default function ChatPanel() {
-  const { sessions, activeId, streaming, retry, newSession } = useChatStore()
-  const session = sessions.find((s) => s.id === activeId)
+  /* 字段选择器订阅（v0.9.3 P0-D③）：后台任务 / 其它会话的变化不再连带中栏整块重渲染，
+     只有「当前会话」的内容推进（本会话流式）才更新 */
+  const activeId = useChatStore((s) => s.activeId)
+  const session = useChatStore((s) => s.sessions.find((x) => x.id === s.activeId))
+  const streaming = useChatStore((s) => s.streaming)
+  const retry = useChatStore((s) => s.retry)
+  const newSession = useChatStore((s) => s.newSession)
   /* Mock 边界标识（v0.9 M4③）：运行时读取 mode，切换即时生效；API 模式零打扰 */
   const mode = useSettingsStore((s) => s.mode)
   const [demoOpen, setDemoOpen] = useState(false)
-  const bottomRef = useRef<HTMLDivElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  /** 是否跟随新内容（贴近底部为跟随，用户上滑查看历史则不打扰） */
+  const stickRef = useRef(true)
   const entries = session?.entries ?? []
   const lastEntry = entries[entries.length - 1]
   /* 任务完成态：非流式中、已有对话、最后一条 assistant 已输出完毕 */
@@ -128,8 +135,28 @@ export default function ChatPanel() {
     return { totalSteps: Math.max(totalSteps, toolCalls), doneSteps, groups: groups.size }
   }, [entries])
 
+  /* 滚动策略（v0.9.3 P0-D④）：仅在用户贴近底部时跟随，且不用 smooth——
+     平滑动画在高频流式下会与内容互相追赶，反而抖；用户上滑回看历史时完全不动 */
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+    const el = scrollRef.current
+    if (!el) return
+    const onScroll = () => {
+      stickRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 56
+    }
+    el.addEventListener('scroll', onScroll, { passive: true })
+    return () => el.removeEventListener('scroll', onScroll)
+  }, [])
+
+  // 切换会话：重置为跟随并直接落底（不带历史偏移）
+  useEffect(() => {
+    stickRef.current = true
+    const el = scrollRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [activeId])
+
+  useEffect(() => {
+    const el = scrollRef.current
+    if (el && stickRef.current) el.scrollTop = el.scrollHeight
   }, [session?.entries])
 
   return (
@@ -175,14 +202,26 @@ export default function ChatPanel() {
               )}
             </div>
           </div>
-          {/* 新建任务快捷入口（v0.9.2 P1-B）：复用 newSession，与 Sidebar 主按钮同族样式 */}
-          <button
-            onClick={() => newSession(headerRole)}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-primary px-3.5 py-1.5 text-xs font-medium text-white shadow-soft transition-all hover:bg-primary-deep hover:shadow-pop active:scale-95"
-          >
-            <Plus size={13} />
-            新建任务
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            {/* 自进化演示常驻入口（v0.9.3 P1-A③）：非空会话也能随时开演，不必先清空会话 */}
+            <button
+              data-testid="demo-entry-top"
+              onClick={() => setDemoOpen(true)}
+              title="自进化演示：三分钟看懂技能沉淀与复用"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1.5 text-xs font-medium text-ink-soft transition-colors hover:bg-surface-2 hover:text-ink"
+            >
+              <GraduationCap size={13} />
+              自进化演示
+            </button>
+            {/* 新建任务快捷入口（v0.9.2 P1-B）：复用 newSession，与 Sidebar 主按钮同族样式 */}
+            <button
+              onClick={() => newSession(headerRole)}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-primary px-3.5 py-1.5 text-xs font-medium text-white shadow-soft transition-all hover:bg-primary-deep hover:shadow-pop active:scale-95"
+            >
+              <Plus size={13} />
+              新建任务
+            </button>
+          </div>
         </header>
       )}
 
@@ -216,7 +255,7 @@ export default function ChatPanel() {
       )}
 
       {/* 消息流（v0.4 M4②：content-visibility 原生虚拟化，长会话跳过屏外渲染） */}
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 md:px-6">
+      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-5 md:px-6">
         {!session || session.entries.length === 0 ? (
           <EmptyState onStartDemo={() => setDemoOpen(true)} />
         ) : (
@@ -265,7 +304,7 @@ export default function ChatPanel() {
               ),
             )}
             {taskDone && <BackToBriefingCard />}
-            <div ref={bottomRef} />
+            <div />
           </div>
         )}
       </div>

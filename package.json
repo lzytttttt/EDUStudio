@@ -11,14 +11,18 @@
     "preview": "vite preview",
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui",
-    "check:budget": "node scripts/budget.mjs"
+    "check:budget": "node scripts/budget.mjs",
+    "video:smoke": "node video/shoot.cjs smoke",
+    "video:frames": "node video/shoot.cjs full",
+    "video:bgm": "python video/compose_bgm.py",
+    "video:compose": "ffmpeg -y -framerate 30 -i video/frames/f%05d.jpg -pix_fmt yuv420p video/EDUStudio_60s.mp4",
+    "video:mux": "ffmpeg -y -i video/EDUStudio_60s.mp4 -i video/bgm.wav -c:v copy -c:a aac -shortest video/EDUStudio_60s_music.mp4"
   },
   "dependencies": {
     "clsx": "^2.1.1",
     "lucide-react": "^0.469.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-icons": "^5.4.0",
     "recharts": "^2.15.0",
     "tailwind-merge": "^2.5.5",
     "zustand": "^5.0.2"

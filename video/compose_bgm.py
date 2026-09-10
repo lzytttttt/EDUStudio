@@ -2,6 +2,7 @@
 """EDUStudio 60s 宣传片配乐：程序化合成，节拍与分镜对齐。
 段落: 0-10 轻缓 / 10-30 高速推进 / 30-40 略缓看成果 / 40-49 温暖课堂 / 49-56 全奏 / 56-60 收束
 """
+import os
 import numpy as np, wave, struct, math
 
 SR = 44100
@@ -258,7 +259,8 @@ fo = int(2.4 * SR)
 out[-fo:] *= np.linspace(1, 0, fo) ** 1.4
 
 pcm = np.clip(out * 32767, -32768, 32767).astype('<i2')
-with wave.open(r'C:\Users\Administrator\test\EDUStudio\video\bgm.wav', 'wb') as w:
+OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'bgm.wav')
+with wave.open(OUT, 'wb') as w:
     w.setnchannels(1)
     w.setsampwidth(2)
     w.setframerate(SR)

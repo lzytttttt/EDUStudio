@@ -8,10 +8,10 @@
 
 [![license](https://img.shields.io/badge/license-CC%20BY--NC%204.0-blue.svg)](./LICENSE)
 [![stack](https://img.shields.io/badge/Vite-React%2018-646CFF.svg)](./package.json)
-[![tests](https://img.shields.io/badge/Vitest-253%20cases-success.svg)](#-quality-assurance)
-[![e2e](https://img.shields.io/badge/Playwright-9%20cases-brightgreen.svg)](#-quality-assurance)
+[![tests](https://img.shields.io/badge/Vitest-286%20cases-success.svg)](#-quality-assurance)
+[![e2e](https://img.shields.io/badge/Playwright-13%20cases-brightgreen.svg)](#-quality-assurance)
 [![lighthouse](https://img.shields.io/badge/Lighthouse-%E2%89%A5%200.85-yellow.svg)](#-quality-assurance)
-[![budget](https://img.shields.io/badge/gzip-270KB%20budget-orange.svg)](#-quality-assurance)
+[![budget](https://img.shields.io/badge/gzip-285KB%20budget-orange.svg)](#-quality-assurance)
 
 [中文文档](./README.md) | English
 
@@ -287,8 +287,13 @@ npm install
 npm run dev      # Development (Vite auto-increments the port if taken)
 npm run build    # Type check + production build (runs Vitest unit tests + tsc first)
 npm run preview  # Preview the production build
-npm test         # Vitest unit tests (181 cases)
+npm test         # Vitest unit tests (286 cases)
 npm run e2e      # Playwright critical-path E2E
+npm run video:smoke   # Promo film frame smoke check (23 frames)
+npm run video:frames  # Promo film full frame capture (1800 frames)
+npm run video:bgm     # Synthesize BGM (needs Python + numpy)
+npm run video:compose # Compose frames into mp4 (ffmpeg)
+npm run video:mux     # Mux BGM into the final cut
 ```
 
 ---
@@ -339,11 +344,11 @@ Frontend Settings → Mode "Proxy", endpoint `http://<host>:8787/v1`; audit logs
 
 | Gate | Description |
 | --- | --- |
-| **Vitest unit tests** | `npm test` runs Vitest (**181 cases**), covering SSE parsing / incremental normalization / Markdown rendering / tool registration / script & template matching / storage round-trip / preference injection / export utils / CSV score parsing / data-source fallback / context compression / skill distillation & retrieval / briefing card validation & personalized ordering / briefing interaction overlay & decision undo / background task pump / data context aggregation & truncation / LLM skill distillation validation & dedup evolution / briefing regeneration option injection & type filtering |
+| **Vitest unit tests** | `npm test` runs Vitest (**286 cases**), covering SSE parsing / incremental normalization / Markdown rendering / tool registration / script & template matching / storage round-trip / preference injection / export utils / CSV score parsing / data-source fallback / context compression / skill distillation & retrieval / briefing card validation & personalized ordering / briefing interaction overlay & decision undo / background task pump / data context aggregation & truncation / LLM skill distillation validation & dedup evolution / briefing regeneration option injection & type filtering / decision-key guard matrix / date & seed freshness / doc visibility |
 | **Build gate** | `npm run build` runs unit tests + tsc type checking first — a **double gate** for delivery quality |
-| **Playwright E2E** | 3 critical paths + 2 self-evolution demos |
+| **Playwright E2E** | 7 critical paths + 2 self-evolution demos |
 | **Visual regression** | 4 baseline visual regressions (5% threshold, one-month observation period) |
-| **Bundle budget gate** | 270KB gzip threshold (`scripts/budget.mjs`); recalibrate per v0.6 / v0.8 / v0.8.4 precedent when exceeded |
+| **Bundle budget gate** | 285KB gzip threshold (`scripts/budget.mjs`); recalibrate per v0.6 / v0.8 / v0.8.4 precedent when exceeded |
 | **Lighthouse CI** | Performance ≥ 0.85 (`lighthouserc.yml`) |
 
 ---
@@ -352,7 +357,7 @@ Frontend Settings → Mode "Proxy", endpoint `http://<host>:8787/v1`; audit logs
 
 | Version | Theme | One-liner |
 | --- | --- | --- |
-| **v0.9.3** | Demo-presentation polish | Streamed documents into view (auto-switch to the Docs tab + generating badge + back-to-workbench hint) + arrow-key guard while editing (`shouldIgnoreDecisionKey`) + live briefing date & seed freshness + streaming render throttling & selector subscriptions |
+| **v0.9.3** | Demo-presentation polish | Streamed documents into view (auto-switch to the Docs tab + generating badge + back-to-workbench hint) + arrow-key guard while editing (`shouldIgnoreDecisionKey`) + live briefing date & seed freshness + streaming render throttling & selector subscriptions; P1 demo pacing & first-entry; P2 engineering wrap-up |
 | **v0.9.2** | Workbench UI polish · educator's view | Human-readable traces (display contract for 13 tools + "show tech details" toggle) + role-default right-panel tab + sidebar task cards (summary + relative time + always-visible delete) + center-column progress dashboard (step N/M · parallel N groups) + dispatch pending-receipt badge + briefing one-card-one-task (each adopted card gets its own task session) |
 | **v0.9.1** | Layered memory & output self-eval loop | L2 episodic + L3 semantic preference local memory (ring buffer of 200 + role isolation) + preference injection for chat / briefing + rule-based doc self-eval (0-10 score + actionable advice) + harvesting loop for exports / feedback / card decisions |
 | **v0.9.0** | Trust & robustness | Function-calling wiring (tools in request body) + data backup safety net (full export/restore + key whitelist) + decision accountability notices + Mock boundary labels + browser back-key history integration + document import (attachments straight to LLM + purpose instructions) + weekly deck derivation + connection error classification |
@@ -375,7 +380,7 @@ Frontend Settings → Mode "Proxy", endpoint `http://<host>:8787/v1`; audit logs
 ## Next
 
 - **v0.9.3 shipped**: demo-presentation polish (P0) — streamed documents brought into view, arrow-key guard while editing, demo date & data-freshness fixes, streaming render throttling — see [doc/v0.9.3-roadmap.md](./doc/v0.9.3-roadmap.md);
-- **v0.9.3 deferred**: P1 (wizard pacing / first-entry guides & demo fast-lane / asset consistency) and P2 (StrictMode dedupe / persist debounce / unused `react-icons` removal / promo-film one-command re-render) remain on the roadmap;
+- **v0.9.3 shipped (cont.)**: P1 (wizard pacing / first-entry guides & demo fast-lane / asset consistency) and P2 (StrictMode dedupe / persist debounce / unused `react-icons` removal / promo-film one-command re-render) all shipped in this release;
 - **Phase-2 candidates**: LLM-based preference distillation & self-eval (`getMemoryProvider` / `getEvaluator` already reserve mode switches), cloud memory sync (on the "won't do" list in the design doc, start on demand).
 
 ---

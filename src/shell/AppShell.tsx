@@ -8,7 +8,7 @@ import GuideDialog from '../components/GuideDialog'
 import Resizer from './Resizer'
 import { useAuthStore } from '../stores/authStore'
 import { useArtifactStore } from '../stores/artifactStore'
-import { useSettingsStore, DEFAULT_COLUMN_WIDTHS, clampColumnWidth } from '../stores/settingsStore'
+import { useSettingsStore, DEFAULT_COLUMN_WIDTHS, clampColumnWidth, flushSettingsPersist } from '../stores/settingsStore'
 import { useNotificationStore, unreadCount } from '../stores/notificationStore'
 import { t } from '../lib/i18n'
 import { cn } from '../lib/cn'
@@ -49,6 +49,7 @@ export default function AppShell() {
         label="调整任务栏宽度"
         onMove={(x) => setColumnWidth('left', clampColumnWidth('left', x))}
         onReset={() => setColumnWidth('left', DEFAULT_COLUMN_WIDTHS.left)}
+        onEnd={flushSettingsPersist}
       />
       {sidebarOpen && (
         <div className="fixed inset-0 z-40 md:hidden">
@@ -81,6 +82,7 @@ export default function AppShell() {
         label="调整文档栏宽度"
         onMove={(x) => setColumnWidth('right', clampColumnWidth('right', window.innerWidth - x))}
         onReset={() => setColumnWidth('right', DEFAULT_COLUMN_WIDTHS.right)}
+        onEnd={flushSettingsPersist}
       />
       <aside
         style={{ width: columnWidths.right }}

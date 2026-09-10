@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { ArtifactDoc, ArtifactKind, RoleId } from '../harness/types'
 import { loadJSON, saveJSON } from '../lib/storage'
+import { createDebouncedWriter } from '../lib/debouncedWrite'
 import { getTemplateById } from '../harness/scripts/artifacts'
 import { useUiStore } from './uiStore'
 
@@ -33,6 +34,8 @@ export interface ArtifactState {
   lastTemplate: Partial<Record<RoleId, string>>
   createPlaceholder: (id: string, title: string, kind: ArtifactKind, role: RoleId, source: ArtifactDoc['source']) => void
   appendChunk: (id: string, chunk: string) => void
+  /** 批量追加（v0.9.3 P0-D②）：同帧多个 chunk 合并为一次 set，减少订阅者重渲染 */
+  appendChunks: (items: { id: string; chunk: string }[]) => void
   finalize: (id: string, title: string, kind: ArtifactKind) => void
   updateContent: (id: string, content: string) => void
   rename: (id: string, title: string) => void
@@ -79,6 +82,23 @@ function persist(state: Pick<ArtifactState, 'docs' | 'revisions' | 'lastTemplate
   })
 }
 
+/**
+ * 合并写盘（v0.9.3 P2-A②）：正文编辑逐字触发 updateContent，
+ * 300ms trailing 窗口内的连续变更只落盘一次；关键节点（finalize / 切换文档 / 页面隐藏）强制 flush。
+ */
+const persistSoon = createDebouncedWriter(() => persist(useArtifactStore.getState()))
+
+/** 立即写出待处理变更（main.tsx 在 visibilitychange / pagehide 兜底调用） */
+export function flushArtifactPersist(): void {
+  persistSoon.flush()
+}
+
+/** 立即全量落盘并撤销待合并写入（本节点已把最新 state 完整写出，避免窗口到期后重复写） */
+function persistNow(): void {
+  persistSoon.cancel()
+  persist(useArtifactStore.getState())
+}
+
 function genRevId(): string {
   return `r_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`
 }
@@ -121,13 +141,28 @@ export const useArtifactStore = create<ArtifactState>((set, get) => ({
     const generatingIds = source === 'manual' ? get().generatingIds : [...get().generatingIds, id]
     if (source !== 'manual') useUiStore.getState().requestDocFocus()
     set({ docs: [doc, ...get().docs], activeId: id, revisions, generatingIds })
-    persist(get())
+    persistNow()
   },
 
   appendChunk: (id, chunk) => {
-    set({
-      docs: get().docs.map((d) => (d.id === id ? { ...d, content: d.content + chunk } : d)),
+    get().appendChunks([{ id, chunk }])
+  },
+
+  appendChunks: (items) => {
+    if (!items.length) return
+    /* 按文档归并（v0.9.3 P0-D②）：同一帧内的多次 chunk 只产生一次 set / 一次订阅者通知 */
+    const byId = new Map<string, string>()
+    for (const it of items) byId.set(it.id, (byId.get(it.id) ?? '') + it.chunk)
+    let matched = false
+    const docs = get().docs.map((d) => {
+      const add = byId.get(d.id)
+      if (add === undefined) return d
+      matched = true
+      return { ...d, content: d.content + add }
     })
+    /* 全是未知 id（文档已被删除 / 事件串台）时不产生通知 */
+    if (!matched) return
+    set({ docs })
   },
 
   finalize: (id, title, kind) => {
@@ -151,7 +186,7 @@ export const useArtifactStore = create<ArtifactState>((set, get) => ({
       generatingIds: without(get().generatingIds, id),
       unreadDocIds,
     })
-    persist(get())
+    persistNow()
   },
 
   updateContent: (id, content) => {
@@ -173,15 +208,20 @@ export const useArtifactStore = create<ArtifactState>((set, get) => ({
       /* 非流式整体写入（如文档合并工具）视为已产出（v0.9.3 P0-A ②） */
       generatingIds: without(get().generatingIds, id),
     })
-    persist(get())
+    /* 逐字编辑最高频：合并写盘，停手 300ms 后才全量落盘（v0.9.3 P2-A②） */
+    persistSoon.schedule()
   },
 
   rename: (id, title) => {
     set({ docs: get().docs.map((d) => (d.id === id ? { ...d, title } : d)) })
-    persist(get())
+    persistNow()
   },
 
-  setActive: (id) => set({ activeId: id }),
+  /* 切换文档为关键节点（v0.9.3 P2-A②）：先把待合并的编辑落盘，再切换 */
+  setActive: (id) => {
+    persistSoon.flush()
+    set({ activeId: id })
+  },
 
   remove: (id) => {
     const docs = get().docs.filter((d) => d.id !== id)
@@ -194,7 +234,7 @@ export const useArtifactStore = create<ArtifactState>((set, get) => ({
       generatingIds: without(get().generatingIds, id),
       unreadDocIds: without(get().unreadDocIds, id),
     })
-    persist(get())
+    persistNow()
   },
 
   createManual: (role, templateId) => {
@@ -210,13 +250,13 @@ export const useArtifactStore = create<ArtifactState>((set, get) => ({
       source: 'manual',
     }
     set({ docs: [doc, ...get().docs], activeId: id })
-    persist(get())
+    persistNow()
     return id
   },
 
   setTemplate: (role, templateId) => {
     set({ lastTemplate: { ...get().lastTemplate, [role]: templateId } })
-    persist(get())
+    persistNow()
   },
 
   saveRevision: (id, label = '手动保存') => {
@@ -230,7 +270,7 @@ export const useArtifactStore = create<ArtifactState>((set, get) => ({
       createdAt: Date.now(),
     })
     set({ revisions })
-    persist(get())
+    persistNow()
   },
 
   restoreRevision: (id, revisionId) => {
@@ -250,19 +290,19 @@ export const useArtifactStore = create<ArtifactState>((set, get) => ({
       docs: get().docs.map((d) => (d.id === id ? { ...d, content: rev.content } : d)),
       revisions,
     })
-    persist(get())
+    persistNow()
   },
 
   removeRevision: (id, revisionId) => {
     const revisions = { ...get().revisions }
     revisions[id] = (revisions[id] ?? []).filter((r) => r.id !== revisionId)
     set({ revisions })
-    persist(get())
+    persistNow()
   },
 
   setShareRef: (id, ref) => {
     set({ shareRefs: { ...get().shareRefs, [id]: ref } })
-    persist(get())
+    persistNow()
   },
 
   /** 进入文档 tab 即视为已查看（v0.9.3 P0-A ②） */

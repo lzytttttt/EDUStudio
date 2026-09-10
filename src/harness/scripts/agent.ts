@@ -292,8 +292,16 @@ export function looksLikeTask(goal: string): boolean {
 }
 
 /**
- * 通用探索剧本：plan 拆解 → 角色默认工具 ×2 → reflect → artifact → done。
- * 执行完毕后由 MockOrchestrator 触发 distillSkill 自动沉淀（本剧本自身不含沉淀逻辑）。
+ * 通用探索收尾语（v0.9.3 P1-A①）：不由剧本发出——编排层在 skill_learned 之后补发，
+ * 保证「… → artifact → skill_learned → done」的沉淀高光前置顺序。
+ */
+export const GENERIC_DONE_TEXT =
+  '已完成通用探索执行：信息收集与文档产出齐备。本次执行经验会自动沉淀为技能，下次同类任务可直接复用。'
+
+/**
+ * 通用探索剧本：plan 拆解 → 角色默认工具 ×2 → reflect → artifact。
+ * 执行完毕后由 MockOrchestrator 触发 distillSkill 自动沉淀；
+ * 收尾 done 由编排层在沉淀之后发出（见 GENERIC_DONE_TEXT，本剧本自身不含 done/沉淀逻辑）。
  */
 export function buildGenericScript(role: RoleId, goal: string): AgentScript {
   const tools = GENERIC_TOOLS[role]
@@ -320,10 +328,6 @@ export function buildGenericScript(role: RoleId, goal: string): AgentScript {
         text: '工具信息已齐备：结合检索结果与目标要点组织内容结构，可进入文档产出。',
       },
       { type: 'artifact', kind },
-      {
-        type: 'done',
-        text: '已完成通用探索执行：信息收集与文档产出齐备。本次执行经验会自动沉淀为技能，下次同类任务可直接复用。',
-      },
     ],
   }
 }

@@ -50,6 +50,20 @@ interface BriefingState {
 
 const persisted = loadJSON<PersistedBriefing>('briefing', { decisions: {}, favorites: [] })
 
+/** 去重窗口（v0.9.3 P2-A①）：同 key 且在此窗口内的重入视为「同一批调用」，窗口外的显式调用仍真实重新取数 */
+export const DECK_DEDUP_WINDOW_MS = 120
+
+/** 生效选项的稳定键：显式 options 优先（缺省时由调用方先归一为已存偏好）；键排序消除字面量顺序差异 */
+export function deckKey(role: RoleId, options: BriefingGenOptions): string {
+  const norm = Object.keys(options)
+    .sort()
+    .map((k) => [k, (options as Record<string, unknown>)[k]])
+  return `${role}|${JSON.stringify(norm)}`
+}
+
+/** in-flight 去重（v0.9.3 P2-A①）：开发态 StrictMode 双跑 / 快速重入复用同一 Promise，API 模式不重复生成 */
+let inFlightDeck: { key: string; startedAt: number; promise: Promise<void> } | null = null
+
 function persist(s: {
   decisions: Record<string, CardDecision>
   favorites: BriefingCard[]
@@ -90,42 +104,56 @@ export const useBriefingStore = create<BriefingState>((set, get) => ({
     set({ genOptions: options })
     persist({ decisions: get().decisions, favorites: get().favorites, payloads: get().payloads, genOptions: options })
   },
-  loadDeck: async (role, options) => {
-    set({ loading: true })
-    // v0.9.1 注入 B：从记忆库读取该角色 L3 语义偏好装入 ctx.prefs（Mock 排序叠加 / API 生成上下文共用）
-    const prefs: MemoryEntry[] = selectSemanticRole(useMemoryStore.getState().semantic, role)
-    // 个性化上下文（v0.7）：历史决策 + 收藏，Mock 排序 / API 生成共用
-    const ctx: BriefingGenContext = {
-      decisions: get().decisions,
-      favorites: get().favorites,
-      ...(prefs.length ? { prefs } : {}),
-    }
+  loadDeck: (role, options) => {
     // 重新生成选项（v0.8.4）：显式传入优先，否则沿用已存偏好（刷新/重播同样生效）
-    const genOpts = options ?? get().genOptions
-    const provider = getProviders().briefing
-    const deck = provider.getDeckAsync ? await provider.getDeckAsync(role, ctx, genOpts) : provider.getDeck(role, ctx, genOpts)
-    let dataCards: BriefingCard[] = []
-    let meta: SourceMeta | null = null
-    try {
-      dataCards = await buildDataCards(role)
-      // 数据卡存在时以最新数据源 meta 为准；否则取数据源默认 meta（新鲜度标注）
-      if (dataCards.length > 0) {
-        meta = await getSourceProvider().getClassProfile().then((r) => r.meta).catch(() => null)
-      } else {
-        meta = await getSourceProvider().getRegionMetrics().then((r) => r.meta).catch(() => null)
-      }
-    } catch (err) {
-      console.error('[briefing] data cards failed:', err)
+    const effOptions = options ?? get().genOptions
+    const key = deckKey(role, effOptions)
+    const now = Date.now()
+    /* v0.9.3 P2-A①：同 key 且窗口内的重入复用 in-flight Promise（StrictMode 双跑不双倍生成）；
+       窗口外的显式调用（刷新 / 重新生成 / 导入后重载）照常真实取数 */
+    if (inFlightDeck && inFlightDeck.key === key && now - inFlightDeck.startedAt < DECK_DEDUP_WINDOW_MS) {
+      return inFlightDeck.promise
     }
-    // 数据卡插到最前；静态卡中同 id 去重（理论上不冲突，防御性处理）
-    const dataIds = new Set(dataCards.map((c) => c.id))
-    const payloads = get().payloads
-    set({
-      cards: [...dataCards, ...deck.filter((c) => !dataIds.has(c.id))].map((c) => applyPatch(c, payloads[c.id])),
-      processed: 0,
-      meta,
-      loading: false,
+    const promise = (async () => {
+      set({ loading: true })
+      // v0.9.1 注入 B：从记忆库读取该角色 L3 语义偏好装入 ctx.prefs（Mock 排序叠加 / API 生成上下文共用）
+      const prefs: MemoryEntry[] = selectSemanticRole(useMemoryStore.getState().semantic, role)
+      // 个性化上下文（v0.7）：历史决策 + 收藏，Mock 排序 / API 生成共用
+      const ctx: BriefingGenContext = {
+        decisions: get().decisions,
+        favorites: get().favorites,
+        ...(prefs.length ? { prefs } : {}),
+      }
+      const provider = getProviders().briefing
+      const deck = provider.getDeckAsync ? await provider.getDeckAsync(role, ctx, effOptions) : provider.getDeck(role, ctx, effOptions)
+      let dataCards: BriefingCard[] = []
+      let meta: SourceMeta | null = null
+      try {
+        dataCards = await buildDataCards(role)
+        // 数据卡存在时以最新数据源 meta 为准；否则取数据源默认 meta（新鲜度标注）
+        if (dataCards.length > 0) {
+          meta = await getSourceProvider().getClassProfile().then((r) => r.meta).catch(() => null)
+        } else {
+          meta = await getSourceProvider().getRegionMetrics().then((r) => r.meta).catch(() => null)
+        }
+      } catch (err) {
+        console.error('[briefing] data cards failed:', err)
+      }
+      // 数据卡插到最前；静态卡中同 id 去重（理论上不冲突，防御性处理）
+      const dataIds = new Set(dataCards.map((c) => c.id))
+      const payloads = get().payloads
+      set({
+        cards: [...dataCards, ...deck.filter((c) => !dataIds.has(c.id))].map((c) => applyPatch(c, payloads[c.id])),
+        processed: 0,
+        meta,
+        loading: false,
+      })
+    })().finally(() => {
+      /* 仅清理自己：后续新调用已接管 in-flight 时不误清 */
+      if (inFlightDeck?.promise === promise) inFlightDeck = null
     })
+    inFlightDeck = { key, startedAt: now, promise }
+    return promise
   },
   decide: (cardId, decision) => {
     const { cards, decisions, favorites } = get()

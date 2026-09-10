@@ -61,6 +61,7 @@ export default function BriefingIntro({ ready, onDone }: { ready: boolean; onDon
 
   return (
     <div
+      data-testid="briefing-intro"
       className={cn(
         'pointer-events-none absolute inset-0 z-30 flex items-center justify-center px-4 py-6',
         leaving && 'animate-intro-out',

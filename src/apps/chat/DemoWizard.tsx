@@ -1,10 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { CheckCircle2, Loader2, Play, RotateCcw, X, Zap } from 'lucide-react'
+import { AlertCircle, CheckCircle2, Loader2, Play, RotateCcw, X, Zap } from 'lucide-react'
+import { useAuthStore } from '../../stores/authStore'
 import { useChatStore } from '../../stores/chatStore'
+import { useMemoryStore } from '../../stores/memoryStore'
 import { useSkillStore } from '../../stores/skillStore'
 import type { AgentTraceEvent } from '../../harness/types'
 import type { Skill } from '../../harness/skills/types'
 import { cn } from '../../lib/cn'
+
+/** 演示专属会话标记（v0.9.3 P1-A④）：演示落在独立会话，重置时可整体清除，不影响其它任务 */
+const DEMO_CARD_ID = 'demo-wizard'
+const DEMO_TITLE = '自进化演示'
 
 interface Act {
   title: string
@@ -48,53 +54,61 @@ const ACTS: Act[] = [
 ]
 
 /**
- * 一键演示向导：分幕引导（旁白 + 预填输入），支持一键自动播放与分步播放；
- * 幕1 首次启动前自动清空学习技能，保证演示可重复。
+ * 一键演示向导：分幕引导（旁白 + 预填输入），支持一键自动播放与分步播放。
+ * 演示落在专属会话（cardId=demo-wizard）：幕1 首次启动清空学习技能保证可重复，
+ * 重置则一次性清技能 / 记忆 / 会话（P1-A④），不影响其它任务。
  */
 export default function DemoWizard({ onClose }: { onClose: () => void }) {
   const streaming = useChatStore((s) => s.streaming)
   const [act, setAct] = useState(0)
-  const [phase, setPhase] = useState<'idle' | 'running' | 'done'>('idle')
+  const [phase, setPhase] = useState<'idle' | 'running' | 'done' | 'failed'>('idle')
   const [auto, setAuto] = useState(false)
+  const [confirmReset, setConfirmReset] = useState(false)
   const autoRef = useRef(false)
   const startedRef = useRef(false)
 
-  /** 执行指定幕：幕1 首次启动清空学习技能（可重复演示） */
+  /** 执行指定幕：幕1 首次启动清空学习技能（可重复演示），任务写入专属会话 */
   const runAct = useCallback((index: number) => {
     const st = useChatStore.getState()
-    if (st.streaming) return
+    const role = useAuthStore.getState().role
+    if (st.streaming || !role) return
     if (index === 0 && !startedRef.current) {
       useSkillStore.getState().clearLearned()
       startedRef.current = true
     }
+    setConfirmReset(false)
     setPhase('running')
-    void st.sendMessage(ACTS[index].input)
+    const sessionId = st.ensureCardSession(role, DEMO_CARD_ID, DEMO_TITLE)
+    void st.sendMessage(ACTS[index].input, { sessionId, cardId: DEMO_CARD_ID, title: ACTS[index].title })
   }, [])
 
   /** streaming 结束 → 判定本幕是否达成 → 自动播放时推进下一幕 */
   useEffect(() => {
     if (streaming || phase !== 'running') return
-    const { sessions, activeId } = useChatStore.getState()
-    const entries = sessions.find((s) => s.id === activeId)?.entries ?? []
+    const demoSession = useChatStore.getState().sessions.find((s) => s.cardId === DEMO_CARD_ID)
+    const entries = demoSession?.entries ?? []
     const entry = entries[entries.length - 1]
     const trace = entry?.trace ?? []
     const learned = useSkillStore.getState().learned
-    if (ACTS[act].check(trace, learned)) {
-      setPhase('done')
-      if (autoRef.current && act < ACTS.length - 1) {
-        const next = act + 1
-        const t = window.setTimeout(() => {
-          setAct(next)
-          runAct(next)
-        }, 1600)
-        return () => window.clearTimeout(t)
-      }
-    } else {
-      setPhase('idle')
+    if (!ACTS[act].check(trace, learned)) {
+      // P1-A④：判定未通过不再静默回到 idle——暂停自动播放并提示「本幕未达成 · 重试 / 重置」
+      setPhase('failed')
+      setAuto(false)
+      autoRef.current = false
+      return
+    }
+    setPhase('done')
+    if (autoRef.current && act < ACTS.length - 1) {
+      const next = act + 1
+      const t = window.setTimeout(() => {
+        setAct(next)
+        runAct(next)
+      }, 1600)
+      return () => window.clearTimeout(t)
     }
   }, [streaming, phase, act, runAct])
 
-  /** 主按钮：idle → 执行当前幕；done → 进入下一幕并执行 */
+  /** 主按钮：idle / failed → 执行（或重试）当前幕；done → 进入下一幕并执行 */
   const primary = () => {
     if (phase === 'done') {
       if (act < ACTS.length - 1) {
@@ -107,20 +121,31 @@ export default function DemoWizard({ onClose }: { onClose: () => void }) {
     runAct(act)
   }
 
+  /** 重置演示（P1-A④）：清技能 / 记忆 / 演示会话，二次确认防误触 */
   const reset = () => {
+    if (!confirmReset) {
+      setConfirmReset(true)
+      return
+    }
+    const st = useChatStore.getState()
+    if (st.streaming) st.abort()
+    const demo = st.sessions.find((s) => s.cardId === DEMO_CARD_ID)
+    if (demo) st.removeSession(demo.id)
+    useSkillStore.getState().clearLearned()
+    useMemoryStore.getState().clear()
+    setConfirmReset(false)
     setAct(0)
     setPhase('idle')
     setAuto(false)
     autoRef.current = false
     startedRef.current = false
-    useSkillStore.getState().clearLearned()
   }
 
   const toggleAuto = () => {
     const next = !auto
     setAuto(next)
     autoRef.current = next
-    if (next && phase === 'idle') runAct(act)
+    if (next && (phase === 'idle' || phase === 'failed')) runAct(act)
   }
 
   const current = ACTS[act]
@@ -137,7 +162,13 @@ export default function DemoWizard({ onClose }: { onClose: () => void }) {
             key={i}
             className={cn(
               'h-1.5 w-7 rounded-full transition-colors',
-              i < act || (i === act && phase === 'done') ? 'bg-mint' : i === act ? 'bg-primary' : 'bg-line',
+              i < act || (i === act && phase === 'done')
+                ? 'bg-mint'
+                : i === act
+                  ? phase === 'failed'
+                    ? 'bg-danger'
+                    : 'bg-primary'
+                  : 'bg-line',
               i === act && phase === 'running' && 'animate-pulse',
             )}
           />
@@ -175,19 +206,26 @@ export default function DemoWizard({ onClose }: { onClose: () => void }) {
                 <CheckCircle2 size={13} /> {current.success}
               </span>
             )}
+            {phase === 'failed' && (
+              <span data-testid="demo-failed" className="flex items-center gap-1.5 text-xs font-medium text-danger">
+                <AlertCircle size={13} /> 本幕未达成 · 重试或重置
+              </span>
+            )}
             <button
               data-testid="demo-run"
               onClick={primary}
               className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-medium text-white shadow-soft transition-all hover:bg-primary-deep active:scale-95"
             >
               <Play size={12} />
-              {phase === 'done'
-                ? act < ACTS.length - 1
-                  ? '下一步'
-                  : '完成演示'
-                : act === 0
-                  ? '开始演示'
-                  : '下一步'}
+              {phase === 'failed'
+                ? '重试本幕'
+                : phase === 'done'
+                  ? act < ACTS.length - 1
+                    ? '下一步'
+                    : '完成演示'
+                  : act === 0
+                    ? '开始演示'
+                    : '下一步'}
             </button>
           </>
         )}
@@ -201,13 +239,27 @@ export default function DemoWizard({ onClose }: { onClose: () => void }) {
         >
           <Zap size={12} /> {auto ? '停止自动' : '自动播放'}
         </button>
-        <button
-          data-testid="demo-reset"
-          onClick={reset}
-          className="ml-auto inline-flex items-center gap-1 text-xs text-ink-mute transition-colors hover:text-ink"
-        >
-          <RotateCcw size={12} /> 重置演示
-        </button>
+        <div className="ml-auto flex items-center gap-2">
+          {confirmReset && (
+            <button
+              data-testid="demo-reset-cancel"
+              onClick={() => setConfirmReset(false)}
+              className="text-xs text-ink-mute transition-colors hover:text-ink"
+            >
+              取消
+            </button>
+          )}
+          <button
+            data-testid="demo-reset"
+            onClick={reset}
+            className={cn(
+              'inline-flex items-center gap-1 text-xs transition-colors',
+              confirmReset ? 'font-medium text-danger hover:text-danger/80' : 'text-ink-mute hover:text-ink',
+            )}
+          >
+            <RotateCcw size={12} /> {confirmReset ? '确认重置（清技能/记忆/会话）' : '重置演示'}
+          </button>
+        </div>
       </div>
     </div>
   )

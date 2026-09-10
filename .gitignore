@@ -52,3 +52,4 @@ e2e/visual.spec.ts-snapshots/*.png
 # rendered mp4 / wav go to Git LFS or Release assets — see doc/v0.9.3-roadmap.md (P2-C)
 video/*.mp4
 video/*.wav
+video/frames/

@@ -1,11 +1,10 @@
 import type { AgentProvider, AgentTaskInput, AgentTraceEvent, ArtifactProvider, RoleId } from '../types'
-import { FALLBACK_SCRIPTS, buildGenericScript, looksLikeTask } from '../scripts/agent'
-import { runScript, type StepContext } from './stepRunner'
+import { FALLBACK_SCRIPTS, GENERIC_DONE_TEXT, buildGenericScript, looksLikeTask } from '../scripts/agent'
+import { runScript, runScriptStep, type StepContext } from './stepRunner'
 import { matchSkill } from '../skills/library'
 import { distillSkill } from '../skills/distill'
 import { useSkillStore } from '../../stores/skillStore'
 import { getMemoryProvider } from '../memory'
-import { formatMemoryBlock } from '../memory/format'
 
 /**
  * MockOrchestrator —— 三层执行链（v0.6 M2①）：
@@ -35,12 +34,15 @@ export class MockOrchestrator implements AgentProvider {
       const store = useSkillStore.getState()
 
       // v0.9.1 注入 A（Mock 演示视图）：剧本驱动不消费 systemPrompt，
-      // 以 reflect 事件展示「已注入记忆上下文」，让三连演示可见；无记忆/读取失败时静默
+      // 以 reflect 事件展示「已注入记忆上下文」，让三连演示可见；无记忆/读取失败时静默。
+      // v0.9.3 P1-A②：压成一行摘要，联排演示时开场不随记忆条数变长（详情不再铺开）
       try {
         const memory = getMemoryProvider()
         const [episodic, semantic] = await Promise.all([memory.recentEpisodic(role, 3), memory.semanticFor(role)])
-        const block = formatMemoryBlock(episodic, semantic)
-        if (block) emit({ kind: 'reflect', text: `已注入记忆上下文：\n${block}` })
+        const parts: string[] = []
+        if (episodic.length) parts.push(`场景记忆 ${episodic.length} 条`)
+        if (semantic.length) parts.push(`用户偏好 ${semantic.length} 条`)
+        if (parts.length) emit({ kind: 'reflect', text: `已注入记忆上下文：${parts.join(' · ')}` })
       } catch {
         /* 记忆读取失败不影响执行 */
       }
@@ -60,10 +62,12 @@ export class MockOrchestrator implements AgentProvider {
       }
 
       // 第三层 A：任务型目标 → 通用探索执行 + 自动沉淀
+      // v0.9.3 P1-A①：沉淀高光前置——artifact 之后先 emit skill_learned，再补收尾 done
       if (looksLikeTask(goal)) {
         const generic = buildGenericScript(role, goal)
         await runScript(generic.steps, ctx)
         this.distillAndEmit(goal, collected, role, emit)
+        await runScriptStep({ type: 'done', text: GENERIC_DONE_TEXT }, ctx)
         await this.harvest(goal, role)
         return
       }

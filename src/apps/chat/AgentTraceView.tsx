@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { memo, useState } from 'react'
 import { ClipboardList, Wrench, ChevronDown, BrainCircuit, CheckCircle2, Sparkles, GraduationCap } from 'lucide-react'
 import type { AgentTraceEvent } from '../../harness/types'
 import { toolRegistry } from '../../harness/agent'
@@ -26,8 +26,9 @@ function JsonPeek({ payload }: { payload: unknown }) {
 }
 
 /** Agent 执行轨迹：Plan(蓝) → Tool Call(黄) → Result(绿,可展开) → Reflect(纸感)
- *  根容器挂 .agent-trace：超大字号档下内部文字跟随放大（见 index.css） */
-export default function AgentTraceView({ trace, streaming }: { trace: AgentTraceEvent[]; streaming: boolean }) {
+ *  根容器挂 .agent-trace：超大字号档下内部文字跟随放大（见 index.css）
+ *  memo（v0.9.3 P0-D③）：正文流式期间 trace 数组引用不变，跳过轨迹区重渲染 */
+const AgentTraceView = memo(function AgentTraceView({ trace, streaming }: { trace: AgentTraceEvent[]; streaming: boolean }) {
   /* v0.9.2 P0-A：业务化轨迹——默认隐藏 JSON 返回数据入口，设置「显示技术细节」开启后才可见 */
   const showTechDetails = useSettingsStore((s) => s.showTechDetails)
   if (trace.length === 0) return null
@@ -138,4 +139,6 @@ export default function AgentTraceView({ trace, streaming }: { trace: AgentTrace
       })}
     </div>
   )
-}
+})
+
+export default AgentTraceView

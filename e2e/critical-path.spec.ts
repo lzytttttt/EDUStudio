@@ -1,10 +1,14 @@
 import { expect, test, type Page } from '@playwright/test'
 
 /**
- * v0.4 M3①：3 条关键路径 E2E（Mock 模式，离线可跑）。
+ * v0.4 M3①：关键路径 E2E（Mock 模式，离线可跑）。
  * ① 登录 → 简报 → 采纳（专注模式后台执行）→ 批示完成 → 统一处理 → 工作台（v0.7 改写）
  * ② 对话出题 → 出题工作台联动
  * ③ 文档新建 → 导出下载
+ * ④ 生成即见：教案任务后文档面板自动可见且正文持续增长（v0.9.3 P0-A④）
+ * ⑤ 演示直达：登录页一键进入简报（v0.9.3 P1-B②）
+ * ⑥ URL 演示直达：?demo=1 冷启动直接落在简报（v0.9.3 P1-B②）
+ * ⑦ 重新生成弹窗内方向键不误触简报决策（v0.9.3 P0-B②）
  *
  * 注意：v0.7 专注模式默认开启，采纳不再立即跳工作台；需要中性工作台时用「跳过简报」入口。
  */
@@ -139,4 +143,51 @@ test('④ 生成即见：教案任务后文档面板自动可见且正文持续�
   // 生成收敛：生成中提示与中栏轻提示自动收起（v0.9.3 P0-A③）
   await expect(page.getByTestId('doc-generating-bar')).toBeHidden({ timeout: 20_000 })
   await expect(page.getByTestId('doc-focus-notice')).toBeHidden()
+})
+
+test('⑤ 演示直达：登录页一键进入简报（默认教师 · 跳过引导）', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.getByTestId('demo-login')).toBeVisible()
+
+  // 一键直达（v0.9.3 P1-B②）：不填账号密码，1 次点击落到简报
+  await page.getByTestId('demo-login').click()
+  await expect(page.getByTestId('adopt-btn')).toBeVisible({ timeout: 5_000 })
+
+  // 跳过首次引导：欢迎弹窗不出现（卡牌切入动画可直接播放）
+  await expect(page.getByTestId('guide-done')).toHaveCount(0)
+})
+
+test('⑥ URL 演示直达：?demo=1 冷启动直接落在简报', async ({ page }) => {
+  await page.goto('/?demo=1')
+  await expect(page.getByTestId('adopt-btn')).toBeVisible({ timeout: 5_000 })
+  await expect(page.getByTestId('guide-done')).toHaveCount(0)
+})
+
+test('⑦ 重新生成弹窗内方向键不误触简报决策', async ({ page }) => {
+  await page.goto('/?demo=1')
+  await expect(page.getByTestId('adopt-btn')).toBeVisible({ timeout: 5_000 })
+
+  const counter = page.getByText(/已处理 \d+\/\d+/).first()
+  const before = await counter.textContent()
+
+  await page.getByTestId('regen-btn').click()
+  await expect(page.getByTestId('regen-dialog')).toBeVisible()
+
+  // 输入态守卫（v0.9.3 P0-B①）：提示词输入框内连按 ←/↑/→，不触发跳过 / 收藏 / 采纳
+  const prompt = page.locator('#regen-prompt')
+  await prompt.click()
+  for (const key of ['ArrowLeft', 'ArrowUp', 'ArrowRight']) {
+    for (let i = 0; i < 20; i++) await prompt.press(key)
+  }
+
+  // 弹窗态守卫（v0.9.3 P0-B②）：焦点移出输入框后继续按方向键，全局决策键同样不响应
+  await page.getByTestId('regen-dialog').getByRole('heading', { name: '重新生成简报' }).click()
+  for (let i = 0; i < 10; i++) await page.keyboard.press('ArrowRight')
+  for (let i = 0; i < 10; i++) await page.keyboard.press('ArrowUp')
+
+  // 关闭弹窗：决策计数与卡片状态零变化
+  await page.getByTestId('regen-dialog').getByLabel('关闭').click()
+  await expect(page.getByTestId('regen-dialog')).toBeHidden()
+  await expect(counter).toHaveText(before ?? '')
+  await expect(page.getByTestId('adopt-btn')).toBeVisible()
 })

@@ -610,13 +610,17 @@ export default function BriefingPage() {
         </footer>
       )}
 
-      {/* 首次进入操作说明 */}
+      {/* 首次进入操作说明（v0.9.3 P1-B①）：简报 → 工作台合并为同一弹窗逐屏浏览 */}
       {guideOpen && (
         <GuideDialog
           stage="briefing"
+          nextStage="workbench"
           onClose={() => {
             setGuideOpen(false)
             markGuideSeen()
+            /* 引导关闭后接播卡牌切入动画（v0.9.3 P1-B①）：冷启动首进也能看到，
+               此前首次用户被引导拦住，动画因 guideSeen=false 被跳过而永不播放 */
+            if (!introPlayed && INTRO_ELIGIBLE()) setIntro(true)
           }}
         />
       )}

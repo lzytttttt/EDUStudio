@@ -361,7 +361,7 @@
 
     /* hero2 : 新简报 */
     hero2 = hero.cloneNode(true); hero2.id = 'hero2'; hero2.style.opacity = 0;
-    hero2.querySelector('.hc-title').textContent = '九年级 1 班';
+    hero2.querySelector('.hc-title').textContent = '高一（3）班';
     camera.appendChild(hero2);
 
     for (var f = 0; f < 6; f++) {
@@ -543,7 +543,8 @@
     trUpDot.style.opacity = green.toFixed(3);
     hcDot.className = 'hc-dot' + (green > 0.5 ? ' ok' : '');
     hcTick.style.opacity = green.toFixed(3);
-    hcDelta.textContent = green > 0.5 ? '↑9%' : '↓12%';
+    /* 数据与产品物料同源（v0.9.3 P1-C①）：高一（3）班「函数单调性」掌握率 61% → 习题课干预后 +9pp */
+    hcDelta.textContent = green > 0.5 ? '70%' : '61%';
     hcDelta.style.color = green > 0.5 ? '#2CC08B' : '#EE5A54';
     hero.querySelector('.hc-accent').style.background = green > 0.5
       ? 'linear-gradient(90deg,#2CC08B,#A7E9CE)' : 'linear-gradient(90deg,#1FA2C4,#8EDCEA)';
@@ -816,6 +817,8 @@
     }
   }
 
+  /* 时间轴常量集中一处（v0.9.3 P2-C②）：shoot.cjs 与 BGM 合成均从此读取 */
+  window.__FILM = { fps: 30, duration: 60, bgm: 'bgm.wav' };
   window.__seek = render;
   render(0);
 })();
