@@ -1,7 +1,8 @@
-import type { ArtifactKind, ArtifactProvider, RoleId } from '../types'
+import type { ArtifactKind, ArtifactProvider, LoomUpstreamRef, RoleId } from '../types'
 import { DeepSeekAdapter, type DeepSeekConfig } from '../llm/adapter'
 import { getRolePreset, buildSystemPrompt } from '../roles'
 import { matchTemplate } from '../scripts/artifacts'
+import { formatUpstreamResults } from '../loom/context'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { buildDataContext } from '../sources/dataContext'
 
@@ -22,7 +23,7 @@ export class ArtifactApiAdapter implements ArtifactProvider {
   constructor(private config: DeepSeekConfig) {}
 
   async generate(
-    input: { role: RoleId; goal: string; kindHint?: ArtifactKind; signal?: AbortSignal },
+    input: { role: RoleId; goal: string; kindHint?: ArtifactKind; signal?: AbortSignal; upstream?: LoomUpstreamRef[] },
     onChunk: (chunk: string) => void,
   ): Promise<{ title: string; kind: ArtifactKind }> {
     const kind: ArtifactKind = input.kindHint ?? matchTemplate(input.goal, input.role).kind
@@ -42,7 +43,12 @@ export class ArtifactApiAdapter implements ArtifactProvider {
     const dataSection = dataText
       ? `\n\n【真实数据上下文】（引用具体数字必须以此为准并注明来源，禁止编造）\n${dataText}`
       : ''
-    const user = `请围绕以下目标产出文档：${input.goal}${dataSection}`
+    // v0.9.4-03：Loom 上游任务结果（文档应承接其结论；无上游时该段整体省略）
+    const upstreamText = formatUpstreamResults(input.upstream)
+    const upstreamSection = upstreamText
+      ? `\n\n【上游任务结果】（本任务由流程上游产出驱动，撰写时应引用并承接其内容）\n${upstreamText}`
+      : ''
+    const user = `请围绕以下目标产出文档：${input.goal}${upstreamSection}${dataSection}`
 
     const llm = new DeepSeekAdapter(this.config)
     let full = ''

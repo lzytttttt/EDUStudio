@@ -5,6 +5,7 @@ import {
   collectUpstreamResults,
   downstreamNodes,
   findCycle,
+  isExecutableNode,
   layerNodes,
   orphanNodes,
   readyNodes,
@@ -165,5 +166,69 @@ describe('loomGraph 就绪与上下游', () => {
     }
     const results = collectUpstreamResults(g, 'c')
     expect(results.map((r) => r.nodeId)).toEqual(['a'])
+  })
+})
+
+/* v0.9.4-03：非执行节点（便签 / 文档）不参与调度；上游收集穿透非执行节点 */
+describe('loomGraph 非执行节点', () => {
+  const typed = (id: string, type: LoomNode['type'], status: LoomNode['status'] = 'idle'): LoomNode => ({
+    ...node(id, status),
+    type,
+  })
+
+  it('isExecutableNode：note / artifact 非执行；task / agent / tool / checkpoint 参与执行', () => {
+    expect(isExecutableNode(typed('n', 'note'))).toBe(false)
+    expect(isExecutableNode(typed('d', 'artifact'))).toBe(false)
+    expect(isExecutableNode(typed('t', 'task'))).toBe(true)
+    expect(isExecutableNode(typed('a', 'agent'))).toBe(true)
+    expect(isExecutableNode(typed('k', 'tool'))).toBe(true)
+    expect(isExecutableNode(typed('c', 'checkpoint'))).toBe(true)
+  })
+
+  it('readyNodes：便签 / 文档自身不就绪；便签作为父节点不阻塞下游', () => {
+    const g: Graph = {
+      nodes: [node('a', 'done'), typed('note1', 'note'), node('b', 'idle')],
+      edges: [dep('e1', 'a', 'note1'), dep('e2', 'note1', 'b')],
+    }
+    /* note 不进入 ready；b 的父是 note（非执行）→ 视为满足 → b 就绪 */
+    expect(readyNodes(g).map((n) => n.id)).toEqual(['b'])
+  })
+
+  it('readyNodes：执行型父未完成仍阻塞（回归）', () => {
+    const g: Graph = {
+      nodes: [node('a', 'idle'), node('b', 'idle'), typed('doc1', 'artifact')],
+      edges: [dep('e1', 'a', 'b')],
+    }
+    expect(readyNodes(g).map((n) => n.id)).toEqual(['a'])
+  })
+
+  it('collectUpstreamResults：穿透 checkpoint 收集更上游的执行型输出（A → ✋ → B）', () => {
+    const g: Graph = {
+      nodes: [node('a', 'done'), typed('cp', 'checkpoint', 'done'), node('b', 'idle')],
+      edges: [dep('e1', 'a', 'cp'), dep('e2', 'cp', 'b')],
+    }
+    expect(collectUpstreamResults(g, 'b').map((r) => r.nodeId)).toEqual(['a'])
+  })
+
+  it('collectUpstreamResults：执行型上游构成信息边界（不继续向上）', () => {
+    const g: Graph = {
+      nodes: [node('a', 'done'), node('b', 'done'), node('c', 'idle')],
+      edges: [dep('e1', 'a', 'b'), dep('e2', 'b', 'c')],
+    }
+    expect(collectUpstreamResults(g, 'c').map((r) => r.nodeId)).toEqual(['b'])
+  })
+
+  it('collectUpstreamResults：便签穿透 + 未产出节点不收录 + error 上游收录', () => {
+    const g: Graph = {
+      nodes: [node('a', 'done'), typed('note1', 'note'), node('x', 'idle'), node('err', 'error'), node('b', 'idle')],
+      edges: [
+        dep('e1', 'a', 'note1'),
+        dep('e2', 'note1', 'b'),
+        dep('e3', 'x', 'b'),
+        dep('e4', 'err', 'b'),
+      ],
+    }
+    /* 直接父先收集（note1 穿透后 a 后入队）：['err', 'a']，顺序不影响注入语义 */
+    expect(collectUpstreamResults(g, 'b').map((r) => r.nodeId)).toEqual(['err', 'a'])
   })
 })

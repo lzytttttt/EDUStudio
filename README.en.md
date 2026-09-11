@@ -8,10 +8,10 @@
 
 [![license](https://img.shields.io/badge/license-CC%20BY--NC%204.0-blue.svg)](./LICENSE)
 [![stack](https://img.shields.io/badge/Vite-React%2018-646CFF.svg)](./package.json)
-[![tests](https://img.shields.io/badge/Vitest-378%20cases-success.svg)](#-quality-assurance)
+[![tests](https://img.shields.io/badge/Vitest-401%20cases-success.svg)](#-quality-assurance)
 [![e2e](https://img.shields.io/badge/Playwright-21%20cases-brightgreen.svg)](#-quality-assurance)
 [![lighthouse](https://img.shields.io/badge/Lighthouse-%E2%89%A5%200.85-yellow.svg)](#-quality-assurance)
-[![budget](https://img.shields.io/badge/gzip-295KB%20budget-orange.svg)](#-quality-assurance)
+[![budget](https://img.shields.io/badge/gzip-297KB%20budget-orange.svg)](#-quality-assurance)
 
 [中文文档](./README.md) | English
 

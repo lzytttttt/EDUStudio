@@ -13,6 +13,7 @@ import { useChatStore } from '../../stores/chatStore'
 import { useLoomStore, boardStats, loomHistory, roleBoardTitle } from '../../stores/loomStore'
 import { LOOM_PANEL_DEFAULT_HEIGHT, clampLoomHeight, useUiStore } from '../../stores/uiStore'
 import { runLoom, stopLoom } from '../../harness/loom/runner'
+import { isExecutableNode } from '../../lib/loomGraph'
 import type { LoomNodeType } from '../../harness/loom/types'
 import { LOOM_CREATABLE_TYPES, LOOM_TYPE_META } from './loomNodeMeta'
 import LoomCanvas from './LoomCanvas'
@@ -117,7 +118,10 @@ export default function LoomPanel({ onRequestClose }: LoomPanelProps) {
     setSelectedNodeId(nodeId)
   }
 
-  const runnable = (board?.nodes ?? []).filter((n) => n.status !== 'done' && n.status !== 'waiting').length
+  /* v0.9.4-03：便签 / 文档节点不参与执行，不计入可运行数（按钮禁用态与 runner 判定一致） */
+  const runnable = (board?.nodes ?? []).filter(
+    (n) => isExecutableNode(n) && n.status !== 'done' && n.status !== 'waiting',
+  ).length
   const waiting = (board?.nodes ?? []).some((n) => n.status === 'waiting')
 
   return (

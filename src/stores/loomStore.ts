@@ -24,6 +24,7 @@ import type {
 } from '../harness/loom/types'
 import {
   LOOM_HISTORY_MAX,
+  LOOM_NODE_WIDTH,
   LOOM_SCHEMA_VERSION,
   LOOM_ZOOM_DEFAULT,
 } from '../harness/loom/types'
@@ -163,6 +164,17 @@ interface LoomState {
     description?: string
     sessionId?: string
   }) => string | null
+
+  /* 文档节点（v0.9.4-03：Agent 产出文档 → 画布同步出现，幂等按 artifactId 复用） */
+  ensureArtifactOutputNode: (args: {
+    role: RoleId
+    artifactId: string
+    title: string
+    /** 触发产出的节点：文档节点落在其右侧；缺省用网格错开落点 */
+    afterNodeId?: string
+  }) => string | null
+  /** 文档节点状态收口（running 生成中 / done 已生成 / error 未完成） */
+  setArtifactNodeStatus: (artifactId: string, status: LoomNodeStatus, title?: string) => void
 
   /* 边 */
   connect: (from: string, to: string, type?: LoomEdgeType) => { ok: boolean; error?: string }
@@ -324,6 +336,45 @@ export const useLoomStore = create<LoomState>((set, get) => {
       }
       mutateWithHistory((b) => ({ ...b, nodes: [...b.nodes, node] }))
       return node.id
+    },
+
+    ensureArtifactOutputNode: ({ role, artifactId, title, afterNodeId }) => {
+      const board = get().ensureBoard(role)
+      const owned = board.nodes.find((n) => n.type === 'artifact' && n.artifactId === artifactId)
+      if (owned) {
+        /* 幂等：已有节点只刷新标题与生成态，不重复创建 */
+        if (owned.title !== title || owned.status !== 'running') {
+          get().updateNode(owned.id, { title, status: 'running' })
+        }
+        return owned.id
+      }
+      const anchor = afterNodeId ? board.nodes.find((n) => n.id === afterNodeId) : undefined
+      const node: LoomNode = {
+        id: nextId('lnode'),
+        type: 'artifact',
+        title,
+        position: anchor
+          ? { x: anchor.position.x + LOOM_NODE_WIDTH + 48, y: anchor.position.y }
+          : patchPosition(board),
+        status: 'running',
+        artifactId,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      }
+      /* 运行态产出不进 undo 历史（避免 Ctrl+Z 撤销系统节点，与 setNodeRunOutput 同策略） */
+      mutate((b) => ({ ...b, nodes: [...b.nodes, node] }))
+      return node.id
+    },
+
+    setArtifactNodeStatus: (artifactId, status, title) => {
+      mutate((b) => ({
+        ...b,
+        nodes: b.nodes.map((n) =>
+          n.type === 'artifact' && n.artifactId === artifactId
+            ? { ...n, status, ...(title ? { title } : {}), updatedAt: Date.now() }
+            : n,
+        ),
+      }))
     },
 
     connect: (from, to, type = 'dependency') => {

@@ -4,6 +4,7 @@ import { Orchestrator } from './Orchestrator'
 import { MockArtifactProvider } from '../artifacts/MockArtifactProvider'
 import { toolRegistry } from './ToolRegistry'
 import type { DeepSeekConfig } from '../llm/adapter'
+import { useUiStore } from '../../stores/uiStore'
 
 /** 连续 API 失败达到该次数才向用户报错（此前每次失败均回退 Mock 剧本） */
 const API_FAIL_LIMIT = 2
@@ -32,6 +33,10 @@ class FallbackAgent implements AgentProvider {
         kind: 'reflect',
         text: `真实模型调用失败（${((err as Error)?.message ?? '未知错误').slice(0, 60)}），已自动切换 Mock 剧本继续执行。`,
       })
+      /* v0.9.4-03：画布执行上下文时同步可见降级（不打扰对话区，仅画布通知说明） */
+      if (input.context?.loomNodeId) {
+        useUiStore.getState().pushLoomToast('info', '真实模型调用失败，本节点已回退内置剧本执行')
+      }
       await this.fallback.runTask(input, emit)
     }
   }

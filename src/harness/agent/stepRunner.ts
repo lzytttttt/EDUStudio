@@ -1,4 +1,4 @@
-import type { AgentTraceEvent, ArtifactProvider, RoleId } from '../types'
+import type { AgentTraceEvent, ArtifactProvider, LoomUpstreamRef, RoleId } from '../types'
 import type { ScriptStep } from '../scripts/agent'
 import { toolRegistry } from './ToolRegistry'
 import { jitterDelay } from '../../lib/delay'
@@ -16,6 +16,8 @@ export interface StepContext {
   artifacts: ArtifactProvider
   emit: (e: AgentTraceEvent) => void
   signal?: AbortSignal
+  /** v0.9.4-03：Loom 上游结果（文档生成步骤引用其内容；缺省时旧路径零变化） */
+  upstream?: LoomUpstreamRef[]
 }
 
 /**
@@ -24,7 +26,7 @@ export interface StepContext {
  * v0.4 M1②：parallel 步骤组内 Promise.all 并行执行，trace 事件标注同一并行组。
  */
 export async function runScriptStep(step: ScriptStep, ctx: StepContext): Promise<void> {
-  const { emit, signal, role, goal, artifacts } = ctx
+  const { emit, signal, role, goal, artifacts, upstream } = ctx
   switch (step.type) {
     case 'plan': {
       await jitterDelay(400, 800, signal)
@@ -53,7 +55,14 @@ export async function runScriptStep(step: ScriptStep, ctx: StepContext): Promise
       const artifactId = nextId('art')
       emit({ kind: 'artifact_meta', artifactId, title: goal, docKind: step.kind })
       const { title, kind } = await artifacts.generate(
-        { role, goal, kindHint: step.kind, signal },
+        {
+          role,
+          goal,
+          kindHint: step.kind,
+          signal,
+          /* v0.9.4-03：文档内容承接上游任务结果（缺省时入参与旧版逐字节一致） */
+          ...(upstream?.length ? { upstream } : {}),
+        },
         (chunk) => emit({ kind: 'artifact_chunk', artifactId, chunk }),
       )
       emit({ kind: 'artifact_done', artifactId, title, docKind: kind })

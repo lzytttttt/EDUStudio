@@ -223,9 +223,12 @@ export interface ArtifactDoc {
 }
 
 export interface ArtifactProvider {
-  /** 流式生成文档，onChunk 逐块回调，返回标题与文档类型 */
+  /**
+   * 流式生成文档，onChunk 逐块回调，返回标题与文档类型。
+   * v0.9.4-03：upstream 为 Loom 上游节点结果（生成时应承接引用；缺省时行为与旧版一致）。
+   */
   generate(
-    input: { role: RoleId; goal: string; kindHint?: ArtifactKind; signal?: AbortSignal },
+    input: { role: RoleId; goal: string; kindHint?: ArtifactKind; signal?: AbortSignal; upstream?: LoomUpstreamRef[] },
     onChunk: (chunk: string) => void,
   ): Promise<{ title: string; kind: ArtifactKind }>
 }

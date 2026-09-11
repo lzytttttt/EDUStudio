@@ -16,6 +16,7 @@ import type { LoomNode, LoomPosition, LoomViewport } from '../../harness/loom/ty
 import { LOOM_NODE_HEIGHT, LOOM_NODE_WIDTH, LOOM_ZOOM_DEFAULT } from '../../harness/loom/types'
 import { useLoomStore } from '../../stores/loomStore'
 import { useChatStore } from '../../stores/chatStore'
+import { useArtifactStore } from '../../stores/artifactStore'
 import { useUiStore } from '../../stores/uiStore'
 import { clampZoom, fitViewport, screenToWorld, zoomAt } from '../../lib/loomGeometry'
 import { LoomEdgeLayer, LoomDraftEdge } from './LoomEdges'
@@ -370,6 +371,11 @@ export default function LoomCanvas({
             onToggleExpand={toggleExpand}
             readOnly={readOnly}
             traceItems={projectTrace(entryForNode(node))}
+            /* v0.9.4-03：文档节点「打开」直达右栏逐字产出（M6 交付补接线） */
+            onOpenArtifact={(_, artifactId) => {
+              useArtifactStore.getState().setActive(artifactId)
+              useUiStore.getState().requestDocFocus()
+            }}
             onContinue={(id) => void resumeCheckpoint(id, 'continue')}
             onCancel={(id) => void resumeCheckpoint(id, 'cancel')}
           />

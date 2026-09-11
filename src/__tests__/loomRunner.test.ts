@@ -294,6 +294,75 @@ describe('LoomRunner 进度与输出采集', () => {
   })
 })
 
+describe('LoomRunner 非执行节点与文档收口（v0.9.4-03）', () => {
+  it('便签不参与执行且不阻塞下游（A → 便签 → B 全链正常）', async () => {
+    const calls = mockSend('e1')
+    seedSession('s1', [asst('e1')])
+    useLoomStore.getState().ensureBoard('teacher')
+    const a = addTask('A')
+    const note = useLoomStore.getState().addNode({ type: 'note', title: '随手记：周五前收作业' }) as string
+    const b = addTask('B')
+    useLoomStore.getState().connect(a, note)
+    useLoomStore.getState().connect(note, b)
+
+    await runLoom()
+
+    expect(calls.map((x) => x.goal)).toEqual(['A', 'B'])
+    expect(nodeOf(note)?.status).toBe('idle')
+    expect([nodeOf(a)?.status, nodeOf(b)?.status]).toEqual(['done', 'done'])
+  })
+
+  it('文档节点不参与执行（即使状态未完成）', async () => {
+    const calls = mockSend('e1')
+    seedSession('s1', [asst('e1')])
+    useLoomStore.getState().ensureBoard('teacher')
+    const doc = useLoomStore
+      .getState()
+      .ensureArtifactOutputNode({ role: 'teacher', artifactId: 'art-1', title: '报告' }) as string
+    addTask('A')
+
+    await runLoom()
+
+    expect(calls.map((x) => x.goal)).toEqual(['A'])
+    expect(nodeOf(doc)?.status).toBe('running')
+  })
+
+  it('节点失败时未完成文档节点收口 error（artifact_meta 无 done）', async () => {
+    mockSend('eFail')
+    const trace: AgentTraceEvent[] = [
+      { kind: 'artifact_meta', artifactId: 'art-9', title: '报告', docKind: 'report' },
+    ]
+    seedSession('s1', [asst('eFail', { content: '部分内容', error: '接口超时', trace })])
+    useLoomStore.getState().ensureBoard('teacher')
+    const a = addTask('A')
+    useLoomStore.getState().ensureArtifactOutputNode({ role: 'teacher', artifactId: 'art-9', title: '报告' })
+
+    await runLoom()
+
+    expect(nodeOf(a)?.status).toBe('error')
+    expect(board().nodes.find((n) => n.artifactId === 'art-9')?.status).toBe('error')
+  })
+
+  it('节点成功且文档已完成 → 文档节点保持 done（不被误伤）', async () => {
+    mockSend('eOk')
+    const trace: AgentTraceEvent[] = [
+      { kind: 'artifact_meta', artifactId: 'art-7', title: '报告', docKind: 'report' },
+      { kind: 'artifact_done', artifactId: 'art-7', title: '报告（终稿）', docKind: 'report' },
+    ]
+    seedSession('s1', [asst('eOk', { content: '完成', trace })])
+    useLoomStore.getState().ensureBoard('teacher')
+    addTask('A')
+    useLoomStore.getState().ensureArtifactOutputNode({ role: 'teacher', artifactId: 'art-7', title: '报告' })
+    useLoomStore.getState().setArtifactNodeStatus('art-7', 'done', '报告（终稿）')
+
+    await runLoom()
+
+    const doc = board().nodes.find((n) => n.artifactId === 'art-7')
+    expect(doc?.status).toBe('done')
+    expect(doc?.title).toBe('报告（终稿）')
+  })
+})
+
 describe('chatStore context 透传', () => {
   const sess = (id: string, role: RoleId = 'teacher'): ChatSession => ({
     id, title: '会话', role, entries: [], createdAt: 0, updatedAt: 0,

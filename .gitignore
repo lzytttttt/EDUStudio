@@ -37,6 +37,9 @@ playwright-report
 .tmp-e2e*
 blob-report
 
+# Loom LLM eval harness output (local runs; sources are versioned)
+scripts/loom-eval/.out/
+
 # Proxy runtime artifacts
 proxy-logs/
 proxy-data/

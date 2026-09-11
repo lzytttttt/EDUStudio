@@ -5,6 +5,10 @@
  * - `dependency` 边表示执行依赖：父节点全部 done 后子节点才 ready；
  * - `context` 边只提供上游信息，不阻塞执行（收集上游结果时两类边都算）；
  * - 任何会形成环 / 自环 / 重边的连接一律拒绝。
+ *
+ * v0.9.4-03 增补：
+ * - 非执行节点（便签 note / 文档 artifact）不参与调度：不进入 ready、不作为依赖阻塞；
+ * - 上游结果收集穿透非执行节点（A → ✋ → B 时 B 能拿到 A 的输出）。
  */
 import type { LoomEdge, LoomEdgeType, LoomNode, LoomNodeResult, LoomPosition } from '../harness/loom/types'
 
@@ -186,7 +190,26 @@ export function layerNodes(graph: Graph): { layers: string[][]; hasCycle: boolea
   return { layers, hasCycle }
 }
 
-/** 运行条件：所有 dependency 父节点均已 done（原方案 canRun） */
+/**
+ * 是否执行型节点（v0.9.4-03，调度语义）：
+ * - note（便签）纯记录、artifact（文档）由产出驱动，二者不参与执行与调度；
+ * - checkpoint 虽不调用模型，但参与调度（暂停 / 恢复），仍视为执行型。
+ */
+export function isExecutableNode(node: Pick<LoomNode, 'type'>): boolean {
+  return node.type !== 'note' && node.type !== 'artifact'
+}
+
+/**
+ * 信息透传判定（v0.9.4-03，上游结果收集语义）：
+ * 便签 / 文档 / 人工确认不产出文本 → 收集上游时穿透（A → ✋ → B 时 B 能拿到 A 的输出）；
+ * 与 isExecutableNode 区分：checkpoint 参与调度，但不构成信息边界。
+ */
+export function isTextPassthrough(node: Pick<LoomNode, 'type'>): boolean {
+  return node.type === 'note' || node.type === 'artifact' || node.type === 'checkpoint'
+}
+
+/** 运行条件：所有 dependency 父节点均已 done（原方案 canRun）；
+ *  v0.9.4-03：非执行节点自身永不就绪；非执行父节点不构成阻塞（便签/文档不挡下游） */
 export function readyNodes(graph: Graph): LoomNode[] {
   const byId = new Map(graph.nodes.map((n) => [n.id, n]))
   const deps = new Map<string, string[]>()
@@ -197,9 +220,15 @@ export function readyNodes(graph: Graph): LoomNode[] {
     else deps.set(e.to, [e.from])
   }
   return graph.nodes.filter((n) => {
+    if (!isExecutableNode(n)) return false
     if (n.status === 'done' || n.status === 'running' || n.status === 'waiting') return false
     const parents = deps.get(n.id) ?? []
-    return parents.every((p) => byId.get(p)?.status === 'done')
+    return parents.every((p) => {
+      const parent = byId.get(p)
+      if (!parent) return true
+      if (!isExecutableNode(parent)) return true
+      return parent.status === 'done'
+    })
   })
 }
 
@@ -231,11 +260,38 @@ export function orphanNodes(graph: Graph): LoomNode[] {
   return graph.nodes.filter((n) => !connected.has(n.id))
 }
 
-/** 采集上游结果（runner 注入上下文用）：只取有产出的来源 */
+/**
+ * 采集上游结果（runner 注入上下文用）：只取有产出的来源。
+ * v0.9.4-03：透传节点（便签 / 文档 / 人工确认）不产出文本 → 向上穿透继续收集
+ * （A → ✋ → B 时 B 收到 A 的结果）；产出型节点构成信息边界（其输出已含更上游成果）→ 收集后不再向上。
+ */
 export function collectUpstreamResults(graph: Graph, nodeId: string): LoomNodeResult[] {
-  return upstreamNodes(graph, nodeId)
-    .map((n) => ({ nodeId: n.id, title: n.title, summary: '', status: n.status }))
-    .filter((r) => r.status === 'done' || r.status === 'error')
+  const byId = new Map(graph.nodes.map((n) => [n.id, n]))
+  const parents = new Map<string, string[]>()
+  for (const e of graph.edges) {
+    const list = parents.get(e.to)
+    if (list) list.push(e.from)
+    else parents.set(e.to, [e.from])
+  }
+  const out: LoomNodeResult[] = []
+  const seen = new Set<string>([nodeId])
+  const queue = [...(parents.get(nodeId) ?? [])]
+  while (queue.length) {
+    const id = queue.shift() as string
+    if (seen.has(id)) continue
+    seen.add(id)
+    const n = byId.get(id)
+    if (!n) continue
+    if (isTextPassthrough(n)) {
+      /* 便签 / 文档 / 人工确认：不产出文本，穿透其上游 */
+      queue.push(...(parents.get(id) ?? []))
+      continue
+    }
+    if (n.status === 'done' || n.status === 'error') {
+      out.push({ nodeId: n.id, title: n.title, summary: '', status: n.status })
+    }
+  }
+  return out
 }
 
 /** 有效运行图：无环且至少有一个可运行节点 */

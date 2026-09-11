@@ -13,6 +13,7 @@ import type { AgentTraceEvent, LoomUpstreamRef, RoleId } from '../types'
 import type { LoomNode } from './types'
 import {
   collectUpstreamResults,
+  isExecutableNode,
   readyNodes,
   topologicalSort,
   validateGraph,
@@ -103,9 +104,32 @@ function bumpProgress(success: boolean): void {
   })
 }
 
+/**
+ * 文档节点收口（v0.9.4-03）：本节点产出但未完成的文档节点置 error。
+ * 覆盖「生成中途失败 / 用户中断」——避免文档节点停在「正在生成」的僵死态。
+ */
+function settleArtifactNodes(entry: ChatEntry | undefined): void {
+  if (!entry) return
+  const metas = entry.trace.filter(
+    (e): e is Extract<AgentTraceEvent, { kind: 'artifact_meta' }> => e.kind === 'artifact_meta',
+  )
+  if (metas.length === 0) return
+  const done = new Set(
+    entry.trace
+      .filter((e): e is Extract<AgentTraceEvent, { kind: 'artifact_done' }> => e.kind === 'artifact_done')
+      .map((e) => e.artifactId),
+  )
+  const loom = useLoomStore.getState()
+  for (const meta of metas) {
+    if (!done.has(meta.artifactId)) loom.setArtifactNodeStatus(meta.artifactId, 'error')
+  }
+}
+
 /** 回写单个节点的执行结果：done + runOutput / error */
 function recordNodeResult(nodeId: string, entry: ChatEntry | undefined): void {
   const failed = !entry || entry.error != null
+  /* 无论成败先收口文档节点：已完成的保持 done，未完成的标记失败 */
+  settleArtifactNodes(entry)
   if (failed) {
     useLoomStore.getState().setNodeStatus(nodeId, 'error')
     bumpProgress(false)
@@ -126,9 +150,10 @@ export async function runLoom(): Promise<void> {
   if (!board0) return
   if (!validateGraph({ nodes: board0.nodes, edges: board0.edges }).ok) return
 
-  /* 本轮计划：尚未完成、也不处于人工确认等待的节点 */
+  /* 本轮计划：执行型节点中尚未完成、也不处于人工确认等待的节点
+   * （v0.9.4-03：便签 / 文档节点不参与执行——此前便签会被当作任务消耗真实 LLM 调用） */
   const planIds = board0.nodes
-    .filter((n) => n.status !== 'done' && n.status !== 'waiting')
+    .filter((n) => isExecutableNode(n) && n.status !== 'done' && n.status !== 'waiting')
     .map((n) => n.id)
   if (planIds.length === 0) return
 

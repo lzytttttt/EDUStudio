@@ -1,10 +1,11 @@
-import type { ArtifactProvider, ArtifactKind, RoleId } from '../types'
+import type { ArtifactProvider, ArtifactKind, LoomUpstreamRef, RoleId } from '../types'
 import { typewriter } from '../../lib/typewriter'
 import { matchTemplate } from '../scripts/artifacts'
 
 export class MockArtifactProvider implements ArtifactProvider {
   async generate(
-    input: { role: RoleId; goal: string; kindHint?: ArtifactKind; signal?: AbortSignal },
+    /* v0.9.4-03：upstream 契约兼容（Mock 模板渲染不消费，仅保持签名一致） */
+    input: { role: RoleId; goal: string; kindHint?: ArtifactKind; signal?: AbortSignal; upstream?: LoomUpstreamRef[] },
     onChunk: (chunk: string) => void,
   ): Promise<{ title: string; kind: ArtifactKind }> {
     const tpl = matchTemplate(input.goal, input.role)

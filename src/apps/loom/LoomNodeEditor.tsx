@@ -126,6 +126,12 @@ export default function LoomNodeEditor({ nodeId, onClose, onDeleted }: LoomNodeE
         <div className="mt-2.5 space-y-1.5">
           <p className="text-xs font-semibold text-ink">{node.title}</p>
           {node.description && <p className="text-[0.6875rem] leading-relaxed text-ink-soft">{node.description}</p>}
+          {/* v0.9.4-03：文档节点由产出驱动，说明其来源与打开方式 */}
+          {node.type === 'artifact' && (
+            <p className="minor-info text-[0.5625rem] leading-snug text-ink-mute">
+              Agent 生成文档时自动出现在画布；双击可打开右栏文档
+            </p>
+          )}
           {node.status === 'error' && (
             <p className="rounded-xl border border-danger/25 bg-danger/5 px-2.5 py-1.5 text-[0.625rem] text-danger">
               执行失败，可在运行台「从这里重试」

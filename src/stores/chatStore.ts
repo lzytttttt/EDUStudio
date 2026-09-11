@@ -10,6 +10,7 @@ import {
 import { getProviders } from '../harness/providerRegistry'
 import { useAuthStore } from './authStore'
 import { useArtifactStore } from './artifactStore'
+import { useLoomStore } from './loomStore'
 import { useSettingsStore } from './settingsStore'
 import { loadJSON, saveJSON } from '../lib/storage'
 import { typewriter } from '../lib/typewriter'
@@ -290,6 +291,16 @@ async function runAgentTask(
       }
       case 'artifact_meta': {
         artifactStore.createPlaceholder(e.artifactId, e.title, e.docKind as never, role, 'agent')
+        /* v0.9.4-03：画布同步出现「正在生成」文档节点（绑定触发节点；无画布时按角色建） */
+        useLoomStore.getState().ensureArtifactOutputNode({
+          role,
+          artifactId: e.artifactId,
+          title: e.title,
+          afterNodeId: context?.loomNodeId,
+        })
+        /* 写入 trace：供画布 Trace 投影 / 失败收口（chunk 不写入，避免流式刷屏） */
+        const metaEntry = get().sessions.find((s) => s.id === sessionId)?.entries.find((x) => x.id === entryId)
+        patchEntry(sessionId, entryId, { trace: [...(metaEntry?.trace ?? []), e] })
         return
       }
       case 'artifact_chunk': {
@@ -300,6 +311,10 @@ async function runAgentTask(
         /* 先写出缓冲（P0-D②）：保证 finalize 快照包含全部 chunk */
         artifactChunks.flush()
         artifactStore.finalize(e.artifactId, e.title, e.docKind as never)
+        /* v0.9.4-03：画布文档节点置「已生成」并刷新最终标题 */
+        useLoomStore.getState().setArtifactNodeStatus(e.artifactId, 'done', e.title)
+        const doneEntry = get().sessions.find((s) => s.id === sessionId)?.entries.find((x) => x.id === entryId)
+        patchEntry(sessionId, entryId, { trace: [...(doneEntry?.trace ?? []), e] })
         return
       }
     }

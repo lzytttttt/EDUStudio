@@ -32,6 +32,28 @@ const TRIMMED_TOOL_CHARS = 240
 /** 上下文字符预算（v0.5 M3②）：超过即把更早的工具轮次整体折叠为摘要 */
 const CONTEXT_CHAR_BUDGET = 12000
 
+/* ---------- 纯函数（v0.9.4-03，导出供单测） ---------- */
+
+/** 任务型目标启发式：命中任务动词/名词时，纯文字回答视为未完成任务 → Plan-JSON 兜底 */
+const TASK_GOAL_RE = /(查|询|统计|分析|生成|撰写|写|出题|命题|制作|制定|起草|报告|教案|试题|通知|简报|总结|计划)/
+
+export function looksLikeTaskGoal(goal: string): boolean {
+  return TASK_GOAL_RE.test(goal)
+}
+
+/** 任务型目标的执行约束（v0.9.4-03）：降低「只给文字不调工具」的概率，减少一次白跑往返 */
+export const TASK_EXECUTION_HINT =
+  '\n\n【执行要求】本任务需要真实产出：请优先调用可用工具获取数据或生成内容，不要只输出文字说明；如确无需工具，再直接给出回答。'
+
+export function taskExecutionHint(goal: string): string {
+  return looksLikeTaskGoal(goal) ? TASK_EXECUTION_HINT : ''
+}
+
+/** function-calling 首轮工具调用 → 计划步骤文案（业务 label 优先，未注册工具回退工具名） */
+export function planStepsForToolCalls(calls: { name: string }[]): string[] {
+  return calls.map((c) => toolRegistry.get(c.name)?.label ?? c.name)
+}
+
 interface PendingToolCall {
   id: string
   name: string
@@ -79,7 +101,15 @@ export class Orchestrator implements AgentProvider {
       }
       emit(e)
     }
-    const ctx: StepContext = { role, goal, artifacts: this.artifacts, emit: track, signal }
+    const ctx: StepContext = {
+      role,
+      goal,
+      artifacts: this.artifacts,
+      emit: track,
+      signal,
+      /* v0.9.4-03：Loom 上游结果透传给文档生成等步骤（缺省时旧路径入参不变） */
+      ...(input.context?.upstream?.length ? { upstream: input.context.upstream } : {}),
+    }
 
     // v0.6 M2③：技能命中 → 技能步骤摘要注入 system prompt（学习技能优先），提升输出一致性
     const skillStore = useSkillStore.getState()
@@ -107,7 +137,11 @@ export class Orchestrator implements AgentProvider {
       const messages: ChatMessage[] = [
         {
           role: 'system',
-          content: buildSystemPrompt(preset, useSettingsStore.getState().preferences, memoryContext) + skillPrompt,
+          content:
+            buildSystemPrompt(preset, useSettingsStore.getState().preferences, memoryContext) +
+            skillPrompt +
+            /* v0.9.4-03：任务型目标追加执行约束（减少「只给文字不调工具」白跑一次） */
+            taskExecutionHint(goal),
         },
         ...history,
         {
@@ -171,6 +205,8 @@ export class Orchestrator implements AgentProvider {
     // v0.5 M3③：单任务 token 预算护栏（0 = 不限制）
     const budgetTokens = useSettingsStore.getState().tokenBudget
     let usedTokens = 0
+    /* v0.9.4-03：首轮工具调用补发 plan 事件（与 Plan-JSON 降级路径的轨迹口径一致） */
+    let planEmitted = false
 
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
       const { text, toolCalls, finishReason } = await this.collectRound(messages, tools, ctx.emit, signal)
@@ -188,6 +224,11 @@ export class Orchestrator implements AgentProvider {
       }
 
       if (toolCalls.length > 0) {
+        /* 首轮工具调用即模型给出的计划：补发 plan 事件，画布 Trace 子图 / 对话轨迹与剧本路径同构 */
+        if (!planEmitted) {
+          planEmitted = true
+          ctx.emit({ kind: 'plan', steps: planStepsForToolCalls(toolCalls) })
+        }
         // assistant 消息（含 tool_calls）入栈
         messages.push({
           role: 'assistant',
@@ -390,9 +431,9 @@ export class Orchestrator implements AgentProvider {
 
   /* ---------- 工具 Schema ---------- */
 
-  /** 任务型目标启发式：命中任务动词/名词时，纯文字回答视为未完成任务 → Plan-JSON 降级 */
+  /** 任务型目标启发式（委托导出纯函数，与单测同一实现） */
   private looksLikeTask(goal: string): boolean {
-    return /(查|询|统计|分析|生成|撰写|写|出题|命题|制作|制定|起草|报告|教案|试题|通知|简报|总结|计划)/.test(goal)
+    return looksLikeTaskGoal(goal)
   }
 
   private toolsForRole(role: RoleId) {

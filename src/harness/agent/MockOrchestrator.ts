@@ -32,7 +32,15 @@ export class MockOrchestrator implements AgentProvider {
       collected.push(e)
       emit(e)
     }
-    const ctx: StepContext = { role, goal, artifacts: this.artifacts, emit: track, signal }
+    const ctx: StepContext = {
+      role,
+      goal,
+      artifacts: this.artifacts,
+      emit: track,
+      signal,
+      /* v0.9.4-03：上游结果透传（Mock 文档模板不消费，保持与 API 路径同一契约） */
+      ...(upstream?.length ? { upstream } : {}),
+    }
 
     try {
       const store = useSkillStore.getState()

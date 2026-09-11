@@ -196,3 +196,52 @@ describe('loomStore 运行辅助与持久化', () => {
     expect(parsed.boards[0].nodes[0].cardId).toBe('c1')
   })
 })
+
+describe('loomStore 文档节点（v0.9.4-03）', () => {
+  it('ensureArtifactOutputNode：按 artifactId 幂等，落在触发节点右侧并刷新标题', () => {
+    useLoomStore.getState().ensureBoard('teacher')
+    const task = useLoomStore.getState().addNode({ type: 'agent', title: '分析学情' }) as string
+    const docId = useLoomStore.getState().ensureArtifactOutputNode({
+      role: 'teacher',
+      artifactId: 'art-1',
+      title: '学情分析报告',
+      afterNodeId: task,
+    })
+    expect(docId).toBeTruthy()
+    const doc = activeBoard().nodes.find((n) => n.id === docId)
+    expect(doc?.type).toBe('artifact')
+    expect(doc?.artifactId).toBe('art-1')
+    expect(doc?.status).toBe('running')
+    const anchor = activeBoard().nodes.find((n) => n.id === task)
+    expect(doc?.position.x).toBeGreaterThan(anchor?.position.x as number)
+    expect(doc?.position.y).toBe(anchor?.position.y)
+
+    const again = useLoomStore.getState().ensureArtifactOutputNode({
+      role: 'teacher',
+      artifactId: 'art-1',
+      title: '学情分析报告（终稿）',
+    })
+    expect(again).toBe(docId)
+    expect(activeBoard().nodes.filter((n) => n.type === 'artifact')).toHaveLength(1)
+    expect(activeBoard().nodes.find((n) => n.id === docId)?.title).toBe('学情分析报告（终稿）')
+  })
+
+  it('setArtifactNodeStatus：置 done / error 并刷新标题；无匹配节点零副作用', () => {
+    useLoomStore.getState().ensureBoard('teacher')
+    useLoomStore.getState().ensureArtifactOutputNode({ role: 'teacher', artifactId: 'art-2', title: '通知' })
+
+    useLoomStore.getState().setArtifactNodeStatus('art-2', 'done', '关于开展专项督导的通知')
+    const doc = activeBoard().nodes.find((n) => n.artifactId === 'art-2')
+    expect(doc?.status).toBe('done')
+    expect(doc?.title).toBe('关于开展专项督导的通知')
+
+    useLoomStore.getState().setArtifactNodeStatus('ghost', 'error')
+    expect(activeBoard().nodes.filter((n) => n.type === 'artifact')).toHaveLength(1)
+  })
+
+  it('文档节点创建不进入撤销历史（运行态产出）', () => {
+    useLoomStore.getState().ensureBoard('teacher')
+    useLoomStore.getState().ensureArtifactOutputNode({ role: 'teacher', artifactId: 'art-3', title: '报告' })
+    expect(useLoomStore.getState().undo()).toBe(false)
+  })
+})

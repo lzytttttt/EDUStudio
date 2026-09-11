@@ -9,7 +9,7 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 const BUDGET = {
-  mainChunkKB: 120, // 主 chunk gzip 上限（v0.9.4 复核：Loom 懒加载后 116.9KB，阈值不动）
+  mainChunkKB: 120, // 主 chunk gzip 上限（v0.9.4-03 复核：117.9KB，阈值不动）
   // v0.6 校准：v0.5.2 基线实测 238.6KB（recharts 懒加载 chunk 即占 105KB），230KB 阈值自 v0.4 沿袭未随
   // vendor 拆分与图表库引入重校，属存量潜伏超限；按基线 + v0.6 增量（约 7KB）+ 余量校准为 250KB
   // v0.8 校准：v0.7 简报交互/落章/专注模式 + v0.8 数据上下文层与 LLM 技能提炼（合计约 +9KB 业务代码，
@@ -21,7 +21,10 @@ const BUDGET = {
 // v0.9.4 校准：Loom 空间任务台（数据模型 / 图算法 / 画布交互 / 拓扑串行执行 / Trace 投影 + 简报空间化）
 // 合计 +16.6KB（零新依赖）；其中画布 UI 与 runner 已整体懒加载（LoomPanel chunk 11.4KB，主 chunk 116.9KB
 // 仍守 120KB），业务侧新增的 store / 图算法随主 chunk 进入总包，实测 293.7KB，按实测 + 余量校准 285 → 295KB
-totalJsKB: 295, // 全部 JS gzip 上限
+// v0.9.4-03 校准：画布真实接入 LLM 修复（非执行节点过滤 / 文档节点接线 / 上游穿透与注入 / function-calling
+// 补 plan / 降级可见）合计 +1.7KB（零新依赖，主 chunk 117.9KB 仍守 120KB），实测 295.4KB，
+// 按实测 + 余量校准 295 → 297KB
+totalJsKB: 297, // 全部 JS gzip 上限
 }
 
 const dist = 'dist/assets'

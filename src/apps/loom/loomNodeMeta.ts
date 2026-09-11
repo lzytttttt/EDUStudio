@@ -21,8 +21,12 @@ export const LOOM_TYPE_META: Record<LoomNodeType, LoomTypeMeta> = {
   note: { label: '便签', icon: '📝', hint: '自由记录' },
 }
 
-/** 可手动创建的类型（tool 仅由 Trace 投影产生，见实施参考缺口修正 #2） */
-export const LOOM_CREATABLE_TYPES: LoomNodeType[] = ['agent', 'checkpoint', 'note', 'artifact']
+/**
+ * 可手动创建的类型：
+ * - tool 仅由 Trace 投影产生（见实施参考缺口修正 #2）；
+ * - artifact（文档）由 Agent 产出时自动出现在画布（v0.9.4-03），不再提供手动创建入口。
+ */
+export const LOOM_CREATABLE_TYPES: LoomNodeType[] = ['agent', 'checkpoint', 'note']
 
 export interface LoomStatusMeta {
   dot: string
