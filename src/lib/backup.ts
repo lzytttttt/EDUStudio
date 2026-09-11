@@ -30,6 +30,7 @@ export const BACKUP_KEY_WHITELIST: readonly string[] = [
   'importedData',
   'importedDocs',
   'memory',
+  'loom',
 ]
 
 /** 分享批注为动态键（share-anno-<snapshotKey>），按前缀放行 */

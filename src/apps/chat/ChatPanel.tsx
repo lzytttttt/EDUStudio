@@ -1,17 +1,22 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Sparkles, Zap, CheckCircle2, ArrowLeft, RotateCcw, AlertCircle, GraduationCap, Plus, FileText, X } from 'lucide-react'
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
+import { Sparkles, Zap, CheckCircle2, ArrowLeft, RotateCcw, AlertCircle, GraduationCap, Plus, FileText, X, MessageSquare, Network } from 'lucide-react'
 import { useAuthStore } from '../../stores/authStore'
 import { useChatStore } from '../../stores/chatStore'
 import { useBriefingStore } from '../../stores/briefingStore'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { useUiStore } from '../../stores/uiStore'
 import { useArtifactStore } from '../../stores/artifactStore'
+import { useLoomStore } from '../../stores/loomStore'
 import { DEFAULT_RIGHT_TAB, BOARD_LABEL } from '../../lib/rightPanel'
 import { getRolePreset } from '../../harness/roles'
 import AgentTraceView from './AgentTraceView'
 import ChatInput from './ChatInput'
 import DemoWizard from './DemoWizard'
 import { cn } from '../../lib/cn'
+
+/* 空间任务台整体懒加载（v0.9.4）：画布 / 连线 / 节点编辑器与 runner 只在首次打开时拉取，
+ * 不进首屏主 chunk——延续「轻量、纯前端、离线」的包体纪律 */
+const LoomPanel = lazy(() => import('../loom/LoomPanel'))
 
 const ROLE_CHIP = { teacher: 'bg-mint-soft text-mint', schoolAdmin: 'bg-primary-soft text-primary', bureau: 'bg-coral-soft text-coral' } as const
 
@@ -101,6 +106,9 @@ export default function ChatPanel() {
   const taskDone = !streaming && entries.length > 0 && lastEntry?.role === 'assistant' && !lastEntry.streaming
   /* 头部仪表盘用：提前取出角色，避免 JSX 闭包内失去 narrowing */
   const headerRole = session?.role
+  /* v0.9.4：无会话时头部仍显示（角色取登录态），空间任务台入口在空工作台也可达 */
+  const authRole = useAuthStore((s) => s.role)
+  const effectiveRole = headerRole ?? authRole
 
   /* 回退路径（v0.9.3 P0-A③）：文档占位自动切「文档」后，中栏常驻一条可收起的轻提示，
    * 一键回到角色主工作台；仅在生成中显示，不弹窗、不打断流式 */
@@ -109,6 +117,47 @@ export default function ChatPanel() {
   const docNoticeDismissed = useUiStore((s) => s.docNoticeDismissed)
   const dismissDocNotice = useUiStore((s) => s.dismissDocNotice)
   const generatingIds = useArtifactStore((s) => s.generatingIds)
+
+  /* 空间任务台（v0.9.4 M2）：中栏第二视图 + 沉浸态；折叠态保留一条入口 */
+  const centerView = useUiStore((s) => s.centerView)
+  const setCenterView = useUiStore((s) => s.setCenterView)
+  const loomOpen = useUiStore((s) => s.loomOpen)
+  const setLoomOpen = useUiStore((s) => s.setLoomOpen)
+  const immersive = useUiStore((s) => s.loomImmersive)
+  const setLoomImmersive = useUiStore((s) => s.setLoomImmersive)
+  /* 画布高度（v0.9.4-02）：懒加载占位与面板保持同高，避免加载瞬间跳变 */
+  const loomHeight = useUiStore((s) => s.loomHeight)
+  /* 注意：选择器必须返回原始引用（返回新对象会导致 getSnapshot 无限重渲）；
+   * 统计在渲染里用 useMemo 从 board 派生 */
+  const loomBoard = useLoomStore((s) => s.boards.find((b) => b.id === s.activeBoardId) ?? null)
+  const loomStats = useMemo(() => {
+    const nodes = loomBoard?.nodes ?? []
+    return {
+      total: nodes.length,
+      pending: nodes.filter((n) => n.status === 'queued' || n.status === 'running' || n.status === 'waiting').length,
+    }
+  }, [loomBoard])
+  const loomVisible = centerView === 'loom' && loomOpen
+
+  /* 画布快捷键：Ctrl/⌘+Z 撤销、Ctrl/⌘+Shift+Z 重做（编辑元素内不拦截） */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((!e.ctrlKey && !e.metaKey) || e.altKey) return
+      const key = e.key.toLowerCase()
+      if (key !== 'z') return
+      const el = e.target as HTMLElement | null
+      const editable =
+        !!el &&
+        (['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName) || el.isContentEditable || !!el.closest('[contenteditable="true"]'))
+      if (editable) return
+      e.preventDefault()
+      const store = useLoomStore.getState()
+      if (e.shiftKey) store.redo()
+      else store.undo()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
   const docFocusNotice =
     generatingIds.length > 0 && rightTab === 'doc' && !docNoticeDismissed && !!headerRole && DEFAULT_RIGHT_TAB[headerRole] !== 'doc'
   const backToBoard = () => {
@@ -161,14 +210,15 @@ export default function ChatPanel() {
 
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col">
-      {/* 头部（v0.9.2 P1-B）：任务状态仪表盘——一眼看清「这是谁的任务、跑到哪一步」 */}
-      {session && headerRole && (
+      {/* 头部（v0.9.2 P1-B）：任务状态仪表盘——一眼看清「这是谁的任务、跑到哪一步」。
+       * v0.9.4：无会话时也常驻（空工作台是打开「空间任务台」的主入口）。 */}
+      {effectiveRole && (
         <header className="hidden items-center justify-between gap-3 border-b border-line bg-surface px-5 py-3 md:flex">
           <div className="min-w-0">
             <div className="flex min-w-0 items-center gap-2.5">
-              <h1 className="truncate text-sm font-semibold">{session.title}</h1>
-              <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[0.625rem] font-medium', ROLE_CHIP[headerRole])}>
-                {getRolePreset(headerRole).name}
+              <h1 className="truncate text-sm font-semibold">{session?.title ?? '新任务'}</h1>
+              <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[0.625rem] font-medium', ROLE_CHIP[effectiveRole])}>
+                {getRolePreset(effectiveRole).name}
               </span>
             </div>
             <div className="mt-1 flex items-center gap-2">
@@ -203,6 +253,49 @@ export default function ChatPanel() {
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
+            {/* 中栏视图切换（v0.9.4 M2）：对话 ↔ 空间任务台 */}
+            <div className="flex shrink-0 items-center rounded-full border border-line bg-bg p-0.5" role="tablist" aria-label="中栏视图">
+              <button
+                role="tab"
+                aria-selected={!loomVisible}
+                data-testid="center-view-chat"
+                onClick={() => setCenterView('chat')}
+                className={cn(
+                  'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[0.6875rem] font-medium transition-colors',
+                  !loomVisible ? 'bg-surface text-ink shadow-soft' : 'text-ink-soft hover:text-ink',
+                )}
+              >
+                <MessageSquare size={11} />
+                对话
+              </button>
+              <button
+                role="tab"
+                aria-selected={loomVisible}
+                data-testid="center-view-loom"
+                onClick={() => {
+                  setCenterView('loom')
+                  setLoomOpen(true)
+                }}
+                className={cn(
+                  'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[0.6875rem] font-medium transition-colors',
+                  loomVisible ? 'bg-surface text-ink shadow-soft' : 'text-ink-soft hover:text-ink',
+                )}
+              >
+                <Network size={11} />
+                空间任务台
+                {loomStats.total > 0 && (
+                  <span
+                    className={cn(
+                      'rounded-full px-1 text-[0.5625rem] font-semibold',
+                      loomStats.pending > 0 ? 'bg-amber-soft text-amber' : 'bg-mint-soft text-mint',
+                    )}
+                  >
+                    {loomStats.total}
+                  </span>
+                )}
+              </button>
+            </div>
+            <span className="hidden h-4 w-px bg-line lg:block" />
             {/* 自进化演示常驻入口（v0.9.3 P1-A③）：非空会话也能随时开演，不必先清空会话 */}
             <button
               data-testid="demo-entry-top"
@@ -215,7 +308,7 @@ export default function ChatPanel() {
             </button>
             {/* 新建任务快捷入口（v0.9.2 P1-B）：复用 newSession，与 Sidebar 主按钮同族样式 */}
             <button
-              onClick={() => newSession(headerRole)}
+              onClick={() => newSession(effectiveRole)}
               className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-primary px-3.5 py-1.5 text-xs font-medium text-white shadow-soft transition-all hover:bg-primary-deep hover:shadow-pop active:scale-95"
             >
               <Plus size={13} />
@@ -254,6 +347,34 @@ export default function ChatPanel() {
         </div>
       )}
 
+      {/* 空间任务台（v0.9.4 M2）：默认态在对话上方展开，沉浸态独占中栏 */}
+      {loomVisible && (
+        <Suspense
+          fallback={
+            <div
+              data-testid="loom-loading"
+              className={cn(
+                'flex items-center justify-center border-b border-line bg-surface text-xs text-ink-mute',
+                immersive ? 'flex-1' : 'shrink-0',
+              )}
+              style={immersive ? undefined : { height: loomHeight }}
+            >
+              正在打开空间任务台…
+            </div>
+          }
+        >
+          <LoomPanel
+            onRequestClose={() => {
+              setLoomOpen(false)
+              setCenterView('chat')
+            }}
+          />
+        </Suspense>
+      )}
+
+      {/* 沉浸态：对话区让位，画布独占中栏 */}
+      {!immersive && (
+        <>
       {/* 消息流（v0.4 M4②：content-visibility 原生虚拟化，长会话跳过屏外渲染） */}
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-5 md:px-6">
         {!session || session.entries.length === 0 ? (
@@ -310,6 +431,8 @@ export default function ChatPanel() {
       </div>
 
       <ChatInput />
+        </>
+      )}
       {demoOpen && <DemoWizard onClose={() => setDemoOpen(false)} />}
     </div>
   )

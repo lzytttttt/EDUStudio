@@ -5,6 +5,7 @@ import { matchSkill } from '../skills/library'
 import { distillSkill } from '../skills/distill'
 import { useSkillStore } from '../../stores/skillStore'
 import { getMemoryProvider } from '../memory'
+import { upstreamReflectText } from '../loom/context'
 
 /**
  * MockOrchestrator —— 三层执行链（v0.6 M2①）：
@@ -22,6 +23,9 @@ export class MockOrchestrator implements AgentProvider {
 
   async runTask(input: AgentTaskInput, emit: (e: AgentTraceEvent) => void): Promise<void> {
     const { role, goal, signal } = input
+    // v0.9.4 M5：Loom 上游结果注入——Mock 用一条 reflect 展示「已接收上游结果」，串联真执行链路
+    const upstream = input.context?.upstream
+    if (upstream && upstream.length > 0) emit({ kind: 'reflect', text: upstreamReflectText(upstream) })
     /** 收集本次执行事件，供任务完成后提炼技能 */
     const collected: AgentTraceEvent[] = []
     const track = (e: AgentTraceEvent) => {

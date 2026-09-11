@@ -4,14 +4,14 @@
 
 **面向 K12 教育从业者（教育局 / 学校管理 / 教师）的轻量 AI Agent 工作台**
 
-`v0.9.3` · `演示演出 · 生成即见 · 解耦 Harness · Mock 兜底 · DeepSeek 级低成本 · 离线可演示`
+`v0.9.4` · `空间任务台 · 简报任务平铺 · 拖拽编排 · 可视依赖 · 人机协同`
 
 [![license](https://img.shields.io/badge/license-CC%20BY--NC%204.0-blue.svg)](./LICENSE)
 [![stack](https://img.shields.io/badge/Vite-React%2018-646CFF.svg)](./package.json)
-[![tests](https://img.shields.io/badge/Vitest-286%20%E4%BE%8B-success.svg)](#-质量保障)
-[![e2e](https://img.shields.io/badge/Playwright-13%20%E7%94%A8%E4%BE%8B-brightgreen.svg)](#-质量保障)
+[![tests](https://img.shields.io/badge/Vitest-378%20%E4%BE%8B-success.svg)](#-质量保障)
+[![e2e](https://img.shields.io/badge/Playwright-21%20%E7%94%A8%E4%BE%8B-brightgreen.svg)](#-质量保障)
 [![lighthouse](https://img.shields.io/badge/Lighthouse-%E2%89%A5%200.85-yellow.svg)](#-质量保障)
-[![budget](https://img.shields.io/badge/gzip-285KB%20%E9%97%A8%E7%A6%81-orange.svg)](#-质量保障)
+[![budget](https://img.shields.io/badge/gzip-295KB%20%E9%97%A8%E7%A6%81-orange.svg)](#-质量保障)
 
 </div>
 
@@ -48,6 +48,25 @@ EDUStudio 的产品形态是一条「**收件 → 批阅 → 处理**」的暗�
   <img src="./png/shot/wechat_2026-09-05_164200_306.png" width="800" alt="登录页 · 账号密码式 + 角色切换" />
   <br/><em>登录页 · 账号密码式 + 角色切换 + Mock 演示模式提示</em>
 </p>
+
+---
+
+## v0.9.4 新特性 · Loom 空间任务台：把简报任务摊开来工作
+
+> 主线版本（7 个里程碑 M1~M7），随 v0.9.4 发布。
+> 状态：✅ 已完成 · 单测（378 例，+92）+ E2E（21 例，+8）+ tsc + 视觉回归 + 包体门禁全绿，零新依赖。
+
+简报负责发现「今天值得做什么」，空间任务台负责决定「这些事应该怎么一起做」，Agent 负责真正把它们做完：
+
+- **简报任务平铺（M2/M4）**：采纳的简报卡自动在画布上出现为「任务节点」，一卡一节点、幂等绑定会话；「从画布移除」写墓碑，不会被再次采纳复活；
+- **自由编排（M2/M3）**：拖拽节点、滚轮缩放 40%~180%、Space 平移、Ctrl+0 归中、⌗ 一键整理（300ms 过渡）；hover 拖出连线建立依赖，成环 / 自环 / 重边一律拒绝并给出人话提示；右键长按不在话下——Ctrl+Z / Ctrl+Shift+Z 撤销重做（历史随画布，最多 30 步）；
+- **按依赖真实执行（M5）**：`▶ 开始处理` 后按拓扑序**串行**执行（本版不做真并发），上游任务的输出自动注入下游目标文本；执行期间单飞互斥（用户手动发消息时任务自动回队），批次结束恢复用户原本的任务视图；
+- **看得见的运行态（M6）**：节点状态 idle → queued → running（amber 呼吸）→ done（mint）；连线在执行中呈流动虚线；双击/展开任务节点把 Agent Trace 投影成横向子图（plan → tool → result → artifact），最多 6 项；Agent 生成文档时画布上出现「📄 正在生成」的文档节点，点击直达右栏逐字产出；
+- **人机协同（M6）**：`✋ 人工确认` 节点让执行到此暂停（coral 等待态），教师点「继续」才进入下游——对应「AI 生成内容仅供参考，采纳前人工复核」；
+- **数据安全与轻量（M1/M7）**：`edustudio:loom` 并入全量备份白名单；schemaVersion 版本化迁移；画布整体懒加载（`LoomPanel` 11.4KB 独立 chunk），主 chunk 仍守 120KB，零新运行时依赖（未引入 XYFlow / dagre）；
+- **体验打磨（增量 v0.9.4-02）**：画布高度可上下拖拽（180px ~ 中栏 80%，双击复位）；标题统一「教学 / 管理 / 区域画布」并归一化历史数据；大字档位下节点标题两行、描述三行、卡片自适应增高；画布通知分级（成功 mint / 被拒 danger / 说明中性）且最多并列 3 条。
+
+> 详见 [doc/v0.9.4-roadmap.md](./doc/v0.9.4-roadmap.md) 与实施参考 [doc/v0.9.4-01-loom-implementation.md](./doc/v0.9.4-01-loom-implementation.md)。
 
 ---
 
@@ -341,7 +360,7 @@ npm install
 npm run dev      # 开发（端口被占用时 Vite 自动顺延）
 npm run build    # 类型检查 + 生产构建（前置 Vitest 单测 + tsc）
 npm run preview  # 预览生产构建
-npm test         # Vitest 单测（286 例）
+npm test         # Vitest 单测（367 例）
 npm run e2e      # Playwright 关键路径 E2E
 npm run video:smoke   # 宣传片抽帧自检（23 张）
 npm run video:frames  # 宣传片逐帧截图（1800 帧）
@@ -384,7 +403,7 @@ DEEPSEEK_KEY=sk-xxx docker compose up -d        # PowerShell：$env:DEEPSEEK_KEY
 | 视图 | React 18 · TypeScript 5 |
 | 样式 | Tailwind CSS 3 · tailwindcss-animate |
 | 状态 | Zustand |
-| 图标 | lucide-react / react-icons |
+| 图标 | lucide-react |
 | 图表 | recharts |
 | 单测 | Vitest 2 |
 | E2E | Playwright |
@@ -398,11 +417,11 @@ DEEPSEEK_KEY=sk-xxx docker compose up -d        # PowerShell：$env:DEEPSEEK_KEY
 
 | 闸门 | 说明 |
 | --- | --- |
-| **Vitest 单测** | `npm test` 运行 Vitest 单测（**286 例**），覆盖 SSE 解析 / 增量归一化 / Markdown 渲染 / 工具注册 / 剧本与模板匹配 / 存储往返 / 偏好注入 / 导出工具 / CSV 成绩解析 / 数据源降级 / 上下文压缩 / 技能提炼与检索 / 简报卡校验与个性化排序 / 简报交互覆盖层与决策撤回 / 后台任务泵 / 数据上下文聚合与截断 / LLM 技能提炼校验与去重进化 / 简报重新生成选项注入与种类过滤 / 记忆环形裁剪与语义合并 / 偏好提炼与注入组装 / 文档规则评分 / 相对时间与工具 display 文案 / 决策键守卫矩阵 / 日期与新鲜度 / 文档流可见性 |
+| **Vitest 单测** | `npm test` 运行 Vitest 单测（**378 例**），覆盖 SSE 解析 / 增量归一化 / Markdown 渲染 / 工具注册 / 剧本与模板匹配 / 存储往返 / 偏好注入 / 导出工具 / CSV 成绩解析 / 数据源降级 / 上下文压缩 / 技能提炼与检索 / 简报卡校验与个性化排序 / 简报交互覆盖层与决策撤回 / 后台任务泵 / 数据上下文聚合与截断 / LLM 技能提炼校验与去重进化 / 简报重新生成选项注入与种类过滤 / 记忆环形裁剪与语义合并 / 偏好提炼与注入组装 / 文档规则评分 / 相对时间与工具 display 文案 / 决策键守卫矩阵 / 日期与新鲜度 / 文档流可见性 / Loom 图算法与画布几何 / 空间任务台 store 与幂等墓碑 / Loom runner 拓扑执行与上游注入 / Trace 投影 |
 | **构建闸门** | `npm run build` 前置执行单测 + tsc 类型检查，**双闸门**保障交付质量 |
-| **Playwright E2E** | 7 条关键路径 + 2 条自进化演示 |
+| **Playwright E2E** | 7 条关键路径 + 2 条自进化演示 + 8 条空间任务台（含依赖链真实执行与体验打磨） |
 | **视觉回归** | 4 张基线视觉回归（阈值 5%，首月观察期） |
-| **包体预算门禁** | 285KB gzip 阈值（`scripts/budget.mjs`），超限按 v0.6 / v0.8 / v0.8.4 先例重校 |
+| **包体预算门禁** | 主 chunk 120KB / 全部 JS 295KB gzip（`scripts/budget.mjs`），超限按 v0.6 / v0.8 / v0.8.4 / v0.9.3 先例重校；v0.9.4 画布整体懒加载后主 chunk 116.9KB |
 | **Lighthouse CI** | 性能 ≥ 0.85（`lighthouserc.yml`） |
 
 ---
@@ -411,6 +430,7 @@ DEEPSEEK_KEY=sk-xxx docker compose up -d        # PowerShell：$env:DEEPSEEK_KEY
 
 | 版本 | 主题 | 一句话 |
 | --- | --- | --- |
+| **v0.9.4** | Loom 空间任务台 | 简报任务平铺进画布（一卡一节点 + 幂等墓碑）+ 拖拽 / 连线编排（成环拒绝 + 撤销重做）+ 单飞串行拓扑真实执行（上游输出注入下游 + 人工确认暂停）+ Agent Trace 空间投影与文档节点联动；零新依赖，画布懒加载 |
 | **v0.9.3** | 演示演出打磨 | 生成即见的文档流（占位即切 tab + 生成中 / 未读角标 + 返回主工作台）+ 编辑态方向键防误触（`shouldIgnoreDecisionKey` 守卫矩阵）+ 简报日期实时化与 seed 新鲜度 + 流式渲染节流与选择器订阅；P1 演示节奏与首进体验、P2 工程收口 |
 | **v0.9.2** | 工作台 UI 优化 · 教育者视角 | 执行轨迹业务化（13 工具 display 文案 + 技术细节开关）+ 角色主工作台默认激活 + 侧栏任务卡（摘要 + 相对时间 + 删除常显）+ 中栏进度仪表盘（第 N/M 步 · 并行 N 组）+ 下发待回执角标 + 简报「一卡一任务」（采纳卡片各自成独立任务会话，重复采纳幂等） |
 | **v0.9.1** | 记忆分层与产出自评闭环 | L2 情景 + L3 语义偏好本地记忆（环形 200 条 + 角色隔离）+ 对话 / 简报偏好注入 + 文档规则版自评（0-10 分 + 可执行建议）+ 导出 / 反馈 / 卡片决策自动收割闭环 |
@@ -433,8 +453,8 @@ DEEPSEEK_KEY=sk-xxx docker compose up -d        # PowerShell：$env:DEEPSEEK_KEY
 
 ## 下一步
 
-- **v0.9.3 已落地（P0）**：演示演出打磨四项——生成即见的文档流（新文档自动切「文档」页签 + 生成中角标）、编辑态方向键防误触、演示日期与数据新鲜度校正、流式渲染节流与选择器订阅，方案见 [doc/v0.9.3-roadmap.md](./doc/v0.9.3-roadmap.md)；
-- **v0.9.3 已落地（续）**：P1（演示向导节奏 / 首进引导与演示直达 / 物料一致性）与 P2（StrictMode 去重 / 持久化 debounce / 移除未使用 `react-icons` / 宣传片一键复渲）已全部落地，随本次交付；
+- **v0.9.4 已落地**：Loom 空间任务台 M1~M7 全部完成——数据模型与图算法（环 / 重边 / 拓扑 / 就绪判定）、画布骨架与交互（拖拽 / 缩放 / 平移 / 归中 / 整理 / 沉浸态 / 移动端只读地图）、节点编辑与连线（撤销重做 30 步）、简报任务空间化（幂等 + 墓碑）、拓扑串行真实执行（上游注入 / 单飞回队 / 人工确认暂停续跑）、运行态可视化（Trace 投影子图 / 文档节点 / 流动连线），方案见 [doc/v0.9.4-roadmap.md](./doc/v0.9.4-roadmap.md) 与实施参考 [doc/v0.9.4-01-loom-implementation.md](./doc/v0.9.4-01-loom-implementation.md)；
+- **v0.10 候选（本版明确不做）**：真正并行的 DAG scheduler（需同步改造 `chatStore` 单飞门控）、多人协作 / Minimap / 大型图（100+ 节点）下的 XYFlow 评估、版本分支与云端同步；
 - **二期候选**：LLM 版偏好提炼与自评（`getMemoryProvider` / `getEvaluator` 已预留 mode 分流）、云端记忆同步（设计文档「不做清单」，按需启动）。
 
 全部迭代文档见 [doc/README.md](./doc/README.md)。

@@ -175,11 +175,33 @@ export type AgentTraceEvent =
       evolved: boolean
     }
 
+/** v0.9.4 Loom：上游节点结果引用（注入 Agent 执行上下文，见 v0.9.4-01 决策 2） */
+export interface LoomUpstreamRef {
+  /** 上游节点 id */
+  nodeId: string
+  /** 上游节点标题（注入文案「标题：输出」） */
+  title: string
+  /** 上游节点采集到的输出（可能为空串） */
+  output: string
+}
+
+/**
+ * v0.9.4 Loom：执行上下文（缺省时行为与 v0.9.3 完全一致，纯增量）。
+ * - loomNodeId：触发本次执行的 Loom 节点 id；存在时不抢占用户当前视图（activeId）；
+ * - upstream：依赖（dependency / context 边）上游节点的结果，供 Mock reflect 展示 / API 拼入 messages。
+ */
+export interface ToolContext {
+  loomNodeId?: string
+  upstream?: LoomUpstreamRef[]
+}
+
 export interface AgentTaskInput {
   role: RoleId
   goal: string
   history: ChatMessage[]
   signal?: AbortSignal
+  /** v0.9.4 Loom 上游结果注入（缺省 = 既有行为） */
+  context?: ToolContext
 }
 
 export interface AgentProvider {

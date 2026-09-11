@@ -33,6 +33,8 @@ Thumbs.db
 # Playwright
 test-results*
 playwright-report
+# 临时 E2E 输出目录（安全删除受限时保留在本地，不入库）
+.tmp-e2e*
 blob-report
 
 # Proxy runtime artifacts

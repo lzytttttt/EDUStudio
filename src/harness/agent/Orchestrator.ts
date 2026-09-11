@@ -19,6 +19,7 @@ import { LlmSkillDistiller, type SkillDistiller } from '../skills/distill'
 import { useSkillStore } from '../../stores/skillStore'
 import { getMemoryProvider } from '../memory'
 import type { MemoryEntry } from '../types'
+import { formatUpstreamContext, formatUpstreamResults } from '../loom/context'
 
 /** 循环护栏：最多 5 轮工具调用（v0.4 M1①：plan → tool → 观察 → 再 plan） */
 const MAX_TOOL_ROUNDS = 5
@@ -100,6 +101,9 @@ export class Orchestrator implements AgentProvider {
       }
       // v0.9 M6②：导入文档作为附件材料注入上下文（Orchestrator 仅 API 模式运行，Mock 走剧本不消费）
       const attachments = buildDocAttachments(role)
+      // v0.9.4 M5：Loom 上游结果拼进 user 消息（「上游任务结果：… 当前目标：…」），无上游时退化为原 goal
+      const upstream = input.context?.upstream
+      const userContent = upstream && upstream.length > 0 ? formatUpstreamContext(upstream, goal) : goal
       const messages: ChatMessage[] = [
         {
           role: 'system',
@@ -109,8 +113,8 @@ export class Orchestrator implements AgentProvider {
         {
           role: 'user',
           content: attachments
-            ? `${goal}\n\n【导入文档材料】（用户导入的文档与说明，回答与产出可引用其内容）\n${attachments}`
-            : goal,
+            ? `${userContent}\n\n【导入文档材料】（用户导入的文档与说明，回答与产出可引用其内容）\n${attachments}`
+            : userContent,
         },
       ]
       if (skill) {
@@ -347,12 +351,16 @@ export class Orchestrator implements AgentProvider {
       `可用工具：\n${toolMenu}\n` +
       `要求：步骤 2~5 步；如目标需要产出文档，最后一步用 artifact 并选择合适 kind。`
 
+    // v0.9.4 M5：降级路径同样携带 Loom 上游结果（无上游时文本不变）
+    const upstreamResults = formatUpstreamResults(input.context?.upstream)
+    const taskPrompt = upstreamResults ? `${upstreamResults}\n\n任务目标：${goal}` : `任务目标：${goal}`
+
     let full = ''
     for await (const delta of this.llm.streamChat(
       [
         { role: 'system', content: buildSystemPrompt(preset, useSettingsStore.getState().preferences) },
         ...history,
-        { role: 'user', content: `任务目标：${goal}\n\n${instruction}` },
+        { role: 'user', content: `${taskPrompt}\n\n${instruction}` },
       ],
       signal,
     )) {

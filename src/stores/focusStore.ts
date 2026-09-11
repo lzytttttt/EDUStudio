@@ -12,6 +12,7 @@ import { create } from 'zustand'
 import type { BriefingCard } from '../harness/types'
 import { useAuthStore } from './authStore'
 import { useChatStore, type ChatEntry } from './chatStore'
+import { useLoomStore } from './loomStore'
 
 export type BackgroundTaskStatus = 'queued' | 'running' | 'done' | 'failed'
 
@@ -91,6 +92,16 @@ export const useFocusStore = create<FocusState>((set, get) => ({
     const sessionId = role
       ? useChatStore.getState().ensureCardSession(role, card.id, card.title, { focus: false })
       : null
+    /* 简报任务空间化（v0.9.4 M4）：专注模式采纳同样进入空间任务台（幂等 + 墓碑保护） */
+    if (role && card.action?.kind === 'openTask') {
+      useLoomStore.getState().ensureTaskNode({
+        role,
+        cardId: card.id,
+        title: card.title,
+        description: card.tag || '来自今日简报',
+        sessionId: sessionId ?? undefined,
+      })
+    }
     const task: BackgroundTask = {
       id: `bg-${Date.now().toString(36)}-${seq}`,
       cardId: card.id,

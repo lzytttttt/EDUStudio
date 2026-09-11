@@ -4,14 +4,14 @@
 
 **A lightweight AI Agent workbench for K-12 education practitioners (education bureaus / school admins / teachers)**
 
-`v0.9.3` · `Demo Polish · Streamed Docs in View · Decoupled Harness · Mock Fallback · DeepSeek-level Low Cost · Offline Demo-ready`
+`v0.9.4` · `Loom Spatial Task Board · Briefing Tasks Laid Out · Drag-to-Arrange · Visible Dependencies · Human-in-the-Loop`
 
 [![license](https://img.shields.io/badge/license-CC%20BY--NC%204.0-blue.svg)](./LICENSE)
 [![stack](https://img.shields.io/badge/Vite-React%2018-646CFF.svg)](./package.json)
-[![tests](https://img.shields.io/badge/Vitest-286%20cases-success.svg)](#-quality-assurance)
-[![e2e](https://img.shields.io/badge/Playwright-13%20cases-brightgreen.svg)](#-quality-assurance)
+[![tests](https://img.shields.io/badge/Vitest-378%20cases-success.svg)](#-quality-assurance)
+[![e2e](https://img.shields.io/badge/Playwright-21%20cases-brightgreen.svg)](#-quality-assurance)
 [![lighthouse](https://img.shields.io/badge/Lighthouse-%E2%89%A5%200.85-yellow.svg)](#-quality-assurance)
-[![budget](https://img.shields.io/badge/gzip-285KB%20budget-orange.svg)](#-quality-assurance)
+[![budget](https://img.shields.io/badge/gzip-295KB%20budget-orange.svg)](#-quality-assurance)
 
 [中文文档](./README.md) | English
 
@@ -287,7 +287,7 @@ npm install
 npm run dev      # Development (Vite auto-increments the port if taken)
 npm run build    # Type check + production build (runs Vitest unit tests + tsc first)
 npm run preview  # Preview the production build
-npm test         # Vitest unit tests (286 cases)
+npm test         # Vitest unit tests (367 cases)
 npm run e2e      # Playwright critical-path E2E
 npm run video:smoke   # Promo film frame smoke check (23 frames)
 npm run video:frames  # Promo film full frame capture (1800 frames)
@@ -330,7 +330,7 @@ Frontend Settings → Mode "Proxy", endpoint `http://<host>:8787/v1`; audit logs
 | View | React 18 · TypeScript 5 |
 | Styling | Tailwind CSS 3 · tailwindcss-animate |
 | State | Zustand |
-| Icons | lucide-react / react-icons |
+| Icons | lucide-react |
 | Charts | recharts |
 | Unit tests | Vitest 2 |
 | E2E | Playwright |
@@ -344,11 +344,11 @@ Frontend Settings → Mode "Proxy", endpoint `http://<host>:8787/v1`; audit logs
 
 | Gate | Description |
 | --- | --- |
-| **Vitest unit tests** | `npm test` runs Vitest (**286 cases**), covering SSE parsing / incremental normalization / Markdown rendering / tool registration / script & template matching / storage round-trip / preference injection / export utils / CSV score parsing / data-source fallback / context compression / skill distillation & retrieval / briefing card validation & personalized ordering / briefing interaction overlay & decision undo / background task pump / data context aggregation & truncation / LLM skill distillation validation & dedup evolution / briefing regeneration option injection & type filtering / decision-key guard matrix / date & seed freshness / doc visibility |
+| **Vitest unit tests** | `npm test` runs Vitest (**378 cases**), covering SSE parsing / incremental normalization / Markdown rendering / tool registration / script & template matching / storage round-trip / preference injection / export utils / CSV score parsing / data-source fallback / context compression / skill distillation & retrieval / briefing card validation & personalized ordering / briefing interaction overlay & decision undo / background task pump / data context aggregation & truncation / LLM skill distillation validation & dedup evolution / briefing regeneration option injection & type filtering / decision-key guard matrix / date & seed freshness / doc visibility / Loom graph algorithms & canvas geometry / spatial task board store with idempotent tombstones / Loom runner topological execution & upstream injection / trace projection |
 | **Build gate** | `npm run build` runs unit tests + tsc type checking first — a **double gate** for delivery quality |
-| **Playwright E2E** | 7 critical paths + 2 self-evolution demos |
+| **Playwright E2E** | 7 critical paths + 2 self-evolution demos + 8 spatial task board (incl. dependency-chain execution and UX polish) |
 | **Visual regression** | 4 baseline visual regressions (5% threshold, one-month observation period) |
-| **Bundle budget gate** | 285KB gzip threshold (`scripts/budget.mjs`); recalibrate per v0.6 / v0.8 / v0.8.4 precedent when exceeded |
+| **Bundle budget gate** | main chunk 120KB / all JS 295KB gzip (`scripts/budget.mjs`); recalibrate per v0.6 / v0.8 / v0.8.4 / v0.9.3 precedent when exceeded; the Loom board is lazy-loaded so main chunk stays at 116.9KB |
 | **Lighthouse CI** | Performance ≥ 0.85 (`lighthouserc.yml`) |
 
 ---
@@ -357,6 +357,7 @@ Frontend Settings → Mode "Proxy", endpoint `http://<host>:8787/v1`; audit logs
 
 | Version | Theme | One-liner |
 | --- | --- | --- |
+| **v0.9.4** | Loom spatial task board | Adopted briefing cards laid out on a canvas (one card one node + idempotent tombstones) + drag & connect to arrange (cycle rejection + undo/redo) + real topological execution over a single-flight gate (upstream output injected downstream + human-confirmation pause) + Agent Trace projected into the node and artifact-node navigation; zero new dependencies, board lazy-loaded |
 | **v0.9.3** | Demo-presentation polish | Streamed documents into view (auto-switch to the Docs tab + generating badge + back-to-workbench hint) + arrow-key guard while editing (`shouldIgnoreDecisionKey`) + live briefing date & seed freshness + streaming render throttling & selector subscriptions; P1 demo pacing & first-entry; P2 engineering wrap-up |
 | **v0.9.2** | Workbench UI polish · educator's view | Human-readable traces (display contract for 13 tools + "show tech details" toggle) + role-default right-panel tab + sidebar task cards (summary + relative time + always-visible delete) + center-column progress dashboard (step N/M · parallel N groups) + dispatch pending-receipt badge + briefing one-card-one-task (each adopted card gets its own task session) |
 | **v0.9.1** | Layered memory & output self-eval loop | L2 episodic + L3 semantic preference local memory (ring buffer of 200 + role isolation) + preference injection for chat / briefing + rule-based doc self-eval (0-10 score + actionable advice) + harvesting loop for exports / feedback / card decisions |

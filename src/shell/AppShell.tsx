@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { LayoutList, MessageSquare, FileText, X, ArrowLeft } from 'lucide-react'
 import Sidebar from './Sidebar'
 import ChatPanel from '../apps/chat/ChatPanel'
@@ -9,6 +9,7 @@ import Resizer from './Resizer'
 import { useAuthStore } from '../stores/authStore'
 import { useArtifactStore } from '../stores/artifactStore'
 import { useSettingsStore, DEFAULT_COLUMN_WIDTHS, clampColumnWidth, flushSettingsPersist } from '../stores/settingsStore'
+import { flushLoomPersist } from '../stores/loomStore'
 import { useNotificationStore, unreadCount } from '../stores/notificationStore'
 import { t } from '../lib/i18n'
 import { cn } from '../lib/cn'
@@ -34,6 +35,23 @@ export default function AppShell() {
   /* 文档生成中 / 未读（v0.9.3 P0-A②）：窄屏抽屉入口同款角标，避免文档产出被抽屉深藏 */
   const docGenerating = useArtifactStore((s) => s.generatingIds.length > 0)
   const docUnread = useArtifactStore((s) => s.unreadDocIds.length > 0)
+
+  /* 空间任务台视口 / 结构有 300ms 合并写盘（v0.9.4 M2）：页面隐藏时强制落盘，避免丢最后一次拖动 */
+  useEffect(() => {
+    const onHide = () => {
+      flushSettingsPersist()
+      flushLoomPersist()
+    }
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') onHide()
+    }
+    window.addEventListener('pagehide', onHide)
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      window.removeEventListener('pagehide', onHide)
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
+  }, [])
 
   return (
     <div className="flex h-full overflow-hidden bg-bg">

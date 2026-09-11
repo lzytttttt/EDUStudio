@@ -9,6 +9,7 @@ import { useChatStore } from '../../stores/chatStore'
 import { useFocusStore, type BackgroundTask } from '../../stores/focusStore'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { useUiStore } from '../../stores/uiStore'
+import { useLoomStore } from '../../stores/loomStore'
 import { getRolePreset } from '../../harness/roles'
 import { formatAge, isStale } from '../../harness/sources'
 import type { BriefingGenOptions, CardLink } from '../../harness/types'
@@ -239,6 +240,21 @@ export default function BriefingPage() {
             /* 一卡一任务：以卡片标题为任务名建/复用独立会话并聚焦 */
             void sendMessage(goal, { cardId: decided.id, title: decided.title })
             setStage('workbench')
+          }
+          /* 简报任务空间化（v0.9.4 M4）：采纳即进入空间任务台（幂等，已移除的卡不复活）。
+           * 不切视图、不抢焦点——任务在画布上静静出现，由用户自己决定何时摊开处理。 */
+          const adoptRole = useAuthStore.getState().role
+          if (adoptRole) {
+            const adoptSessionId = useChatStore
+              .getState()
+              .ensureCardSession(adoptRole, decided.id, decided.title, { focus: false })
+            useLoomStore.getState().ensureTaskNode({
+              role: adoptRole,
+              cardId: decided.id,
+              title: decided.title,
+              description: decided.tag || '来自今日简报',
+              sessionId: adoptSessionId,
+            })
           }
         }
       }, EXIT_MS)

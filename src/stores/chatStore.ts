@@ -1,5 +1,12 @@
 import { create } from 'zustand'
-import { LLMError, type AgentTraceEvent, type ChatMessage, type RoleId } from '../harness/types'
+import {
+  LLMError,
+  type AgentTaskInput,
+  type AgentTraceEvent,
+  type ChatMessage,
+  type RoleId,
+  type ToolContext,
+} from '../harness/types'
 import { getProviders } from '../harness/providerRegistry'
 import { useAuthStore } from './authStore'
 import { useArtifactStore } from './artifactStore'
@@ -40,6 +47,8 @@ export interface SendMessageOptions {
   cardId?: string
   /** 任务标题（缺省取目标前 18 字） */
   title?: string
+  /** v0.9.4 Loom：执行上下文（上游结果注入；含 loomNodeId 时不抢占当前视图，缺省 = 既有行为） */
+  context?: ToolContext
 }
 
 interface ChatState {
@@ -163,6 +172,9 @@ export const useChatStore = create<ChatState>((set, get) => {
       if (!trimmed) return null
 
       const title = opts?.title ?? trimmed.slice(0, 18)
+      const context = opts?.context
+      /* v0.9.4 Loom 后台执行：记录执行前视图，避免执行过程抢用户当前会话 */
+      const prevActive = get().activeId
       /* 显式 sessionId 优先（专注模式后台任务按卡落点）；会话可能已被删除，存在性校验后回退 */
       const sessionId =
         opts?.sessionId && get().sessions.some((s) => s.id === opts.sessionId)
@@ -181,9 +193,16 @@ export const useChatStore = create<ChatState>((set, get) => {
         ),
       })
       persist(get().sessions)
+      /* 会话落点确定后立即恢复：Loom 节点执行不抢用户当前视图（后台执行） */
+      if (context?.loomNodeId && get().activeId !== prevActive) set({ activeId: prevActive })
 
-      await runAgentTask(set, get, patchEntry, sessionId, entryId, trimmed)
-      return entryId
+      try {
+        await runAgentTask(set, get, patchEntry, sessionId, entryId, trimmed, context)
+        return entryId
+      } finally {
+        /* 执行结束（含异常）恢复执行前视图 */
+        if (context?.loomNodeId && get().activeId !== prevActive) set({ activeId: prevActive })
+      }
     },
 
     retry: async (entryId) => {
@@ -230,6 +249,7 @@ async function runAgentTask(
   sessionId: string,
   entryId: string,
   goal: string,
+  context?: ToolContext,
 ): Promise<void> {
   const role = useAuthStore.getState().role
   if (!role) {
@@ -291,7 +311,9 @@ async function runAgentTask(
     .map((x) => ({ role: x.role === 'user' ? 'user' : 'assistant', content: x.content }))
 
   try {
-    await getProviders().agent.runTask({ role, goal, history, signal }, (e) => enqueue(() => handleEvent(e)))
+    /* v0.9.4 Loom：context 缺省时不并入 input，保证旧路径入参字节级不变 */
+    const runInput: AgentTaskInput = { role, goal, history, signal, ...(context ? { context } : {}) }
+    await getProviders().agent.runTask(runInput, (e) => enqueue(() => handleEvent(e)))
     await queue
   } catch (err) {
     console.error('[chat] runTask failed:', err)

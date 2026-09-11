@@ -72,6 +72,22 @@ html[data-font='xlarge'] .agent-trace pre {
   .doc-editor {
     font-size: calc(var(--content-fs) * 0.85);
   }
+
+  /* 空间任务台节点（v0.9.4-02）：大字档位内容不截断——标题两行、描述三行，
+     次要信息（类型标签 / 状态行）固定 12px，让卡片高度增长可控（约 96 → 112px） */
+  html[data-font='xlarge'] .loom-node-title {
+    display: -webkit-box;
+    overflow: hidden;
+    white-space: normal;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+  html[data-font='xlarge'] .loom-node-desc {
+    -webkit-line-clamp: 3;
+  }
+  html[data-font='xlarge'] .loom-node-meta {
+    font-size: 12px;
+  }
   /* 对话输入框 */
   .chat-input {
     font-size: var(--content-fs);
