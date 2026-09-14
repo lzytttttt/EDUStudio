@@ -384,13 +384,16 @@ npm run video:mux     # 混入 BGM 输出成片
 
 ### 前端（静态托管，二选一）
 
-**Cloudflare Pages**
+**Cloudflare Workers（推荐，仓库根已内置 `wrangler.toml`）**
 
-1. 控制台 → Workers & Pages → Create → Pages → Connect to Git，选择本仓库；
-2. Framework preset `Vite`、Build command `npm run build`、Build output directory `dist`；
-3. 环境变量：`NODE_VERSION=20`（必须）；可选 `VITE_PROXY_URL=https://<proxy-host>/v1` —— 注入后前端首次打开即为代理模式，用户无需在设置页手填；
-4. SPA 回退与安全响应头已内置：`public/_redirects`、`public/_headers`；
-5. 命令行直传亦可（无需 Git 集成）：`npm run build && npx --yes wrangler@4 pages deploy dist --project-name=edustudio`。
+1. 控制台 → Workers & Pages → Create → Workers → Connect to Git，选择本仓库；
+2. Build command `npm run build`、Deploy command `npx wrangler deploy`（Output Directory 交由 `wrangler.toml` 的 `[assets]` 指定，无需在控制台填）；
+3. 构建变量（Settings → Build → Variables and secrets）：`NODE_VERSION=20`（必须）；可选 `VITE_PROXY_URL=https://<proxy-host>/v1` —— 注入后前端首次打开即为代理模式，用户无需在设置页手填；
+4. 命令行直传亦可：`npm run build && npx --yes wrangler@4 deploy`；
+5. SPA 回退由 `wrangler.toml` 的 `not_found_handling = "single-page-application"` 承担，安全响应头与长缓存来自 `public/_headers`。
+
+> 根目录 `wrangler.toml` **请勿删除**：缺省时 wrangler 会尝试自动配置，而 autoconfig 要求 Vite ≥ 6（本项目 Vite 5.4.x），会导致 `npx wrangler deploy` 直接报错中断。
+> 同一份 `dist/` 产物也兼容 Cloudflare Pages 与 Vercel（`public/_redirects`、`vercel.json` 已内置）。
 
 **Vercel**
 

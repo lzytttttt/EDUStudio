@@ -22,11 +22,11 @@
 - CORS：`ALLOWED_ORIGINS` 域名白名单（未配置时放行，便于本地联调）
 - 可选 `X-EDU-TOKEN`：机构内统一分发 token
 
-## Cloudflare 部署（Pages + Workers，推荐组合）
+## Cloudflare 部署（前端 Worker + 代理 Worker）
 
-前端静态站点走 **Cloudflare Pages**，代理走**独立 Worker**：同账号下各自独立部署与扩缩容，跨域由 `ALLOWED_ORIGINS` 放行。
+前端静态站点走一个 **Worker（Static Assets）**，代理走**另一个独立 Worker**：同账号下各自独立部署与扩缩容，跨域由 `ALLOWED_ORIGINS` 放行。
 
-**部署顺序很重要**：先部署 Pages 拿到前端域名 → 再回填 Worker 的 CORS 白名单 → 最后把 Worker 域名注入前端构建变量。
+**部署顺序很重要**：先部署前端拿到域名 → 再回填代理 Worker 的 CORS 白名单 → 最后把代理域名注入前端构建变量。
 
 ### 一、Worker（代理）
 
@@ -71,51 +71,76 @@ curl https://edustudio-proxy.<account>.workers.dev/health
 # → {"ok":true,"upstream":"https://api.deepseek.com/v1","rate":{...},"models":[...]}
 ```
 
-### 二、Pages（前端）
+### 二、前端（Cloudflare Workers · Static Assets）
 
-`public/_redirects`（SPA 回退）与 `public/_headers`（安全响应头 + 静态资源长缓存）已内置，无需额外配置。
+仓库根目录的 `wrangler.toml` 已显式声明静态资源托管，无需在控制台填写 Framework / Output Directory：
 
-**方式 A · Git 集成（推荐，推 main 自动发布）**
+```toml
+name = "edustudio"
+compatibility_date = "2026-09-14"
 
-1. 控制台 → Workers & Pages → Create → Pages → Connect to Git，选择本仓库；
-2. 构建配置：Framework preset `Vite`、Build command `npm run build`、Build output directory `dist`；
-3. 环境变量：添加 `NODE_VERSION=20` 与下方 `VITE_PROXY_URL`（Settings → Environment variables，Production / Preview 可分别配置）；
-4. Save and Deploy。
-
-**方式 B · 命令行直传（无需 Git 集成）**
-
-```bash
-# 在仓库根目录执行
-npm run build                                  # 含单测 + tsc 类型检查 + vite build，不过则不产出
-npx --yes wrangler@4 pages deploy dist --project-name=edustudio
+[assets]
+directory = "./dist"
+not_found_handling = "single-page-application"
 ```
 
-部署完成后拿到 `https://<project>.pages.dev` 域名。
+> **此文件不可删除**：缺省时 `wrangler deploy` 会走自动配置（autoconfig），而它要求 Vite ≥ 6
+> （本项目 Vite 5.4.x），会以
+> `The version of Vite used in the project ("5.4.21") cannot be automatically configured`
+> 中断部署。显式配置后该检查不再触发，也无需升级 Vite。
 
-**前端构建变量**
+**方式 A · Workers Builds（Git 集成，推 main 自动发布）**
+
+控制台 → Workers & Pages → 选中该 Worker → Settings → Build：
+
+| 项 | 值 |
+| --- | --- |
+| Build command | `npm run build` |
+| Deploy command | `npx wrangler deploy` |
+| Build variables | `NODE_VERSION=20`（必须） |
+
+再加前端构建变量（Build → Variables and secrets）：
 
 | 变量 | 值 | 作用 |
 | --- | --- | --- |
 | `VITE_PROXY_URL` | `https://edustudio-proxy.<account>.workers.dev/v1` | 构建时注入为默认代理地址，用户首次打开即为代理模式，无需在设置页手填 |
 | `VITE_SOURCE_URL` | 可选 | 远端数据源地址覆盖；缺省由 `VITE_PROXY_URL` 推导为 `<proxy>/api/sources` |
 
-> 本地开发可在仓库根复制 `.env.example` 为 `.env.local` 填写同名变量。
-> 构建变量是**构建期**注入，改动后需重新构建 / Retrigger deployment 才生效。
+> `VITE_PROXY_URL` 属于**构建期**变量，必须配在 Build 的 Variables and secrets 中；
+> 写进 `wrangler.toml` 的 `[vars]` 是运行时变量，构建阶段读不到。
+> 构建变量改动后需重新推送 / Retry deployment 才生效。
+
+**方式 B · 命令行直传**
+
+```bash
+# 在仓库根目录执行
+npm run build                          # 含单测 + tsc 类型检查 + vite build，不过则不产出
+npx --yes wrangler@4 deploy            # 读取根目录 wrangler.toml，上传 dist/ 作为静态资源
+```
+
+部署完成后拿到 `https://edustudio.<account>.workers.dev` 域名。
+
+> 已验证的运行时行为：`/` 与未知路径返回 `index.html`（200，SPA 回退），`/assets/*.js`
+> 正常返回 `text/javascript`，`public/_headers` 的安全响应头与长缓存生效。
+> `public/_redirects` 中的 Pages 专用 catch-all 规则默认已注释 —— 在 Workers 下 wrangler 会将其
+> 判定为「Infinite loop detected」并忽略（产生部署告警），SPA 回退统一由 `not_found_handling` 承担；
+> 若改用 Cloudflare Pages / Netlify，取消该行注释即可。同一份产物也兼容 Vercel（`vercel.json`）。
 
 ### 三、回填 CORS 白名单（必做）
 
-拿到 Pages 域名后，把前端域名写进 `wrangler.toml` 的 `[vars]`：
+拿到前端域名后（Workers 默认域名形如 `https://edustudio.<account>.workers.dev`），
+把它写进 `proxy/wrangler.toml` 的 `[vars]`：
 
 ```toml
 [vars]
 UPSTREAM = "https://api.deepseek.com/v1"
-ALLOWED_ORIGINS = "https://<project>.pages.dev"
+ALLOWED_ORIGINS = "https://edustudio.<account>.workers.dev"
 ```
 
-改完在 `proxy/` 目录重新 `npm run deploy` 生效。多个来源用逗号分隔（如 Pages 默认域名 + 自有域名）：
+改完在 `proxy/` 目录重新 `npm run deploy` 生效。多个来源用逗号分隔（如默认域名 + 自有域名）：
 
 ```toml
-ALLOWED_ORIGINS = "https://edustudio.pages.dev,https://edu.example.com"
+ALLOWED_ORIGINS = "https://edustudio.<account>.workers.dev,https://edu.example.com"
 ```
 
 > 未配置 `ALLOWED_ORIGINS` 时代理对任意来源放行（便于本地联调），生产环境务必配置。
@@ -123,8 +148,8 @@ ALLOWED_ORIGINS = "https://edustudio.pages.dev,https://edu.example.com"
 
 ### 四、验收清单（Cloudflare 路径）
 
-- [ ] `curl <worker>/health` 返回 `ok:true` 且 `models` 列表正确
-- [ ] 浏览器打开 Pages 站点 → 设置页「代理地址」已自动填好（未手动填写即为注入成功）
+- [ ] `curl <proxy-worker>/health` 返回 `ok:true` 且 `models` 列表正确
+- [ ] 浏览器打开前端站点 → 设置页「代理地址」已自动填好（未手动填写即为注入成功）
 - [ ] 发起一次真实对话：逐 token 流式渲染，无整段延迟
 - [ ] 浏览器 DevTools 网络面板：请求头**不含** `Authorization`，key 未进前端
 - [ ] 连续快速调用 > 10 次/分钟 → 返回 429，前端 toast 提示且输入保留

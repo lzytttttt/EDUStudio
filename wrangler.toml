@@ -1,0 +1,28 @@
+# EDUStudio 前端静态托管（Cloudflare Workers · Static Assets）
+#
+# 本文件只负责「前端」：把 `npm run build` 的产物 dist/ 作为 Worker 静态资源发布。
+# 轻后端代理是另一个独立 Worker，配置见 `proxy/wrangler.toml`。
+#
+# 部署：npx wrangler deploy            （Workers Builds 由 deploy command 自动执行）
+# 预检：npx wrangler deploy --dry-run
+#
+# 注意：不要移除本文件 —— 缺省时 wrangler 会尝试「自动配置」，而 autoconfig 要求
+# Vite ≥ 6（本项目为 Vite 5.4.x），会直接报错中断部署。
+
+name = "edustudio"
+compatibility_date = "2026-09-14"
+
+[assets]
+# vite build 输出目录（public/_headers 与 public/_redirects 会一并进入产物）
+directory = "./dist"
+# SPA 回退：未命中静态资源的路径一律返回 index.html（与 public/_redirects 的 /* → /index.html 语义一致）
+not_found_handling = "single-page-application"
+
+# 可选：绑定自定义域名（也可在控制台配置）
+# routes = [
+#   { pattern = "edu.example.com", custom_domain = true }
+# ]
+#
+# 说明：前端构建变量（VITE_PROXY_URL / VITE_SOURCE_URL）需要在**构建时**注入，
+# 请在控制台 Settings → Build → Variables and secrets 配置，写在这里的 [vars] 属于
+# 运行时变量，构建阶段读不到。

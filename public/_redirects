@@ -1,2 +1,13 @@
-# Cloudflare Pages SPA 回退：非静态资源路径一律回 index.html（与 vercel.json rewrites 行为对齐）
-/*    /index.html   200
+# SPA 回退规则（Cloudflare Pages / Netlify 语法）。
+#
+# 当前部署形态是 Cloudflare Workers（Static Assets），SPA 回退由根目录 `wrangler.toml` 的：
+#   [assets]
+#   not_found_handling = "single-page-application"
+# 承担，已实测未知路径正确回退 index.html。
+#
+# 下面这条 catch-all 在 Workers 上会被 wrangler 判定为「无限循环」并自动忽略
+# （部署告警：Infinite loop detected ... /* /index.html 200 —— 因为 destination 经
+# html_handling 归一化后又落回本规则），因此默认注释掉，避免部署告警噪音。
+# 若改用 Cloudflare Pages 部署，取消注释即可恢复 SPA 回退。
+#
+#/*    /index.html   200
