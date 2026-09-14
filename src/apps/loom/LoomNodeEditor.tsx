@@ -63,7 +63,8 @@ export default function LoomNodeEditor({ nodeId, onClose, onDeleted }: LoomNodeE
       onPointerDown={(e) => e.stopPropagation()}
       onPointerMove={(e) => e.stopPropagation()}
       onPointerUp={(e) => e.stopPropagation()}
-      className="animate-fade-up absolute bottom-14 right-3 z-20 w-[19rem] rounded-2xl border border-line bg-surface p-3 shadow-pop"
+      /* v0.9.4-02b：限高 + 内部滚动——面板较矮时浮层不再向上溢出遮住画布与头部 */
+      className="animate-fade-up absolute bottom-14 right-3 z-20 max-h-[calc(100%_-_4.5rem)] w-[19rem] overflow-y-auto rounded-2xl border border-line bg-surface p-3 shadow-pop"
     >
       <div className="flex items-center gap-1.5">
         <span className="text-sm" aria-hidden>

@@ -221,6 +221,11 @@ export default function LoomCanvas({
       return
     }
 
+    /* v0.9.4-02b：连线 / 拖拽 / 平移统一捕获指针——
+     * 指针移出画布（节点编辑器浮层、面板外）时仍持续收到 pointermove，
+     * 预览线不再中断、画布不再被误平移（"漂移"根因之一） */
+    capturePointer(e)
+
     /* 连线手柄：进入连线草稿态（M3 正式吸附；此处先给出草稿线反馈） */
     if (handleEl && nodeEl) {
       const fromId = nodeEl.dataset.nodeId as string
@@ -312,6 +317,14 @@ export default function LoomCanvas({
     setDrag({ kind: 'none' })
   }
 
+  /* 指针被系统接管（触屏打断等）：丢弃连线草稿，不误建连接；平移保持当前视图 */
+  const onPointerCancel = () => {
+    if (drag.kind === 'pan') commitViewport()
+    setDraft(null)
+    setTransient({})
+    setDrag({ kind: 'none' })
+  }
+
   const onWheel = (e: React.WheelEvent<HTMLDivElement>) => {
     const rect = containerRef.current?.getBoundingClientRect()
     const point = { x: e.clientX - (rect?.left ?? 0), y: e.clientY - (rect?.top ?? 0) }
@@ -345,7 +358,8 @@ export default function LoomCanvas({
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
-      onPointerLeave={onPointerUp}
+      /* 不再用 pointerleave 结束手势（已由指针捕获覆盖），系统打断走 cancel 语义 */
+      onPointerCancel={onPointerCancel}
       onWheel={onWheel}
     >
       {/* 节点层：与外层同为 min-w-0 容器，transform 承载平移 + 缩放 */}
@@ -356,7 +370,8 @@ export default function LoomCanvas({
           transformOrigin: '0 0',
         }}
       >
-        <svg className="pointer-events-auto absolute overflow-visible" width={1} height={1} aria-hidden>
+        {/* 边层不参与指针命中（当前无点线删除交互）：避免 14px 透明命中带抢走卡片手柄 / 边缘点击 */}
+        <svg className="pointer-events-none absolute overflow-visible" width={1} height={1} aria-hidden>
           <LoomEdgeLayer edges={edges} nodes={nodes} />
         </svg>
         {positioned.map((node) => (
@@ -365,6 +380,8 @@ export default function LoomCanvas({
             node={node}
             selected={selectedNodeId === node.id}
             dragging={drag.kind === 'node' && drag.nodeId === node.id && drag.moved}
+            /* 连线进行中：起点手柄常显（否则指针离开卡片后手柄消失，看不出线从哪来） */
+            connecting={draft?.from === node.id}
             onSelect={onSelectNode}
             onOpen={onOpenNode}
             expanded={expandedNodeIds.includes(node.id)}
@@ -565,6 +582,15 @@ function DraftFromNode({ from, nodes, to }: { from: string; nodes: LoomNode[]; t
       to={to}
     />
   )
+}
+
+/** 捕获指针（v0.9.4-02b）：连线 / 拖拽 / 平移移出画布也持续收到事件；不支持或已释放时静默忽略 */
+function capturePointer(e: React.PointerEvent<HTMLElement>) {
+  try {
+    e.currentTarget.setPointerCapture?.(e.pointerId)
+  } catch {
+    /* 忽略：指针已失效（如触屏被系统接管） */
+  }
 }
 
 function isEditableTarget(target: EventTarget | null): boolean {

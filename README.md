@@ -66,6 +66,11 @@ EDUStudio 的产品形态是一条「**收件 → 批阅 → 处理**」的暗�
 - **数据安全与轻量（M1/M7）**：`edustudio:loom` 并入全量备份白名单；schemaVersion 版本化迁移；画布整体懒加载（`LoomPanel` 11.4KB 独立 chunk），主 chunk 仍守 120KB，零新运行时依赖（未引入 XYFlow / dagre）；
 - **体验打磨（增量 v0.9.4-02）**：画布高度可上下拖拽（180px ~ 中栏 80%，双击复位）；标题统一「教学 / 管理 / 区域画布」并归一化历史数据；大字档位下节点标题两行、描述三行、卡片自适应增高；画布通知分级（成功 mint / 被拒 danger / 说明中性）且最多并列 3 条。
 
+<p align="center">
+  <img src="./png/shot/ScreenShot_2026-09-14_192839_368.png" width="800" alt="空间任务台 · 教学画布：任务节点 + 文档节点 + 依赖连线 + 运行态" />
+  <br/><em>空间任务台 · 教学画布：简报采纳任务平铺为节点（含「📄 已生成」文档节点）、hover 连线表达依赖、▶ 开始处理按拓扑串行执行，中栏同步 Agent 轨迹（已注入记忆 · 命中技能「按选比测生成分层作业单」）</em>
+</p>
+
 > 详见 [doc/v0.9.4-roadmap.md](./doc/v0.9.4-roadmap.md) 与实施参考 [doc/v0.9.4-01-loom-implementation.md](./doc/v0.9.4-01-loom-implementation.md)。
 >
 > **增量 v0.9.4-03 · 画布真实接入 LLM 修复**（评估报告六项问题一次性收口）：便签不再被当作任务执行（零 LLM 调用、不阻塞下游）；Agent 产出文档时画布自动出现「📄 正在生成 → 已生成」文档节点，双击 / 「打开」直达右栏；artifact 事件写入 Trace（画布投影含文档项与 function-calling 的 plan 步）；上游结果穿透 checkpoint 并注入文档生成（`A → ✋ → B` 不再丢结果）；LLM 失败回退内置剧本时画布可见降级提示。详见 [doc/v0.9.4-03-loom-llm-hardening.md](./doc/v0.9.4-03-loom-llm-hardening.md)。

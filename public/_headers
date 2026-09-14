@@ -1,0 +1,14 @@
+# 安全响应头（全站）
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+
+# 带 hash 的构建产物：一年强缓存 + immutable（Vite 产物名含内容指纹）
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# 入口 HTML：每次协商，保证发版即时生效
+/
+  Cache-Control: public, max-age=0, must-revalidate
+/index.html
+  Cache-Control: public, max-age=0, must-revalidate

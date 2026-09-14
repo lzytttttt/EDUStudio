@@ -24,6 +24,8 @@ export interface LoomNodeCardProps {
   selected: boolean
   /** 拖拽中的临时坐标（未提交 store） */
   dragging?: boolean
+  /** 正在从本节点拖出连线（手柄常显，v0.9.4-02b） */
+  connecting?: boolean
   onSelect: (nodeId: string) => void
   onOpen: (nodeId: string) => void
   /** 只读任务地图（<768px 移动端）：禁用拖拽手势与人工确认动作 */
@@ -50,6 +52,7 @@ export const LoomNodeCard = memo(function LoomNodeCard({
   node,
   selected,
   dragging,
+  connecting,
   onSelect,
   onOpen,
   readOnly = false,
@@ -89,10 +92,15 @@ export const LoomNodeCard = memo(function LoomNodeCard({
         maxHeight: expandedBody ? 260 : undefined,
         transform: `translate(${node.position.x}px, ${node.position.y}px)`,
         willChange: dragging ? 'transform' : undefined,
-        contain: 'layout style paint',
+        /* 不含 paint：paint containment 会裁剪卡片外的手柄凸出部（命中与视觉双双失效，v0.9.4-02b） */
+        contain: 'layout style',
       }}
-      /* 不拦截 pointerdown：拖拽 / 连线由画布层统一接管（卡片仍上报选中） */
-      onPointerDown={() => onSelect(node.id)}
+      /* 不拦截 pointerdown：拖拽 / 连线由画布层统一接管（卡片仍上报选中）；
+       * 从连线手柄按下时不选中——避免编辑器浮层在连线瞬间弹出遮挡 / 打断（v0.9.4-02b） */
+      onPointerDown={(e) => {
+        if ((e.target as HTMLElement).closest('[data-loom-handle]')) return
+        onSelect(node.id)
+      }}
       onDoubleClick={(e) => {
         e.stopPropagation()
         /* 文档节点双击 → 打开文档；其余走既有 onOpen（打开任务会话） */
@@ -197,14 +205,17 @@ export const LoomNodeCard = memo(function LoomNodeCard({
         <span className="absolute -right-1 -top-1 flex h-3 w-3 rounded-full bg-coral" />
       )}
 
-      {/* 连线起点（hover / 选中时显示）：按住拖到另一个节点即可建立依赖 */}
+      {/* 连线起点（hover / 选中 / 连线中显示）：按住拖到另一个节点即可建立依赖。
+       * top 取逻辑锚点高度 LOOM_NODE_HEIGHT/2（而非卡片实际高度的 50%），
+       * 与草稿线起点一致——卡片因大字 / 内容增高时手柄与线不脱节（v0.9.4-02b） */}
       {!readOnly && !isNote && (
         <span
           data-loom-handle="out"
           title="拖到另一个模块建立连接"
+          style={{ top: LOOM_NODE_HEIGHT / 2 }}
           className={cn(
-            'absolute -right-[7px] top-1/2 h-3.5 w-3.5 -translate-y-1/2 cursor-crosshair rounded-full border-2 border-primary bg-surface transition-opacity',
-            selected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
+            'absolute -right-[7px] h-3.5 w-3.5 -translate-y-1/2 cursor-crosshair rounded-full border-2 border-primary bg-surface transition-opacity',
+            selected || connecting ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
           )}
           onDoubleClick={(e) => e.stopPropagation()}
         />

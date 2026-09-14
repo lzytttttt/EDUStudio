@@ -312,3 +312,126 @@ test('⑥ 性能 smoke：20 节点 / 30 边下拖动不卡死且坐标更新', a
   /* 拖动 20 帧的耗时（含 Playwright 往返），明显卡死会远超该阈值 */
   expect(elapsed).toBeLessThan(6000)
 })
+
+/** 预置无连线双节点：连线交互回归专用（不触发重边拒绝，验证真实建立连接） */
+const PAIR_BOARD = {
+  schemaVersion: 1,
+  boards: [
+    {
+      id: 'board-teacher',
+      role: 'teacher',
+      title: '教学画布',
+      removedCardIds: [],
+      viewport: { x: 0, y: 0, zoom: 1 },
+      updatedAt: 0,
+      nodes: [
+        {
+          id: 'lnode-a',
+          type: 'agent',
+          title: '分析学情',
+          instruction: '分析高一（3）班函数单调性薄弱点',
+          position: { x: 40, y: 60 },
+          status: 'idle',
+          createdAt: 0,
+          updatedAt: 0,
+        },
+        {
+          id: 'lnode-b',
+          type: 'agent',
+          title: '生成分层练习',
+          instruction: '根据上游分析结果生成三档练习',
+          position: { x: 360, y: 60 },
+          status: 'idle',
+          createdAt: 0,
+          updatedAt: 0,
+        },
+      ],
+      edges: [],
+    },
+  ],
+}
+
+/** 读取连线草稿（画布容器直属 svg）的起终点屏幕坐标；无草稿时返回 null */
+async function readDraftLine(page: Page) {
+  return page.evaluate(() => {
+    const canvas = document.querySelector('[data-testid="loom-canvas"]') as HTMLElement
+    const svg = canvas.querySelector(':scope > svg') as SVGSVGElement | null
+    const path = svg?.querySelector('path') as SVGPathElement | null
+    if (!svg || !path) return null
+    const toScreen = (x: number, y: number) => {
+      const pt = svg.createSVGPoint()
+      pt.x = x
+      pt.y = y
+      const scr = pt.matrixTransform(path.getScreenCTM() as DOMMatrix)
+      return { x: scr.x, y: scr.y }
+    }
+    const p0 = path.getPointAtLength(0)
+    const p1 = path.getPointAtLength(path.getTotalLength())
+    return { start: toScreen(p0.x, p0.y), end: toScreen(p1.x, p1.y) }
+  })
+}
+
+test('⑨ 连线预览：精准跟随、移出画布不中断、落子连接（v0.9.4-02b 回归）', async ({ page }) => {
+  await page.addInitScript((board) => {
+    localStorage.setItem('edustudio:loom', JSON.stringify(board))
+  }, PAIR_BOARD)
+  await loginAsTeacher(page)
+  await openLoom(page)
+
+  const cardB = page.locator('[data-node-id="lnode-b"]')
+  const boxA = (await page.locator('[data-node-id="lnode-a"]').boundingBox()) as {
+    x: number
+    y: number
+    width: number
+    height: number
+  }
+  const boxB = (await cardB.boundingBox()) as { x: number; y: number; width: number; height: number }
+  const canvas = (await page.getByTestId('loom-canvas').boundingBox()) as { x: number; y: number; width: number }
+  const handleX = boxA.x + boxA.width
+  const handleY = boxA.y + boxA.height / 2
+
+  /* ① 从手柄凸出部（卡片外 3px）按下并拖动：草稿线出现；画布不被误平移、编辑器不弹出 */
+  await page.mouse.move(handleX + 3, handleY)
+  await page.mouse.down()
+  const tx = handleX + 90
+  const ty = handleY + 46
+  await page.mouse.move(tx, ty, { steps: 6 })
+
+  await expect
+    .poll(
+      async () => {
+        const line = await readDraftLine(page)
+        if (!line) return 'no-draft'
+        const startOk = Math.abs(line.start.x - handleX) <= 1 && Math.abs(line.start.y - handleY) <= 1
+        const endOk = Math.abs(line.end.x - tx) <= 1 && Math.abs(line.end.y - ty) <= 1
+        return startOk && endOk ? 'ok' : `drift:${Math.round(line.start.x - handleX)},${Math.round(line.start.y - handleY)},${Math.round(line.end.x - tx)},${Math.round(line.end.y - ty)}`
+      },
+      { timeout: 3000 },
+    )
+    .toBe('ok')
+
+  const boxBAfter = (await cardB.boundingBox()) as { x: number; y: number }
+  expect(Math.abs(boxBAfter.x - boxB.x)).toBeLessThan(2)
+  expect(Math.abs(boxBAfter.y - boxB.y)).toBeLessThan(2)
+  await expect(page.getByTestId('loom-node-editor')).toHaveCount(0)
+
+  /* ② 指针移出画布容器（左外侧）：指针捕获使草稿线不中断且终点继续跟随指针 */
+  const outX = canvas.x - 50
+  const outY = handleY + 30
+  await page.mouse.move(outX, outY, { steps: 6 })
+  await expect
+    .poll(
+      async () => {
+        const line = await readDraftLine(page)
+        if (!line) return 'no-draft'
+        return Math.abs(line.end.x - outX) <= 1 && Math.abs(line.end.y - outY) <= 1 ? 'ok' : 'off'
+      },
+      { timeout: 3000 },
+    )
+    .toBe('ok')
+
+  /* ③ 回到目标卡片中央松手：建立连接并给出 success 通知 */
+  await page.mouse.move(boxB.x + boxB.width / 2, boxB.y + boxB.height / 2, { steps: 8 })
+  await page.mouse.up()
+  await expect(page.locator('[data-testid="loom-toast"][data-kind="success"]')).toContainText('已连接')
+})

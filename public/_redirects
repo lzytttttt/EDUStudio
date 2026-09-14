@@ -1,0 +1,2 @@
+# Cloudflare Pages SPA 回退：非静态资源路径一律回 index.html（与 vercel.json rewrites 行为对齐）
+/*    /index.html   200

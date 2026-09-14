@@ -12,10 +12,19 @@ UPSTREAM = "https://api.deepseek.com/v1"
 # KV 命名空间（先执行：
 #   wrangler kv namespace create EDU_RATE_KV
 #   wrangler kv namespace create EDU_AUDIT_KV
+#   wrangler kv namespace create EDU_SHARE_KV
 # 再把返回的 id 填到下面并取消注释）
+#
+# 必需性（对应 worker.js 实际读取）：
+#   EDU_SHARE_KV —— 必需：分享短链 / 批注回流 / 任务链（未配置时相关端点返回 500 kv_not_configured）
+#   EDU_RATE_KV  —— 建议：限流计数（未配置时降级为不限流，不报错）
+#   EDU_AUDIT_KV —— 建议：审计日志（未配置时跳过审计写入，不报错）
 # [[kv_namespaces]]
 # binding = "EDU_RATE_KV"
 # id = "<EDU_RATE_KV_ID>"
 # [[kv_namespaces]]
 # binding = "EDU_AUDIT_KV"
 # id = "<EDU_AUDIT_KV_ID>"
+# [[kv_namespaces]]
+# binding = "EDU_SHARE_KV"
+# id = "<EDU_SHARE_KV_ID>"
