@@ -380,9 +380,19 @@ npm run video:mux     # 混入 BGM 输出成片
 
 ## 部署
 
-### 前端（Vercel，推荐）
+纯静态 SPA，**零后端依赖即可上线**（`ACTIVE_MODE` 默认 `mock`，离线可演示）；需要真实模型时再叠加轻后端代理。
 
-纯静态 SPA，**零后端依赖即可上线**（`ACTIVE_MODE` 默认 `mock`，离线可演示）：
+### 前端（静态托管，二选一）
+
+**Cloudflare Pages**
+
+1. 控制台 → Workers & Pages → Create → Pages → Connect to Git，选择本仓库；
+2. Framework preset `Vite`、Build command `npm run build`、Build output directory `dist`；
+3. 环境变量：`NODE_VERSION=20`（必须）；可选 `VITE_PROXY_URL=https://<proxy-host>/v1` —— 注入后前端首次打开即为代理模式，用户无需在设置页手填；
+4. SPA 回退与安全响应头已内置：`public/_redirects`、`public/_headers`；
+5. 命令行直传亦可（无需 Git 集成）：`npm run build && npx --yes wrangler@4 pages deploy dist --project-name=edustudio`。
+
+**Vercel**
 
 1. 在 Vercel 导入本仓库（GitHub：`lzytttttt/EDUStudio`）；
 2. Framework 选 **Vite**（自动识别），Build Command `npm run build`，Output Directory `dist`；
@@ -390,15 +400,20 @@ npm run video:mux     # 混入 BGM 输出成片
 
 > `npm run build` 前置执行 Vitest 单测 + `tsc` 类型检查，任一不过则构建失败，天然构成上线质量闸门。
 
-### 轻后端代理（Docker，可选）
+### 轻后端代理（可选）
 
-key 托管 / 限额 / 审计 / 分享短链 / 任务链 / 错误上报 可一条命令拉起：
+统一保管 key、按客户端限额、最小审计日志；前端只填代理地址、不再持有 key。
+
+| 形态 | 适用 | 入口 |
+| --- | --- | --- |
+| **Cloudflare Workers** | 公网分发、零运维（首选） | [`proxy/README.md`](proxy/README.md) → 「Cloudflare 部署（Pages + Workers）」 |
+| Docker / Express | 内网、自有服务器、完全私有化 | 下方一行命令 |
 
 ```bash
 DEEPSEEK_KEY=sk-xxx docker compose up -d        # PowerShell：$env:DEEPSEEK_KEY='sk-xxx'; docker compose up -d
 ```
 
-前端设置页 → 模式选「代理」，地址填 `http://<主机>:8787/v1`；审计日志与分享 / 任务链数据持久化在 `edustudio-data` 卷。
+Docker 路径：前端设置页 → 模式选「代理」，地址填 `http://<主机>:8787/v1`；审计日志与分享 / 任务链数据持久化在 `edustudio-data` 卷。
 
 ---
 

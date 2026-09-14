@@ -1,6 +1,12 @@
 import { create } from 'zustand'
 import type { ProviderMode, RoleId } from '../harness/types'
-import { ACTIVE_MODE, DEFAULT_LLM_BASEURL, DEFAULT_LLM_MODEL } from '../harness/defaults'
+import {
+  ACTIVE_MODE,
+  DEFAULT_LLM_BASEURL,
+  DEFAULT_LLM_MODEL,
+  DEFAULT_PROXY_URL,
+  DEFAULT_SOURCE_URL,
+} from '../harness/defaults'
 import { clearAll, loadJSON, saveJSON } from '../lib/storage'
 import { createDebouncedWriter } from '../lib/debouncedWrite'
 import { conceal, reveal } from '../lib/secretBox'
@@ -93,9 +99,9 @@ export const DEFAULT_LLM_SETTINGS: LLMSettings = {
   baseUrl: DEFAULT_LLM_BASEURL,
   model: DEFAULT_LLM_MODEL,
   apiKey: '',
-  proxyUrl: '',
+  proxyUrl: DEFAULT_PROXY_URL,
   dataSource: 'seed',
-  sourceUrl: 'http://localhost:8787/api/sources',
+  sourceUrl: DEFAULT_SOURCE_URL,
 }
 
 interface PersistedSettings extends LLMSettings {

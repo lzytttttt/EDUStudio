@@ -22,21 +22,118 @@
 - CORS：`ALLOWED_ORIGINS` 域名白名单（未配置时放行，便于本地联调）
 - 可选 `X-EDU-TOKEN`：机构内统一分发 token
 
-## Cloudflare Workers 部署
+## Cloudflare 部署（Pages + Workers，推荐组合）
+
+前端静态站点走 **Cloudflare Pages**，代理走**独立 Worker**：同账号下各自独立部署与扩缩容，跨域由 `ALLOWED_ORIGINS` 放行。
+
+**部署顺序很重要**：先部署 Pages 拿到前端域名 → 再回填 Worker 的 CORS 白名单 → 最后把 Worker 域名注入前端构建变量。
+
+### 一、Worker（代理）
+
+前置：Cloudflare 账号（免费版额度足够 POC 与试点）、Node ≥ 18、以本目录（`proxy/`）为工作目录。
 
 ```bash
-npm i -g wrangler
-wrangler kv namespace create EDU_RATE_KV
-wrangler kv namespace create EDU_AUDIT_KV
-# 把返回的 id 填入 wrangler.toml 的 kv_namespaces（取消注释）
-wrangler secret put DEEPSEEK_KEY   # 粘贴真实 key
-wrangler deploy
+# 0. 登录（浏览器授权一次）并确认身份
+npx --yes wrangler@4 login
+npx --yes wrangler@4 whoami          # 输出账号邮箱即登录成功
+
+# 1. 创建 KV 命名空间（共 3 个，必需性见下表）
+npx --yes wrangler@4 kv namespace create EDU_RATE_KV
+npx --yes wrangler@4 kv namespace create EDU_AUDIT_KV
+npx --yes wrangler@4 kv namespace create EDU_SHARE_KV
 ```
 
-生产环境在 `wrangler.toml` 的 `[vars]` 配置：
+每条命令会打印 `id = "..."`，把三个 id 依次填入 `wrangler.toml` 的 `[[kv_namespaces]]` 段并**取消注释**（文件内已备好模板）。
 
-- `ALLOWED_ORIGINS`：前端域名（逗号分隔）
-- `EDU_TOKEN`（可选）：机构统一 token
+| 绑定 | 必需性 | 缺失后果 |
+| --- | --- | --- |
+| `EDU_SHARE_KV` | **必需** | 分享短链 / 批注回流 / 任务链端点返回 `500 kv_not_configured` |
+| `EDU_RATE_KV` | 建议 | 静默降级为**不限流**（不报错，但失去 10 次/分 + 200 次/天保护） |
+| `EDU_AUDIT_KV` | 建议 | 静默跳过审计写入与错误上报落盘 |
+
+```bash
+# 2. 写入上游 key（加密 Secret，不落配置文件、不进版本库）
+npx --yes wrangler@4 secret put DEEPSEEK_KEY     # 粘贴真实 key 后回车
+
+# 3. 本地预检（只打包不上线，用于验证配置）
+npm run deploy:check
+
+# 4. 发布
+npm run deploy
+```
+
+发布成功会输出 `https://edustudio-proxy.<account>.workers.dev` —— 这就是前端要填的代理域名（前端地址需带 `/v1` 后缀）。
+
+发布后自检：
+
+```bash
+curl https://edustudio-proxy.<account>.workers.dev/health
+# → {"ok":true,"upstream":"https://api.deepseek.com/v1","rate":{...},"models":[...]}
+```
+
+### 二、Pages（前端）
+
+`public/_redirects`（SPA 回退）与 `public/_headers`（安全响应头 + 静态资源长缓存）已内置，无需额外配置。
+
+**方式 A · Git 集成（推荐，推 main 自动发布）**
+
+1. 控制台 → Workers & Pages → Create → Pages → Connect to Git，选择本仓库；
+2. 构建配置：Framework preset `Vite`、Build command `npm run build`、Build output directory `dist`；
+3. 环境变量：添加 `NODE_VERSION=20` 与下方 `VITE_PROXY_URL`（Settings → Environment variables，Production / Preview 可分别配置）；
+4. Save and Deploy。
+
+**方式 B · 命令行直传（无需 Git 集成）**
+
+```bash
+# 在仓库根目录执行
+npm run build                                  # 含单测 + tsc 类型检查 + vite build，不过则不产出
+npx --yes wrangler@4 pages deploy dist --project-name=edustudio
+```
+
+部署完成后拿到 `https://<project>.pages.dev` 域名。
+
+**前端构建变量**
+
+| 变量 | 值 | 作用 |
+| --- | --- | --- |
+| `VITE_PROXY_URL` | `https://edustudio-proxy.<account>.workers.dev/v1` | 构建时注入为默认代理地址，用户首次打开即为代理模式，无需在设置页手填 |
+| `VITE_SOURCE_URL` | 可选 | 远端数据源地址覆盖；缺省由 `VITE_PROXY_URL` 推导为 `<proxy>/api/sources` |
+
+> 本地开发可在仓库根复制 `.env.example` 为 `.env.local` 填写同名变量。
+> 构建变量是**构建期**注入，改动后需重新构建 / Retrigger deployment 才生效。
+
+### 三、回填 CORS 白名单（必做）
+
+拿到 Pages 域名后，把前端域名写进 `wrangler.toml` 的 `[vars]`：
+
+```toml
+[vars]
+UPSTREAM = "https://api.deepseek.com/v1"
+ALLOWED_ORIGINS = "https://<project>.pages.dev"
+```
+
+改完在 `proxy/` 目录重新 `npm run deploy` 生效。多个来源用逗号分隔（如 Pages 默认域名 + 自有域名）：
+
+```toml
+ALLOWED_ORIGINS = "https://edustudio.pages.dev,https://edu.example.com"
+```
+
+> 未配置 `ALLOWED_ORIGINS` 时代理对任意来源放行（便于本地联调），生产环境务必配置。
+> `EDU_TOKEN`（可选）：机构内统一分发的静态 token，配置后前端需带 `X-EDU-TOKEN`，留空即关闭鉴权。
+
+### 四、验收清单（Cloudflare 路径）
+
+- [ ] `curl <worker>/health` 返回 `ok:true` 且 `models` 列表正确
+- [ ] 浏览器打开 Pages 站点 → 设置页「代理地址」已自动填好（未手动填写即为注入成功）
+- [ ] 发起一次真实对话：逐 token 流式渲染，无整段延迟
+- [ ] 浏览器 DevTools 网络面板：请求头**不含** `Authorization`，key 未进前端
+- [ ] 连续快速调用 > 10 次/分钟 → 返回 429，前端 toast 提示且输入保留
+- [ ] 从非白名单域名发起请求 → 403 `origin_not_allowed`
+- [ ] KV 中可查到 `audit:YYYY-MM-DD` 审计记录（含角色 / model / 状态码 / usage，无对话明文）
+
+## 旧版「只跑 Worker」快速路径
+
+仅需代理、前端已部署在别处（Vercel 等）时，按上面第一章执行，并把 `ALLOWED_ORIGINS` 填成该前端域名即可。
 
 ## Express 部署
 
@@ -54,10 +151,15 @@ $env:DEEPSEEK_KEY='sk-xxx'; node proxy/server.mjs
 
 ## 前端接入
 
-设置页 → 「代理地址」填入 `https://<proxy-host>/v1`（或内网 `http://<host>:8787/v1`）→ 保存。
-代理地址非空时，前端请求走代理且不携带 `Authorization`；直连 baseUrl/model/key 字段自动禁用。
+**方式一 · 构建时注入（推荐，用户零配置）**：设置 `VITE_PROXY_URL=https://<proxy-host>/v1`（见根目录 `.env.example`），
+前端首次打开即为代理模式，`proxyUrl` 已预填；用户在设置页仍可随时改回直连。
 
-数据源（v0.5）：设置页 → 「数据来源」选「远端数据平台」，地址填 `http://<host>:8787/api/sources`。
+**方式二 · 设置页手填**：设置页 → 「代理地址」填入 `https://<proxy-host>/v1`（或内网 `http://<host>:8787/v1`）→ 保存。
+
+两种方式等价：代理地址非空时，前端请求走代理且不携带 `Authorization`；直连 baseUrl/model/key 字段自动禁用。
+
+数据源（v0.5）：设置页 → 「数据来源」选「远端数据平台」，地址填 `https://<proxy-host>/api/sources`
+（配置了 `VITE_PROXY_URL` 时该地址会随构建自动推导，无需手填）。
 请求失败自动回落演示数据并在 UI 标注；导入的班级成绩 CSV 始终最优先。
 
 ## 验收清单（对应 v0.2 专项 02）

@@ -6,7 +6,12 @@
   "description": "EDUStudio 轻后端代理（key 托管 / 限额 / 审计 / 分享短链 / 任务链 / 错误上报）",
   "main": "server.mjs",
   "scripts": {
-    "start": "node server.mjs"
+    "start": "node server.mjs",
+    "dev": "npx --yes wrangler@4 dev",
+    "deploy": "npx --yes wrangler@4 deploy",
+    "deploy:check": "npx --yes wrangler@4 deploy --dry-run --outdir=.dry-run",
+    "whoami": "npx --yes wrangler@4 whoami",
+    "kv:create": "npx --yes wrangler@4 kv namespace create"
   },
   "engines": {
     "node": ">=18"

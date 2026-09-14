@@ -45,6 +45,11 @@ scripts/loom-eval/.out/
 proxy-logs/
 proxy-data/
 
+# Wrangler local state / build output
+.wrangler/
+proxy/.wrangler/
+proxy/.dry-run/
+
 # Visual regression snapshots (baseline kept in repo; local updates ignored)
 e2e/visual.spec.ts-snapshots/*.png
 
