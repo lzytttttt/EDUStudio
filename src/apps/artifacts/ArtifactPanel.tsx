@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Eye, Pencil, Copy, Trash2, FileText, Check, X, Download, History, Save, Plus, RotateCcw, LayoutTemplate, Share2, Link2,
+  Eye, Pencil, Copy, Trash2, FileText, Check, X, Download, History, Save, Plus, RotateCcw, Share2, Link2,
   MessageSquare, RefreshCw, Crosshair, ChevronLeft, ChevronRight, ChevronDown, Gauge, ThumbsUp, ThumbsDown, ArrowLeft,
 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
@@ -12,6 +12,7 @@ import { useNotificationStore } from '../../stores/notificationStore'
 import { DEFAULT_RIGHT_TAB, BOARD_LABEL } from '../../lib/rightPanel'
 import { renderMarkdown } from '../../lib/markdown'
 import { useThrottledValue } from '../../lib/throttle'
+import { SCENE_ART } from '../../theme/art'
 import { copyText } from '../../lib/clipboard'
 import { exportDoc, type ExportFormat } from '../../lib/exporters'
 import { buildShareUrl, type ShareAnnotation, type ShareSnapshot } from '../../lib/share'
@@ -520,9 +521,8 @@ export default function ArtifactPanel() {
       {/* 内容 */}
       {!doc ? (
         <div className="flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto px-6 py-8 text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-surface-2 text-ink-mute">
-            <LayoutTemplate size={24} />
-          </div>
+          {/* 文档空态插画（v0.9.4-04）：出图主体占画布 52% 宽 / 69% 高，h-24 下可见约 66px */}
+          <img src={SCENE_ART.emptyDoc} alt="" className="h-24 w-24 object-contain" />
           <p className="mt-4 text-sm font-medium">从模板开始，或等 Agent 生成</p>
           <p className="mt-1 text-xs leading-relaxed text-ink-mute">
             Agent 生成的教案、报告、通知会自动出现在这里

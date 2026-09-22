@@ -35,6 +35,8 @@
 | [v0.9.4-01-loom-implementation.md](./v0.9.4-01-loom-implementation.md) | 参考 | v0.9.4 Loom 实施参考材料：代码现状核验、执行架构三项前置决策（sendMessage 复用 / 输出采集口径 / 墓碑防复活）、设计缺口修正、M1~M7 里程碑检查表与交付记录 |
 | [v0.9.4-02-loom-ux-polish.md](./v0.9.4-02-loom-ux-polish.md) | 增量 | v0.9.4 增量：空间任务台体验打磨（画布高度可拖拽至中栏 80% / 标题统一「xx画布」/ 大字档位节点可读性 / 画布通知分级堆叠） |
 | [v0.9.4-03-loom-llm-hardening.md](./v0.9.4-03-loom-llm-hardening.md) | 增量 | v0.9.4 增量：画布真实接入 LLM 修复（便签不执行 / 文档节点接线 / artifact 入 Trace / 上游穿透与注入 / function-calling 补 plan / 降级可见） |
+| [v0.9.4-04-art-assets.md](./v0.9.4-04-art-assets.md) | 增量 | v0.9.4 增量：png-art 美术资源接入（简报卡类型插画 / 角色形象 / 空态插画 / 品牌标与 favicon-PWA 图标；零新依赖，图片不进包体门禁） |
+| [v0.9.4-05-art-role-rework.md](./v0.9.4-05-art-role-rework.md) | 增量 | v0.9.4 增量：角色画像与 mascot 重做（纯 token 单色人像消除「脸色不对」/ 纸感书本精灵 mascot / `trim` 限幅放大让主体填满画布；零新增色） |
 
 ## 文档规范
 
@@ -56,4 +58,4 @@
 - v0.9.1（已完成）：AI Native 记忆分层 + 产出自评闭环（MemoryProvider：L2 情景 / L3 语义偏好；规则版 Evaluator；反馈收割三写点；单键 edustudio:memory 并入备份白名单），见 [v0.9.1-roadmap.md](./v0.9.1-roadmap.md)
 - v0.9.2（已完成）：工作台 UI 优化·教育者视角（ToolDef `display` 契约 + 13 工具人话文案与「显示技术细节」开关、角色默认 tab、侧栏任务卡与相对时间、中栏进度仪表盘、下发待回执角标），见 [v0.9.2-roadmap.md](./v0.9.2-roadmap.md)；追加里程碑「简报一卡一任务」（采纳卡片各自成独立任务会话），见 [v0.9.2-01-briefing-one-card-one-task.md](./v0.9.2-01-briefing-one-card-one-task.md)
 - v0.9.3（已完成）：演示演出打磨（生成即见的文档流与文档 tab 角标、编辑态方向键防误触、演示日期与数据新鲜度、流式渲染节流与订阅治理、演示向导节奏与首进体验、宣传片工程化），见 [v0.9.3-roadmap.md](./v0.9.3-roadmap.md)
-- v0.9.4（已完成）：Loom 空间任务台（简报任务平铺进画布、拖拽编排与可视依赖、单飞串行拓扑真实执行、Agent Trace 空间投影、人工确认节点；零新依赖，画布整体懒加载），见 [v0.9.4-roadmap.md](./v0.9.4-roadmap.md) 与实施参考 [v0.9.4-01-loom-implementation.md](./v0.9.4-01-loom-implementation.md)；增量 v0.9.4-02 体验打磨（画布高度可拖拽 / 标题统一「xx画布」/ 大字档位可读性 / 通知分级），见 [v0.9.4-02-loom-ux-polish.md](./v0.9.4-02-loom-ux-polish.md)；增量 v0.9.4-03 画布真实接入 LLM 修复（便签不执行 / 文档节点接线 / artifact 入 Trace / 上游穿透与注入 / function-calling 补 plan / 降级可见），见 [v0.9.4-03-loom-llm-hardening.md](./v0.9.4-03-loom-llm-hardening.md)
+- v0.9.4（已完成）：Loom 空间任务台（简报任务平铺进画布、拖拽编排与可视依赖、单飞串行拓扑真实执行、Agent Trace 空间投影、人工确认节点；零新依赖，画布整体懒加载），见 [v0.9.4-roadmap.md](./v0.9.4-roadmap.md) 与实施参考 [v0.9.4-01-loom-implementation.md](./v0.9.4-01-loom-implementation.md)；增量 v0.9.4-02 体验打磨（画布高度可拖拽 / 标题统一「xx画布」/ 大字档位可读性 / 通知分级），见 [v0.9.4-02-loom-ux-polish.md](./v0.9.4-02-loom-ux-polish.md)；增量 v0.9.4-03 画布真实接入 LLM 修复（便签不执行 / 文档节点接线 / artifact 入 Trace / 上游穿透与注入 / function-calling 补 plan / 降级可见），见 [v0.9.4-03-loom-llm-hardening.md](./v0.9.4-03-loom-llm-hardening.md)；增量 v0.9.4-04 png-art 美术资源接入（6 张卡片类型插画 / 3 角色形象 / 4 处空态插画（含 mascot）/ 品牌标与 favicon-PWA 图标 / README 横幅；零新依赖，图片不进包体门禁），见 [v0.9.4-04-art-assets.md](./v0.9.4-04-art-assets.md)；增量 v0.9.4-05 角色画像与 mascot 重做（纯 token 单色人像消除「脸色不对」/ 纸感书本精灵 mascot / trim 限幅放大让主体填满画布），见 [v0.9.4-05-art-role-rework.md](./v0.9.4-05-art-role-rework.md)

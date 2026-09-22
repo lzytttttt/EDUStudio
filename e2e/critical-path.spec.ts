@@ -9,6 +9,7 @@ import { expect, test, type Page } from '@playwright/test'
  * ⑤ 演示直达：登录页一键进入简报（v0.9.3 P1-B②）
  * ⑥ URL 演示直达：?demo=1 冷启动直接落在简报（v0.9.3 P1-B②）
  * ⑦ 重新生成弹窗内方向键不误触简报决策（v0.9.3 P0-B②）
+ * ⑧ 稳定 URL 美术资产：favicon / apple-touch / PWA 图标可直达且 manifest 自洽（v0.9.4-04）
  *
  * 注意：v0.7 专注模式默认开启，采纳不再立即跳工作台；需要中性工作台时用「跳过简报」入口。
  */
@@ -190,4 +191,34 @@ test('⑦ 重新生成弹窗内方向键不误触简报决策', async ({ page })
   await expect(page.getByTestId('regen-dialog')).toBeHidden()
   await expect(counter).toHaveText(before ?? '')
   await expect(page.getByTestId('adopt-btn')).toBeVisible()
+})
+
+/**
+ * v0.9.4-04：favicon / apple-touch / PWA 图标走 public/ 绝对路径，不进 Vite 哈希管线，
+ * 因此路径写错不会有任何构建期告警（对比：注册表里 import 的图路径错了，Vite 直接报错）。
+ * 这里用同源 GET 守一道——它们正是「必须先物理存在」的那 4 张。
+ */
+test('⑧ 稳定 URL 美术资产可直达，且 PWA manifest 自洽', async ({ page }) => {
+  await page.goto('/')
+
+  for (const name of ['favicon-64.png', 'icon-180.png', 'icon-192.png', 'icon-512.png']) {
+    const res = await page.request.get(`/${name}`)
+    expect(res.status(), name).toBe(200)
+    expect(res.headers()['content-type'], name).toContain('image/png')
+  }
+
+  const manifestRes = await page.request.get('/site.webmanifest')
+  expect(manifestRes.status()).toBe(200)
+  const manifest = await manifestRes.json()
+  expect(manifest.start_url).toBe('/')
+  expect(manifest.icons.length).toBeGreaterThan(0)
+  for (const icon of manifest.icons) {
+    const res = await page.request.get(icon.src)
+    expect(res.status(), icon.src).toBe(200)
+  }
+
+  // 页面确实挂上了图标与 manifest 声明（不只是文件存在）
+  await expect(page.locator('link[rel="icon"]')).toHaveAttribute('href', '/favicon-64.png')
+  await expect(page.locator('link[rel="apple-touch-icon"]')).toHaveAttribute('href', '/icon-180.png')
+  await expect(page.locator('link[rel="manifest"]')).toHaveAttribute('href', '/site.webmanifest')
 })

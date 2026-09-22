@@ -3,6 +3,7 @@ import {
   Lightbulb, Scale, PenLine, ListTodo, BarChart3, HelpCircle, ChevronDown, Check, ArrowRight, Pencil,
 } from 'lucide-react'
 import type { BriefingCard, CardLink, CardPayload, CardType } from '../../harness/types'
+import { CARD_ART } from '../../theme/art'
 import { cn } from '../../lib/cn'
 
 const TYPE_META: Record<CardType, { label: string; icon: typeof Lightbulb; chip: string; bar: string }> = {
@@ -227,12 +228,17 @@ export default function BriefingCardView({
     <div className="flex h-full flex-col overflow-hidden rounded-[28px] border border-line bg-surface shadow-card">
       <div className={cn('h-1.5 w-full', meta.bar)} />
       <div className="flex flex-1 flex-col overflow-y-auto p-6">
-        <div className="flex items-center justify-between">
-          <span className={cn('inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold', meta.chip)}>
-            <Icon size={13} />
-            {meta.label} · {card.tag}
-          </span>
-          <span className="minor-info flex items-center gap-1" title={`置信度 ${card.confidence}/3`}>
+        <div className="flex items-center justify-between gap-2">
+          {/* 类型插画（v0.9.4-04）：出图主体偏高（约占画布 66~84% 高 / 55~84% 宽），h-11 下可见约 37px。
+              与 chip 内 lucide 图标并存不重复：插画是「类型形象」，图标是 chip 里的紧凑色相令牌 */}
+          <div className="flex min-w-0 items-center gap-2.5">
+            <img src={CARD_ART[card.type]} alt="" className="h-11 w-11 shrink-0 object-contain" />
+            <span className={cn('inline-flex min-w-0 items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold', meta.chip)}>
+              <Icon size={13} className="shrink-0" />
+              <span className="truncate">{meta.label} · {card.tag}</span>
+            </span>
+          </div>
+          <span className="minor-info flex shrink-0 items-center gap-1" title={`置信度 ${card.confidence}/3`}>
             {/* 低置信度强化（v0.9 M3②）：confidence=1 显示「建议人工核实」徽标 */}
             {card.confidence === 1 && (
               <span className="mr-0.5 rounded-full bg-amber-soft px-1.5 py-0.5 text-[0.5625rem] font-medium text-amber">

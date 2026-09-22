@@ -8,12 +8,16 @@
 
 [![license](https://img.shields.io/badge/license-CC%20BY--NC%204.0-blue.svg)](./LICENSE)
 [![stack](https://img.shields.io/badge/Vite-React%2018-646CFF.svg)](./package.json)
-[![tests](https://img.shields.io/badge/Vitest-401%20%E4%BE%8B-success.svg)](#-质量保障)
-[![e2e](https://img.shields.io/badge/Playwright-21%20%E7%94%A8%E4%BE%8B-brightgreen.svg)](#-质量保障)
+[![tests](https://img.shields.io/badge/Vitest-408%20%E4%BE%8B-success.svg)](#-质量保障)
+[![e2e](https://img.shields.io/badge/Playwright-23%20%E7%94%A8%E4%BE%8B-brightgreen.svg)](#-质量保障)
 [![lighthouse](https://img.shields.io/badge/Lighthouse-%E2%89%A5%200.85-yellow.svg)](#-质量保障)
 [![budget](https://img.shields.io/badge/gzip-297KB%20%E9%97%A8%E7%A6%81-orange.svg)](#-质量保障)
 
 </div>
+
+<p align="center">
+  <img src="./png/logo/banner-readme-1600x640.png" width="880" alt="智教工坊 · EDUStudio · 教育 Agent 工作台" />
+</p>
 
 ---
 
@@ -74,6 +78,8 @@ EDUStudio 的产品形态是一条「**收件 → 批阅 → 处理**」的暗�
 > 详见 [doc/v0.9.4-roadmap.md](./doc/v0.9.4-roadmap.md) 与实施参考 [doc/v0.9.4-01-loom-implementation.md](./doc/v0.9.4-01-loom-implementation.md)。
 >
 > **增量 v0.9.4-03 · 画布真实接入 LLM 修复**（评估报告六项问题一次性收口）：便签不再被当作任务执行（零 LLM 调用、不阻塞下游）；Agent 产出文档时画布自动出现「📄 正在生成 → 已生成」文档节点，双击 / 「打开」直达右栏；artifact 事件写入 Trace（画布投影含文档项与 function-calling 的 plan 步）；上游结果穿透 checkpoint 并注入文档生成（`A → ✋ → B` 不再丢结果）；LLM 失败回退内置剧本时画布可见降级提示。详见 [doc/v0.9.4-03-loom-llm-hardening.md](./doc/v0.9.4-03-loom-llm-hardening.md)。
+>
+> **增量 v0.9.4-04 · png-art 美术资源接入**：把 `scripts/png-art/` 已生成的 23 张透明底 PNG 接进界面（此前零接线——应用一张图片都没有，视觉全靠 CSS + 图标 + emoji 现场合成）——六类简报卡有了各自类型插画、登录身份三选一有了角色形象、四处空态（工作台首屏 / 空白文档 / 空白画布 / 简报读完）换上插画、品牌标与 favicon / apple-touch / PWA 图标统一到同一母题。登录页原有的手写 CSS 动效（点阵 + 漂移光斑 + 漂浮卡片与工作台骨架）保留不动。资源集中经 `src/theme/art.ts` 注册表按需渲染：图片字节只在 `<img>` 挂载时才下载，首屏仅付 16KB 品牌标。**图片不进包体门禁**（`scripts/budget.mjs` 只统计 `dist/assets/*.js`），主 chunk 118KB 仍守 120KB 预算。详见 [doc/v0.9.4-04-art-assets.md](./doc/v0.9.4-04-art-assets.md)。
 
 ---
 
@@ -367,7 +373,7 @@ npm install
 npm run dev      # 开发（端口被占用时 Vite 自动顺延）
 npm run build    # 类型检查 + 生产构建（前置 Vitest 单测 + tsc）
 npm run preview  # 预览生产构建
-npm test         # Vitest 单测（401 例）
+npm test         # Vitest 单测（408 例）
 npm run e2e      # Playwright 关键路径 E2E
 npm run video:smoke   # 宣传片抽帧自检（23 张）
 npm run video:frames  # 宣传片逐帧截图（1800 帧）
@@ -442,11 +448,11 @@ Docker 路径：前端设置页 → 模式选「代理」，地址填 `http://<�
 
 | 闸门 | 说明 |
 | --- | --- |
-| **Vitest 单测** | `npm test` 运行 Vitest 单测（**401 例**），覆盖 SSE 解析 / 增量归一化 / Markdown 渲染 / 工具注册 / 剧本与模板匹配 / 存储往返 / 偏好注入 / 导出工具 / CSV 成绩解析 / 数据源降级 / 上下文压缩 / 技能提炼与检索 / 简报卡校验与个性化排序 / 简报交互覆盖层与决策撤回 / 后台任务泵 / 数据上下文聚合与截断 / LLM 技能提炼校验与去重进化 / 简报重新生成选项注入与种类过滤 / 记忆环形裁剪与语义合并 / 偏好提炼与注入组装 / 文档规则评分 / 相对时间与工具 display 文案 / 决策键守卫矩阵 / 日期与新鲜度 / 文档流可见性 / Loom 图算法与画布几何（非执行节点 / 上游穿透）/ 空间任务台 store 与幂等墓碑（文档节点接线）/ Loom runner 拓扑执行与上游注入（文档收口）/ Trace 投影（含 artifact）/ function-calling 计划口径与任务型执行约束 |
+| **Vitest 单测** | `npm test` 运行 Vitest 单测（**408 例**），覆盖 SSE 解析 / 增量归一化 / Markdown 渲染 / 工具注册 / 剧本与模板匹配 / 存储往返 / 偏好注入 / 导出工具 / CSV 成绩解析 / 数据源降级 / 上下文压缩 / 技能提炼与检索 / 简报卡校验与个性化排序 / 简报交互覆盖层与决策撤回 / 后台任务泵 / 数据上下文聚合与截断 / LLM 技能提炼校验与去重进化 / 简报重新生成选项注入与种类过滤 / 记忆环形裁剪与语义合并 / 偏好提炼与注入组装 / 文档规则评分 / 相对时间与工具 display 文案 / 决策键守卫矩阵 / 日期与新鲜度 / 文档流可见性 / Loom 图算法与画布几何（非执行节点 / 上游穿透）/ 空间任务台 store 与幂等墓碑（文档节点接线）/ Loom runner 拓扑执行与上游注入（文档收口）/ Trace 投影（含 artifact）/ function-calling 计划口径与任务型执行约束 / 美术资源注册表映射完整性与 PWA 稳定 URL 物理存在 |
 | **构建闸门** | `npm run build` 前置执行单测 + tsc 类型检查，**双闸门**保障交付质量 |
-| **Playwright E2E** | 7 条关键路径 + 2 条自进化演示 + 8 条空间任务台（含依赖链真实执行与体验打磨） |
+| **Playwright E2E** | 8 条关键路径（含稳定 URL 美术资产可直达）+ 2 条自进化演示 + 9 条空间任务台（含依赖链真实执行、连线预览与体验打磨） |
 | **视觉回归** | 4 张基线视觉回归（阈值 5%，首月观察期） |
-| **包体预算门禁** | 主 chunk 120KB / 全部 JS 297KB gzip（`scripts/budget.mjs`），超限按 v0.6 / v0.8 / v0.8.4 / v0.9.3 / v0.9.4-03 先例重校；v0.9.4 画布整体懒加载后主 chunk 117.9KB |
+| **包体预算门禁** | 主 chunk 120KB / 全部 JS 297KB gzip（`scripts/budget.mjs`），超限按 v0.6 / v0.8 / v0.8.4 / v0.9.3 / v0.9.4-03 先例重校；v0.9.4 画布整体懒加载后主 chunk 117.9KB；**美术资源不在本预算口径内**（v0.9.4-04：图片经 Vite 哈希化进 `dist/assets`，门禁只 gzip 统计 `*.js`） |
 | **Lighthouse CI** | 性能 ≥ 0.85（`lighthouserc.yml`） |
 
 ---
@@ -455,7 +461,7 @@ Docker 路径：前端设置页 → 模式选「代理」，地址填 `http://<�
 
 | 版本 | 主题 | 一句话 |
 | --- | --- | --- |
-| **v0.9.4** | Loom 空间任务台 | 简报任务平铺进画布（一卡一节点 + 幂等墓碑）+ 拖拽 / 连线编排（成环拒绝 + 撤销重做）+ 单飞串行拓扑真实执行（上游输出注入下游 + 人工确认暂停）+ Agent Trace 空间投影与文档节点联动；零新依赖，画布懒加载；增量 v0.9.4-03 修复真实接入 LLM 六项接线缺口（便签不执行 / 文档节点自动出现 / artifact 入 Trace / 上游穿透与注入 / plan 口径一致 / 降级可见） |
+| **v0.9.4** | Loom 空间任务台 | 简报任务平铺进画布（一卡一节点 + 幂等墓碑）+ 拖拽 / 连线编排（成环拒绝 + 撤销重做）+ 单飞串行拓扑真实执行（上游输出注入下游 + 人工确认暂停）+ Agent Trace 空间投影与文档节点联动；零新依赖，画布懒加载；增量 v0.9.4-03 修复真实接入 LLM 六项接线缺口（便签不执行 / 文档节点自动出现 / artifact 入 Trace / 上游穿透与注入 / plan 口径一致 / 降级可见）；增量 v0.9.4-04 接入 png-art 美术资源（6 张卡片类型插画 / 3 角色形象 / 4 处空态插画 / 品牌标与 favicon-PWA 图标 / README 横幅；图片经注册表按需渲染、不进包体门禁，主 chunk 118KB） |
 | **v0.9.3** | 演示演出打磨 | 生成即见的文档流（占位即切 tab + 生成中 / 未读角标 + 返回主工作台）+ 编辑态方向键防误触（`shouldIgnoreDecisionKey` 守卫矩阵）+ 简报日期实时化与 seed 新鲜度 + 流式渲染节流与选择器订阅；P1 演示节奏与首进体验、P2 工程收口 |
 | **v0.9.2** | 工作台 UI 优化 · 教育者视角 | 执行轨迹业务化（13 工具 display 文案 + 技术细节开关）+ 角色主工作台默认激活 + 侧栏任务卡（摘要 + 相对时间 + 删除常显）+ 中栏进度仪表盘（第 N/M 步 · 并行 N 组）+ 下发待回执角标 + 简报「一卡一任务」（采纳卡片各自成独立任务会话，重复采纳幂等） |
 | **v0.9.1** | 记忆分层与产出自评闭环 | L2 情景 + L3 语义偏好本地记忆（环形 200 条 + 角色隔离）+ 对话 / 简报偏好注入 + 文档规则版自评（0-10 分 + 可执行建议）+ 导出 / 反馈 / 卡片决策自动收割闭环 |

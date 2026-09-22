@@ -1,16 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  GraduationCap, School, Landmark, Sparkles, ArrowRight, Eye, EyeOff, User, LockKeyhole,
+  ArrowRight, Eye, EyeOff, User, LockKeyhole,
   LoaderCircle, Zap,
 } from 'lucide-react'
 import { listRoles } from '../harness/roles'
 import type { RolePreset } from '../harness/types'
+import { BRAND_ART, ROLE_ART } from '../theme/art'
 import { useAuthStore } from '../stores/authStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { frameScheduler } from '../lib/throttle'
 import { cn } from '../lib/cn'
-
-const ROLE_ICONS = { teacher: GraduationCap, schoolAdmin: School, bureau: Landmark } as const
 
 const ACCENT: Record<RolePreset['accent'], { ring: string; text: string }> = {
   mint: { ring: 'border-mint/60 bg-mint-soft', text: 'text-mint' },
@@ -254,11 +253,9 @@ export default function LoginScreen() {
         }}
       >
         <div className="rounded-[28px] border border-line bg-surface/90 p-7 shadow-card backdrop-blur-md sm:p-8">
-          {/* 品牌头 */}
+          {/* 品牌头（v0.9.4-04）：品牌标换成 png-art 母题（原为 bg-primary 方块 + Sparkles）；两行文本保留，清晰可选中且随字号档位缩放 */}
           <div className="mb-6 flex items-center gap-2.5">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary text-white shadow-soft">
-              <Sparkles size={20} />
-            </div>
+            <img src={BRAND_ART.markColor} alt="" className="h-11 w-11 shrink-0 object-contain" />
             <div>
               <p className="text-lg font-bold leading-tight tracking-tight">智教工坊 · EDUStudio</p>
               <p className="text-xs text-ink-mute">教育 Agent 工作台</p>
@@ -314,7 +311,6 @@ export default function LoginScreen() {
               <span className="mb-1.5 block text-xs font-medium text-ink-soft">登录身份</span>
               <div className="grid grid-cols-3 gap-2">
                 {roles.map((r) => {
-                  const Icon = ROLE_ICONS[r.id]
                   const active = role === r.id
                   const accent = ACCENT[r.accent]
                   return (
@@ -331,7 +327,8 @@ export default function LoginScreen() {
                           : 'border-line bg-surface-2 hover:border-ink-mute/40',
                       )}
                     >
-                      <Icon size={18} className={active ? accent.text : 'text-ink-mute'} />
+                      {/* 角色形象（v0.9.4-04，尺寸口径按 v0.9.4-05 重做后）：出图主体占画布 69~71% 宽 / 84% 高，h-11 下可见约 37px */}
+                      <img src={ROLE_ART[r.id]} alt="" className="h-11 w-11 object-contain" />
                       <span className={cn('text-xs font-medium', active ? 'text-ink' : 'text-ink-soft')}>{r.name}</span>
                     </button>
                   )

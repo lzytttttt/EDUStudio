@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  X, Star, Check, Sparkles, ArrowLeft, ArrowUp, ArrowRight, LayoutDashboard, RotateCcw,
+  X, Star, Check, ArrowLeft, ArrowUp, ArrowRight, LayoutDashboard, RotateCcw,
   RefreshCw, FileText, Clock, Loader2, Wand2,
 } from 'lucide-react'
+import { BRAND_ART, SCENE_ART } from '../../theme/art'
 import { useAuthStore } from '../../stores/authStore'
 import { useBriefingStore } from '../../stores/briefingStore'
 import { useChatStore } from '../../stores/chatStore'
@@ -358,9 +359,8 @@ export default function BriefingPage() {
       {/* 顶部进度栏（v0.6.1：移动端精简——隐藏日期、按钮缩为图标/短文案，减少 banner 遮挡） */}
       <header className="flex items-center justify-between gap-2 px-4 pt-4 sm:gap-3 sm:px-6 sm:pt-5 md:px-10">
         <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary text-white">
-            <Sparkles size={15} />
-          </div>
+          {/* 品牌标（v0.9.4-04）：与前两处统一为 png-art 母题——简报页无侧栏，这里是该屏唯一的品牌位 */}
+          <img src={BRAND_ART.markColor} alt="" className="h-9 w-9 shrink-0 object-contain" />
           <div>
             <p className="text-sm font-semibold leading-tight">今日简报</p>
             <p className="text-[0.6875rem] text-ink-mute">
@@ -491,9 +491,9 @@ export default function BriefingPage() {
             />
           ) : (
             <div className="animate-fade-up text-center">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-mint-soft text-mint">
-                <Check size={28} />
-              </div>
+              {/* 简报读完态插画（v0.9.4-04）：出图留白多（主体仅占画布 50% 宽 / 39% 高），
+                  故给到 w-40 补偿，可见约 80×62px。完成语义由标题「今日简报已读完」承担 */}
+              <img src={SCENE_ART.emptyBrief} alt="" className="mx-auto h-40 w-40 object-contain" />
               <h2 className="mt-5 text-xl font-bold">今日简报已读完</h2>
               <p className="mt-1.5 text-sm text-ink-soft">收藏的卡片已放入工作台收藏夹，随时回看</p>
               <div className="mt-6 flex items-center justify-center gap-3">

@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
 import {
-  Sparkles, Plus, MessageSquare, Star, Trash2, Settings, ChevronRight, ChevronLeft, FileText, CircleHelp, Bell,
+  Plus, MessageSquare, Star, Trash2, Settings, ChevronRight, ChevronLeft, FileText, CircleHelp, Bell,
 } from 'lucide-react'
+import { BRAND_ART } from '../theme/art'
 import { useAuthStore } from '../stores/authStore'
 import { useChatStore, type ChatEntry } from '../stores/chatStore'
 import { relativeTime } from '../lib/relativeTime'
@@ -85,9 +86,8 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           className="flex items-center gap-2 rounded-xl px-1 py-1 text-left transition-colors hover:bg-surface-2"
           title="返回今日简报"
         >
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary text-white">
-            <Sparkles size={15} />
-          </div>
+          {/* 品牌标（v0.9.4-04）：换成 png-art 母题；透明底 PNG 不加 rounded/bg/shadow，避免方形投影穿出圆角。（原为 bg-primary 方块 + Sparkles） */}
+          <img src={BRAND_ART.markColor} alt="" className="h-9 w-9 shrink-0 object-contain" />
           <div>
             <p className="text-sm font-bold leading-tight">智教工坊 · EDUStudio</p>
             <p className="minor-info text-[0.625rem] text-ink-mute">{mode === 'mock' ? 'Mock 演示模式' : 'API 模式'}</p>

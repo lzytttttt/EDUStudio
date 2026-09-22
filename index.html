@@ -4,10 +4,24 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>智教工坊 · EDUStudio · 教育 Agent 工作台</title>
-    <link
-      rel="icon"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%234F46E5'/%3E%3Cpath d='M16 7l2.2 5.6L24 14.8l-5.8 2.2L16 22.6l-2.2-5.6L8 14.8l5.8-2.2z' fill='white'/%3E%3C/svg%3E"
+    <meta
+      name="description"
+      content="面向 K12 教育从业者（教育局 / 学校管理 / 教师）的轻量 AI Agent 工作台：登录即批阅，批示即立项，落章即留痕。"
     />
+    <!-- 移动端浏览器地址栏取色对齐 --bg（src/theme/tokens.css 的 250 248 245） -->
+    <meta name="theme-color" content="#FAF8F5" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="智教工坊 · EDUStudio · 教育 Agent 工作台" />
+    <meta
+      property="og:description"
+      content="面向 K12 教育从业者的轻量 AI Agent 工作台。纯前端 SPA，Mock 兜底、离线可演示。"
+    />
+    <!-- 图标集（v0.9.4-04）：由 scripts/png-art 生成，输出目录为 public/。
+         绝对路径 + PWA manifest 的 icons[].src 都需要稳定 URL，故这 4 张不进 Vite 哈希管线。
+         og:image 待生产域名确定后再补——它必须是绝对 URL，而本仓库有多种部署形态、无固定 canonical host。 -->
+    <link rel="icon" type="image/png" sizes="64x64" href="/favicon-64.png" />
+    <link rel="apple-touch-icon" href="/icon-180.png" />
+    <link rel="manifest" href="/site.webmanifest" />
   </head>
   <body>
     <div id="root"></div>

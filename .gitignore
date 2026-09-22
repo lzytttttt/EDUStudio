@@ -64,3 +64,9 @@ e2e/visual.spec.ts-snapshots/*.png
 video/*.mp4
 video/*.wav
 video/frames/
+
+# png-art: 出图工具的原始输出目录与中间产物（成品在 png/，中间件可重跑再生成，不入库）
+vibe_images/
+scripts/png-art/raw/
+scripts/png-art/.state.json
+scripts/png-art/__pycache__/

@@ -6,7 +6,8 @@
  * - 原方案语言：不是「流程图编辑器」，而是「把简报任务摊开来工作」。
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Plus, Sparkles, ChevronRight, Undo2, Redo2, Play, Square } from 'lucide-react'
+import { Plus, ChevronRight, Undo2, Redo2, Play, Square } from 'lucide-react'
+import { SCENE_ART } from '../../theme/art'
 import { useAuthStore } from '../../stores/authStore'
 import { useArtifactStore } from '../../stores/artifactStore'
 import { useChatStore } from '../../stores/chatStore'
@@ -302,9 +303,9 @@ export default function LoomPanel({ onRequestClose }: LoomPanelProps) {
 function LoomEmptyStateInternal() {
   return (
     <div className="pointer-events-none max-w-xs text-center">
-      <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-primary-soft text-primary">
-        <Sparkles size={18} />
-      </div>
+      {/* 画布空态插画（v0.9.4-04）：出图主体占画布 88%，h-32 下可见约 113px。
+          外层 pointer-events-none 必须保留——它叠在可拖拽画布上，插画不得截获指针 */}
+      <img src={SCENE_ART.emptyCanvas} alt="" className="mx-auto h-32 w-32 object-contain" />
       <p className="mt-3 text-sm font-semibold text-ink">把今天的任务摊开来处理</p>
       <p className="mt-1 text-[0.6875rem] leading-relaxed text-ink-soft">
         采纳的简报会自动出现在这里，

@@ -1,0 +1,15 @@
+{
+  "name": "智教工坊 · EDUStudio",
+  "short_name": "智教工坊",
+  "description": "面向 K12 教育从业者的轻量 AI Agent 工作台",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#FAF8F5",
+  "theme_color": "#FAF8F5",
+  "lang": "zh-CN",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

@@ -1,0 +1,163 @@
+{
+  "_note": "透明底 PNG 美术资源清单（单一事实源）。kind: icon/lockup = 代码绘制；gen = 出图后经 keying.py 抠成透明底。配色见 palette.py。",
+  "style": "Flat vector illustration, warm paper-toned minimal palette, bold geometric shapes, clean hard edges, no gradients, no drop shadow, no outline stroke, no texture, centered composition with generous even margin, professional education product style.",
+  "background": "BACKGROUND: the one and only background is a perfectly flat, uniform, solid pure magenta field (exact color #FF00FF) that fills the entire canvas right up to the subject's edges. Do not draw any backdrop, panel, board, poster, placard, card, rectangle, stripe, grid, halo or platform behind the subject, and do not place the subject on any coloured shape. The magenta background must be perfectly even: no gradient, no vignette, no noise, no texture, no shadow, no reflection, no border.",
+  "defaultNegative": "gradient, drop shadow, cast shadow, ground shadow, glow, blur, 3d render, photorealistic, texture, noise, watermark, signature, text, letters, words, numbers, frame, border, cropped subject, backdrop, panel, board, poster, placard, rectangle behind the subject, card behind the subject, striped backdrop, checkered backdrop, grid backdrop, platform behind the subject, realistic skin, skin tone, beige skin, cream skin, tan skin, rosy cheeks, robot, machinery, gears, mechanical parts, any magenta or pink or purple colour anywhere in the subject itself",
+  "assets": [
+    {
+      "id": "icon-512", "group": "icon", "kind": "icon", "out": "public/icon-512.png",
+      "target": [512, 512], "pad": 0.0,
+      "verify": { "coverage": [0.85, 0.99], "allowEdge": true, "semiMin": 20 }
+    },
+    {
+      "id": "icon-192", "group": "icon", "kind": "icon", "out": "public/icon-192.png",
+      "target": [192, 192], "pad": 0.0,
+      "verify": { "coverage": [0.85, 0.99], "allowEdge": true, "semiMin": 8 }
+    },
+    {
+      "id": "icon-180", "group": "icon", "kind": "icon", "out": "public/icon-180.png",
+      "target": [180, 180], "pad": 0.0,
+      "verify": { "coverage": [0.85, 0.99], "allowEdge": true, "semiMin": 8 }
+    },
+    {
+      "id": "favicon-64", "group": "icon", "kind": "icon", "out": "public/favicon-64.png",
+      "target": [64, 64], "pad": 0.0,
+      "verify": { "coverage": [0.85, 0.99], "allowEdge": true, "semiMin": 4 }
+    },
+    {
+      "id": "mark-color-512", "group": "logo", "kind": "icon", "out": "png/logo/mark-color-512.png",
+      "target": [512, 512], "pad": 0.0,
+      "verify": { "coverage": [0.40, 0.68], "allowEdge": false, "semiMin": 20 }
+    },
+    {
+      "id": "mark-mono-512", "group": "logo", "kind": "icon", "out": "png/logo/mark-mono-512.png",
+      "target": [512, 512], "pad": 0.0,
+      "verify": { "coverage": [0.12, 0.45], "allowEdge": false, "semiMin": 20 }
+    },
+    {
+      "id": "logo-horizontal", "group": "logo", "kind": "lockup", "out": "png/logo/logo-horizontal-1200x320.png",
+      "target": [1200, 320], "pad": 0.0,
+      "verify": { "coverage": [0.04, 0.45], "allowEdge": false, "semiMin": 20 }
+    },
+    {
+      "id": "logo-vertical", "group": "logo", "kind": "lockup", "out": "png/logo/logo-vertical-640x760.png",
+      "target": [640, 760], "pad": 0.0,
+      "verify": { "coverage": [0.04, 0.50], "allowEdge": false, "semiMin": 20 }
+    },
+    {
+      "id": "banner-readme", "group": "logo", "kind": "lockup", "out": "png/logo/banner-readme-1600x640.png",
+      "target": [1600, 640], "pad": 0.0,
+      "verify": { "coverage": [0.03, 0.40], "allowEdge": false, "semiMin": 20 }
+    },
+
+    {
+      "id": "card-insight", "group": "card", "kind": "gen", "out": "png/card/card-insight-512.png",
+      "target": [512, 512], "pad": 0.08, "officialRatio": [2048, 2048], "accent": "mint",
+      "prompt": "A single glowing lightbulb above a small rising bar chart, symbolizing insight from data",
+      "negative": "",
+      "verify": { "coverage": [0.05, 0.80], "allowEdge": false, "semiMin": 30 }
+    },
+    {
+      "id": "card-decision", "group": "card", "kind": "gen", "out": "png/card/card-decision-512.png",
+      "target": [512, 512], "pad": 0.08, "officialRatio": [2048, 2048], "accent": "amber",
+      "prompt": "A balanced two-pan scale with two stacked blocks on each side, symbolizing weighing options",
+      "negative": "",
+      "verify": { "coverage": [0.05, 0.80], "allowEdge": false, "semiMin": 30 }
+    },
+    {
+      "id": "card-creation", "group": "card", "kind": "gen", "out": "png/card/card-creation-512.png",
+      "target": [512, 512], "pad": 0.08, "officialRatio": [2048, 2048], "accent": "primary",
+      "prompt": "A fountain pen nib writing a line onto a sheet of paper, with small sparkle accents, symbolizing content creation",
+      "negative": "",
+      "verify": { "coverage": [0.05, 0.80], "allowEdge": false, "semiMin": 30 }
+    },
+    {
+      "id": "card-todo", "group": "card", "kind": "gen", "out": "png/card/card-todo-512.png",
+      "target": [512, 512], "pad": 0.08, "officialRatio": [2048, 2048], "accent": "coral",
+      "prompt": "A checklist panel with three rows, the top row checked with a bold checkmark, symbolizing a to-do list",
+      "negative": "",
+      "verify": { "coverage": [0.05, 0.80], "allowEdge": false, "semiMin": 30 }
+    },
+    {
+      "id": "card-data", "group": "card", "kind": "gen", "out": "png/card/card-data-512.png",
+      "target": [512, 512], "pad": 0.08, "officialRatio": [2048, 2048], "accent": "primary",
+      "prompt": "A dashboard style bar chart with one highlighted taller bar and a small trend line above it, symbolizing analytics",
+      "negative": "",
+      "verify": { "coverage": [0.05, 0.80], "allowEdge": false, "semiMin": 30 }
+    },
+    {
+      "id": "card-question", "group": "card", "kind": "gen", "out": "png/card/card-question-512.png",
+      "target": [512, 512], "pad": 0.08, "officialRatio": [2048, 2048], "accent": "coral",
+      "prompt": "A rounded speech bubble containing a large bold question mark, symbolizing an open question",
+      "negative": "",
+      "verify": { "coverage": [0.05, 0.80], "allowEdge": false, "semiMin": 30 }
+    },
+
+    {
+      "id": "role-teacher", "group": "role", "kind": "gen", "out": "png/role/role-teacher-512.png",
+      "target": [512, 512], "pad": 0.08, "officialRatio": [2048, 2048], "accent": "mint",
+      "prompt": "A friendly flat geometric bust portrait of a teacher wearing a simple graduation cap, with a small blackboard floating beside the shoulder. The portrait is drawn in a monochrome token palette with absolutely no skin colour: the face is a plain flat off-white #FFFFFF shape exactly like a paper silhouette, the hair and the only facial features are dark ink #26221D (two small dot eyes and a small simple smile line, nothing more), and the clothing is one flat solid teal-green #2A9D8F block. No beige, cream, tan, pink or any other skin tone anywhere.",
+      "negative": "",
+      "verify": { "coverage": [0.05, 0.80], "allowEdge": false, "semiMin": 30 }
+    },
+    {
+      "id": "role-admin", "group": "role", "kind": "gen", "out": "png/role/role-admin-512.png",
+      "target": [512, 512], "pad": 0.08, "officialRatio": [2048, 2048], "accent": "primary",
+      "prompt": "A friendly flat geometric bust portrait of a school administrator, with a small school building floating beside the shoulder. Drawn in a monochrome token palette with absolutely no skin colour: the face is a plain flat off-white #FFFFFF shape exactly like a paper silhouette, the hair and the only facial features are dark ink #26221D (two small dot eyes and a small simple smile line, nothing more), and the clothing is one flat solid indigo #4F46E5 block. No beige, cream, tan, pink or any other skin tone anywhere.",
+      "negative": "",
+      "verify": { "coverage": [0.05, 0.80], "allowEdge": false, "semiMin": 30 }
+    },
+    {
+      "id": "role-district", "group": "role", "kind": "gen", "out": "png/role/role-district-512.png",
+      "target": [512, 512], "pad": 0.08, "officialRatio": [2048, 2048], "accent": "coral",
+      "prompt": "A friendly flat geometric bust portrait of a government education bureau official, with a small classical columned government building floating beside the shoulder. Drawn in a monochrome token palette with absolutely no skin colour: the face is a plain flat off-white #FFFFFF shape exactly like a paper silhouette, the hair and the only facial features are dark ink #26221D (two small dot eyes and a small simple smile line, nothing more), and the clothing is one flat solid coral #FF6B6B block. No beige, cream, tan, pink or any other skin tone anywhere.",
+      "negative": "",
+      "verify": { "coverage": [0.05, 0.80], "allowEdge": false, "semiMin": 30 }
+    },
+    {
+      "id": "mascot", "group": "role", "kind": "gen", "out": "png/role/mascot-512.png",
+      "target": [512, 512], "pad": 0.08, "officialRatio": [2048, 2048], "accent": "primary",
+      "prompt": "A friendly cute little mascot character made from an open book and folded paper pages: a plain off-white #FFFFFF paper page body with a simple face drawn only in dark ink #26221D (two small dot eyes and a small simple smile), visible thin page edges, one paper corner lifted like a waving arm, wearing a small indigo #4F46E5 graduation cap, with a few coral #FF6B6B, amber #F6C453 and teal-green #2A9D8F bookmark ribbons beside it. Extremely simple and uncluttered: a flat paper character, no machinery, no robot parts, no gears, no panels, no screens.",
+      "negative": "",
+      "verify": { "coverage": [0.05, 0.80], "allowEdge": false, "semiMin": 30 }
+    },
+
+    {
+      "id": "scene-login", "group": "scene", "kind": "gen", "out": "png/scene/scene-login-1024x768.png",
+      "target": [1024, 768], "pad": 0.06, "officialRatio": [2368, 1728], "accent": "primary",
+      "prompt": "An abstract composition of three floating rounded rectangular cards with simple skeleton lines, plus a small three column application window, arranged loosely as a decorative corner scene",
+      "negative": "",
+      "verify": { "coverage": [0.03, 0.92], "allowEdge": false, "semiMin": 30 }
+    },
+    {
+      "id": "scene-empty-brief", "group": "scene", "kind": "gen", "out": "png/scene/scene-empty-brief-1024.png",
+      "target": [1024, 1024], "pad": 0.06, "officialRatio": [2048, 2048], "accent": "primary",
+      "prompt": "An empty inbox tray with a small stack of blank rounded cards resting inside, calm and minimal, symbolizing an empty briefing list",
+      "negative": "",
+      "verify": { "coverage": [0.03, 0.92], "allowEdge": false, "semiMin": 30 }
+    },
+    {
+      "id": "scene-empty-canvas", "group": "scene", "kind": "gen", "out": "png/scene/scene-empty-canvas-1024.png",
+      "target": [1024, 1024], "pad": 0.06, "officialRatio": [2048, 2048], "accent": "primary",
+      "prompt": "An empty blank workspace canvas with a sparse grid of faint dots and three small disconnected rounded node cards floating separately, no connecting lines",
+      "negative": "connecting lines, arrows, cables, wires",
+      "verify": { "coverage": [0.03, 0.92], "allowEdge": false, "semiMin": 30 }
+    },
+    {
+      "id": "scene-empty-doc", "group": "scene", "kind": "gen", "out": "png/scene/scene-empty-doc-1024.png",
+      "target": [1024, 1024], "pad": 0.06, "officialRatio": [2048, 2048], "accent": "primary",
+      "prompt": "A single blank document page with a folded corner and a few faint placeholder lines at the top, symbolizing a document not yet generated",
+      "negative": "",
+      "verify": { "coverage": [0.03, 0.92], "allowEdge": false, "semiMin": 30 }
+    }
+  ],
+  "paletteLock": {
+    "primary": "#4F46E5",
+    "coral": "#FF6B6B",
+    "amber": "#F6C453",
+    "mint": "#2A9D8F",
+    "ink": "#26221D",
+    "ink_soft": "#6B6660",
+    "surface": "#FFFFFF"
+  }
+}

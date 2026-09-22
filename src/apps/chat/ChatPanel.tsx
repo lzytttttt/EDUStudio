@@ -1,5 +1,5 @@
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
-import { Sparkles, Zap, CheckCircle2, ArrowLeft, RotateCcw, AlertCircle, GraduationCap, Plus, FileText, X, MessageSquare, Network } from 'lucide-react'
+import { Zap, CheckCircle2, ArrowLeft, RotateCcw, AlertCircle, GraduationCap, Plus, FileText, X, MessageSquare, Network } from 'lucide-react'
 import { useAuthStore } from '../../stores/authStore'
 import { useChatStore } from '../../stores/chatStore'
 import { useBriefingStore } from '../../stores/briefingStore'
@@ -13,6 +13,7 @@ import AgentTraceView from './AgentTraceView'
 import ChatInput from './ChatInput'
 import DemoWizard from './DemoWizard'
 import { cn } from '../../lib/cn'
+import { MASCOT_ART } from '../../theme/art'
 
 /* 空间任务台整体懒加载（v0.9.4）：画布 / 连线 / 节点编辑器与 runner 只在首次打开时拉取，
  * 不进首屏主 chunk——延续「轻量、纯前端、离线」的包体纪律 */
@@ -25,9 +26,8 @@ function EmptyState({ onStartDemo }: { onStartDemo: () => void }) {
   const preset = role ? getRolePreset(role) : null
   return (
     <div className="flex h-full flex-col items-center justify-center px-6 text-center">
-      <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-primary-soft text-primary">
-        <Sparkles size={24} />
-      </div>
+      {/* 助手形象（v0.9.4-04，尺寸口径按 v0.9.4-05 重做后）：mascot 为横长构图，主体占画布 84% 宽 / 64% 高，h-24 下可见约 81×61px */}
+      <img src={MASCOT_ART} alt="" className="h-24 w-24 object-contain" />
       <h2 className="mt-4 text-lg font-bold">你好，{preset?.name ?? '朋友'}</h2>
       <p className="mt-1.5 max-w-sm text-sm leading-relaxed text-ink-soft">
         我是你的教育 AI 助手。描述一个目标，我会自动规划步骤、调用工具并产出文档。
