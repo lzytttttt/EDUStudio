@@ -76,12 +76,14 @@ export function createInitialDirectorState(): DirectorState {
     mission: {
       // 演示开场即有一个「作战计划待确认」在办，与战情条 1 个在办自洽
       status: 'planning',
+      kind: 'parent_meeting',
       title: '家长会材料包',
       progress: 0,
       feed: [],
       plan: MISSION_PLAN,
       doneTasks: [],
       gate: null,
+      planSource: 'template',
     },
     missionCursor: 0,
     autonomy: autonomySeed(),
@@ -89,6 +91,9 @@ export function createInitialDirectorState(): DirectorState {
     artifactId: null,
     guideActive: false,
     guideStep: 0,
+    planSource: 'template',
+    planLoading: false,
+    facts: [],
   }
 }
 
@@ -145,7 +150,7 @@ export const useDirectorStore = create<DirectorStore>((set, get) => {
     const nextFeed = [...mission.feed, feedItem(ev.agentId, ev.text, ev.kind === 'gate' ? 'gate' : 'step')]
     if (ev.kind === 'gate') {
       set({
-        mission: { ...mission, status: 'waiting', gate: ev.gate, progress: ev.progress, feed: nextFeed },
+        mission: { ...mission, status: 'waiting', gate: ev.gate as MissionGate, progress: ev.progress, feed: nextFeed },
         missionCursor: cursor + 1,
       })
       toast(ev.text, 'amber')
@@ -232,6 +237,18 @@ export const useDirectorStore = create<DirectorStore>((set, get) => {
         screen: 'mission',
         mission: mission.status === 'idle' ? { ...mission, status: 'planning' } : mission,
       })
+    },
+
+    /* ---------- v1.1 真 LLM 拆解 / 剧本（M1/M3 实现，此处为契约骨架） ---------- */
+    planMission: async () => {
+      /* TODO(M1): routeMissionKind + planner.planMission + validatePlan + 写计划 */
+    },
+    cancelPlanning: () => set({ planLoading: false }),
+    startMission: () => {
+      /* TODO(M3): 按 kind 取 MISSION_TEMPLATES 种计划（不跳屏） */
+    },
+    resumeMission: () => {
+      /* TODO(M2): paused → running，从 missionCursor 续跑 */
     },
 
     cancelPlan: () => {

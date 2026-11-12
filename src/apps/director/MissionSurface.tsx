@@ -15,8 +15,11 @@ import { useEffect, useRef, type ComponentType } from 'react'
 import {
   ArrowUpRight,
   BarChart3,
+  BookOpenCheck,
   ChevronLeft,
+  ClipboardList,
   Eye,
+  FileCheck,
   FileText,
   ListTree,
   Mail,
@@ -33,7 +36,7 @@ import type {
   ArtifactTile,
   DirectorAgentId,
   FeedItem,
-  MissionGate,
+  GateId,
   MissionPlanTask,
   MissionState,
   Tone,
@@ -55,10 +58,13 @@ const ARTIFACT_ICON: Record<ArtifactTile['kind'], IconType> = {
   讲稿: Megaphone,
   大纲: ListTree,
   信件: Mail,
+  练习单: ClipboardList,
+  教案: BookOpenCheck,
+  摘要: FileCheck,
 }
 
 const GATE_META: Record<
-  MissionGate,
+  GateId,
   { agentId: DirectorAgentId; title: string; primary: string; rows: { id: string; label: string; icon: IconType }[] }
 > = {
   speech: {
@@ -75,6 +81,18 @@ const GATE_META: Record<
     title: '3 封信待发送',
     primary: '发送',
     rows: [{ id: 'a-letters', label: '收件人 3 · 语气已校准', icon: Mail }],
+  },
+  worksheet: {
+    agentId: 'assessor',
+    title: '分层练习待过目',
+    primary: '放行',
+    rows: [{ id: 'a-drill', label: '分层练习单 · 12 题', icon: ClipboardList }],
+  },
+  lesson: {
+    agentId: 'curriculum',
+    title: '习题课教案待过目',
+    primary: '放行',
+    rows: [{ id: 'a-lesson', label: '习题课教案 · 45 分钟', icon: BookOpenCheck }],
   },
 }
 
@@ -349,7 +367,7 @@ function GateCard({
   onReject,
   onOpenArtifact,
 }: {
-  gate: MissionGate
+  gate: GateId
   onApprove: () => void
   onReject: () => void
   onOpenArtifact: (id: string) => void
@@ -394,20 +412,9 @@ function GateCard({
           <SoftButton variant="soft" size="md" onClick={onReject} title="退回重写这一段">
             改一改
           </SoftButton>
-          {gate === 'speech' ? (
-            <button
-              type="button"
-              onClick={onReject}
-              title="退回重写（演示与「改一改」同一分支）"
-              className="ml-auto rounded-full px-2 py-1 text-[0.6875rem] font-medium text-ink-mute transition-colors duration-300 hover:text-ink"
-            >
-              退回
-            </button>
-          ) : (
-            <span className="ml-auto text-[0.6875rem] text-ink-mute" title="演示不会真实外发">
-              仅登记
-            </span>
-          )}
+          <span className="ml-auto text-[0.6875rem] text-ink-mute" title="演示不会真实外发">
+            {gate === 'letters' ? '仅登记' : '改完自动继续'}
+          </span>
         </div>
       </div>
     </section>

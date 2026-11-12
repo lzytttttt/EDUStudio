@@ -43,6 +43,7 @@ const MISSION_WORD: Record<MissionStatus, string> = {
   idle: '',
   planning: '计划待确认',
   running: '在办',
+  paused: '已暂停',
   waiting: '待你拍板',
   done: '已交付',
 }

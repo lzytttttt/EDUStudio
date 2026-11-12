@@ -13,7 +13,10 @@ import type {
   DirectorAgentId,
   GuideStep,
   MissionPlanTask,
+  MissionScriptEvent,
 } from '../director/types'
+
+export type { MissionScriptEvent } from '../director/types'
 
 export const AGENTS: AgentProfile[] = [
   {
@@ -161,30 +164,6 @@ export const MISSION_PLAN: MissionPlanTask[] = [
   { id: 't4', agentId: 'communicator', title: '安抚信沟通要点', seconds: 40 },
   { id: 't5', agentId: 'chief', title: '汇总与三道校验', seconds: 30 },
 ]
-
-interface ScriptFeed {
-  kind: 'feed'
-  agentId: DirectorAgentId
-  text: string
-  after: number
-  task?: string
-  progress: number
-}
-interface ScriptGate {
-  kind: 'gate'
-  agentId: DirectorAgentId
-  text: string
-  after: number
-  gate: 'speech' | 'letters'
-  progress: number
-}
-interface ScriptDone {
-  kind: 'done'
-  text: string
-  after: number
-  progress: 100
-}
-export type MissionScriptEvent = ScriptFeed | ScriptGate | ScriptDone
 
 /** 演示加速版时间线：真实约 8 分钟压缩到 ~9 秒 */
 export const MISSION_SCRIPT: MissionScriptEvent[] = [

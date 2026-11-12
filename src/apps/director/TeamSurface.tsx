@@ -14,7 +14,7 @@ import type {
   AgentProfile,
   AutonomyLevel,
   DirectorAgentId,
-  MissionGate,
+  GateId,
   MissionState,
   Tone,
 } from '../../harness/director/types'
@@ -31,10 +31,12 @@ const AUTONOMY: Record<AutonomyLevel, { word: string; tone: Tone }> = {
   L3: { word: '全权', tone: 'mint' },
 }
 
-/** 审批门 → 被卡住的成员（与 store.rejectGate 的归因保持一致） */
-const GATE_OWNER: Record<MissionGate, DirectorAgentId> = {
+/** 审批门 → 被卡住的成员（与 store.rejectGate 的归因保持一致；M3 起统一由 data.ts 导出） */
+const GATE_OWNER: Record<GateId, DirectorAgentId> = {
   speech: 'curriculum',
   letters: 'communicator',
+  worksheet: 'assessor',
+  lesson: 'curriculum',
 }
 
 /** 任何等级下都不能自动越过的边界；锁提示只出现在详情，卡片保持干净 */
