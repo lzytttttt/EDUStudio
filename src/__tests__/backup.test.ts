@@ -73,6 +73,34 @@ describe('backup 导出/恢复往返（v0.9 M2①/M8①）', () => {
     expect(file.data.settings).toEqual({ ok: 1 })
     expect(file.data.broken).toBeUndefined()
   })
+
+  it('总指挥模式状态（edustudio:director）在白名单内并可往返（v1.1 M2）', () => {
+    const p = memoryProvider()
+    setDataProvider(p)
+    const director = {
+      schemaVersion: 1,
+      updatedAt: 1_700_000_000_000,
+      decisions: [],
+      stats: { pending: 2, running: 0, hosted: 8, savedHours: 3.3 },
+      mission: { status: 'done', kind: 'exam_loop', title: '单元考闭环', progress: 100, feed: [], plan: [], doneTasks: [], gate: null, planSource: 'template' },
+      missionKind: 'exam_loop',
+      missionCursor: 9,
+      planSource: 'template',
+      autonomy: { chief: 'L2' },
+      guideSeen: true,
+      facts: [],
+    }
+    p.setItem('edustudio:director', JSON.stringify(director))
+    const file = buildBackupFile()
+    expect(file.data.director).toEqual(director)
+
+    /* 清库后恢复：director 键按白名单写回 */
+    p.removeItem('edustudio:director')
+    const res = importAll(file)
+    expect(res.ok).toBe(true)
+    expect(res.restored).toBe(1)
+    expect(JSON.parse(p.store.get('edustudio:director')!)).toEqual(director)
+  })
 })
 
 describe('parseBackupFile 校验（v0.9 M2①/M8①）', () => {

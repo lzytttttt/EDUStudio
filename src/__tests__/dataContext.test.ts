@@ -11,19 +11,20 @@ import { seedMeta } from '../harness/sources'
 import type { ClassLearning, RegionMetric, SchoolAlert, SchoolTrendPoint } from '../data/seed'
 
 /* 数据上下文层 v0.8 M1：角色分支格式化、截断护栏、异步聚合容错 */
+/* v1.1 P0-1：夹具与 seed/CSV 同口径（0–100），断言不再出现 9100% 这类重复 ×100 */
 
 const profile: ClassLearning = {
   classId: 'c1',
   className: '高一(2)班',
-  scores: [{ subject: '语文', avg: 82.5, passRate: 0.91, excellenceRate: 0.35, trend: 1.2 }],
-  homeworkCompletion: 0.86,
+  scores: [{ subject: '语文', avg: 82.5, passRate: 91, excellenceRate: 38, trend: 1.2 }],
+  homeworkCompletion: 93,
   attentionIndex: 78,
   weakPoints: ['文言文阅读', '二次函数'],
 }
 
 const trend: SchoolTrendPoint[] = [
-  { week: '第1周', avgScore: 76.2, homework: 0.82, attention: 74 },
-  { week: '第2周', avgScore: 77.1, homework: 0.84, attention: 75 },
+  { week: '第1周', avgScore: 76.2, homework: 82, attention: 74 },
+  { week: '第2周', avgScore: 77.1, homework: 88, attention: 75 },
 ]
 const alerts: SchoolAlert[] = [
   { level: 'high', title: '数学连续两周下滑', detail: '均分环比 -3.5', className: '高二(3)班' },
@@ -38,7 +39,9 @@ describe('formatClassProfile', () => {
     const text = formatClassProfile({ profile, meta: seedMeta() })
     expect(text).toContain('高一(2)班')
     expect(text).toContain('语文 均分82.5')
-    expect(text).toContain('作业完成率：86%')
+    expect(text).toContain('及格率91%')
+    expect(text).toContain('优秀率38%')
+    expect(text).toContain('作业完成率：93%')
     expect(text).toContain('文言文阅读')
     expect(text).toContain('演示数据')
   })
@@ -47,11 +50,17 @@ describe('formatClassProfile', () => {
   })
 })
 
+/** 抽取文本中所有百分数，断言没有 >100 的异常值（P0-1 重复 ×100 的回归点） */
+function percentValues(text: string): number[] {
+  return [...text.matchAll(/(\d+(?:\.\d+)?)%/g)].map((m) => Number(m[1]))
+}
+
 describe('formatSchoolOverview / formatRegionMetrics', () => {
   it('趋势取最近 4 期，预警带级别标注', () => {
     const text = formatSchoolOverview({ trend, alerts, meta: seedMeta() })
     expect(text).toContain('近 2 周趋势')
     expect(text).toContain('[高] 高二(3)班')
+    expect(text).toContain('作业88%')
   })
   it('区域指标输出值/环比/备注', () => {
     const text = formatRegionMetrics({ metrics, meta: seedMeta() })
@@ -61,6 +70,18 @@ describe('formatSchoolOverview / formatRegionMetrics', () => {
   it('空数据 → 暂无', () => {
     expect(formatSchoolOverview({ trend: [], alerts: [], meta: seedMeta() })).toContain('暂无')
     expect(formatRegionMetrics({ metrics: [], meta: seedMeta() })).toContain('暂无')
+  })
+  it('源数据为 0–100 口径时，输出不存在 >100% 的百分数（P0-1 回归）', () => {
+    const classText = formatClassProfile({ profile, meta: seedMeta() })
+    const schoolText = formatSchoolOverview({ trend, alerts, meta: seedMeta() })
+    for (const text of [classText, schoolText]) {
+      const values = percentValues(text)
+      expect(values.length).toBeGreaterThan(0)
+      for (const v of values) expect(v).toBeLessThanOrEqual(100)
+    }
+    /* 91 / 38 / 93 / 82 / 88 都是 0–100 原值，不得被二次放大 */
+    expect(percentValues(classText)).toEqual(expect.arrayContaining([91, 38, 93]))
+    expect(percentValues(schoolText)).toEqual(expect.arrayContaining([82, 88]))
   })
 })
 
@@ -87,5 +108,16 @@ describe('buildDataContext 异步聚合', () => {
     expect(await buildDataContext('teacher')).toContain('班级学情')
     expect(await buildDataContext('schoolAdmin')).toContain('校情数据')
     expect(await buildDataContext('bureau')).toContain('区域指标')
+  })
+
+  it('seed（0–100）下 teacher/schoolAdmin 上下文百分数不放大（P0-1 端到端回归）', async () => {
+    const teacher = await buildDataContext('teacher')
+    expect(teacher).toContain('及格率91%')
+    expect(teacher).toContain('作业完成率：93%')
+    for (const v of percentValues(teacher)) expect(v).toBeLessThanOrEqual(100)
+
+    const school = await buildDataContext('schoolAdmin')
+    expect(school).toContain('作业87%')
+    for (const v of percentValues(school)) expect(v).toBeLessThanOrEqual(100)
   })
 })

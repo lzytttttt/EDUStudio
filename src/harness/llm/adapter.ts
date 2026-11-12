@@ -105,6 +105,13 @@ export class DeepSeekAdapter implements LLMProvider {
   ): AsyncGenerator<LLMDelta> {
     const body: Record<string, unknown> = { model: this.config.model, messages, stream: true }
     if (options?.tools?.length) body.tools = options.tools
+    // v1.1 M1：温度/输出上限透传（未传时请求体不出现这两个字段，旧简报/工具路径零影响）
+    if (typeof options?.temperature === 'number' && Number.isFinite(options.temperature)) {
+      body.temperature = options.temperature
+    }
+    if (typeof options?.maxTokens === 'number' && Number.isFinite(options.maxTokens)) {
+      body.max_tokens = options.maxTokens
+    }
     const res = await this.open(body, signal)
     const reader = res.body!.getReader()
     const decoder = new TextDecoder()

@@ -11,6 +11,7 @@ import {
   Check,
   ChevronRight,
   Clock,
+  Loader2,
   MoreHorizontal,
   Moon,
   Send,
@@ -36,7 +37,7 @@ import {
 const CARD_DELAY = ['d-delay-1', 'd-delay-2', 'd-delay-3', 'd-delay-4', 'd-delay-5', 'd-delay-6'] as const
 
 /** 极短示例：点一下填进输入框，替代说明文字 */
-const COMPOSE_EXAMPLES = ['家长会材料', '单元考家长信', '督导回执'] as const
+const COMPOSE_EXAMPLES = ['家长会材料', '单元考诊断', '督导回执'] as const
 
 /** 状态只说一个短词 */
 const MISSION_WORD: Record<MissionStatus, string> = {
@@ -70,11 +71,13 @@ function dateLabel(now: Date): string {
 function DecisionCard({
   decision,
   index,
+  guideTarget,
   onOpen,
   onSnooze,
 }: {
   decision: DecisionItem
   index: number
+  guideTarget?: string
   onOpen: (id: string) => void
   onSnooze: (id: string) => void
 }) {
@@ -85,6 +88,7 @@ function DecisionCard({
   return (
     <article
       data-testid={`director-decision-${decision.id}`}
+      data-guide={guideTarget}
       onClick={done ? undefined : open}
       className={cn(
         'group d-card d-rise relative flex flex-col overflow-hidden rounded-[24px] border border-line bg-surface/80 p-4 backdrop-blur-sm sm:p-5',
@@ -128,14 +132,14 @@ function DecisionCard({
         </span>
         {done ? (
           <span className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full bg-mint-soft text-mint">
-            <Check size={15} strokeWidth={2.4} />
+            <Check size={16} strokeWidth={2.4} aria-hidden />
           </span>
         ) : (
           <ReadyRing value={decision.readiness} tone={agent.tone} />
         )}
       </div>
 
-      <div className="relative z-[1] mt-4 flex-1">
+      <div className="relative z-[1] mt-3 flex-1 sm:mt-4">
         <h3
           className={cn(
             'text-[0.9375rem] font-semibold leading-snug tracking-tight',
@@ -147,11 +151,11 @@ function DecisionCard({
         <p className="mt-1 line-clamp-1 text-xs leading-relaxed text-ink-soft">{decision.subtitle}</p>
       </div>
 
-      <div className="relative z-[1] mt-4 flex items-center justify-between gap-2">
+      <div className="relative z-[1] mt-3 flex items-center justify-between gap-2 sm:mt-4">
         <span className="flex min-w-0 items-center gap-2">
           <Chip tone={agent.tone}>{decision.tag}</Chip>
-          <span className="inline-flex shrink-0 items-center gap-1 text-[0.6875rem] tabular-nums text-ink-mute">
-            <Clock size={11} strokeWidth={2} />
+          <span className="inline-flex shrink-0 items-center gap-1 text-[0.6875rem] tabular-nums text-ink-soft">
+            <Clock size={14} strokeWidth={2} aria-hidden />
             {decision.minutes} 分钟
           </span>
         </span>
@@ -204,7 +208,7 @@ function PreviewSheet({
             <div className="flex min-w-0 items-start gap-2.5">
               <AgentAvatar agentId={decision.agentId} size="md" />
               <div className="min-w-0">
-                <p className="text-[0.6875rem] font-medium tracking-wide text-ink-mute">
+                <p className="text-[0.6875rem] font-medium tracking-wide text-ink-soft">
                   {agent.name} · {agent.role}
                 </p>
                 <h2 className="mt-1 text-[1.0625rem] font-semibold leading-snug tracking-tight">
@@ -227,14 +231,14 @@ function PreviewSheet({
                   i > 0 && 'border-t border-line/60',
                 )}
               >
-                <span className="shrink-0 pt-px text-[0.6875rem] text-ink-mute">{row.label}</span>
+                <span className="shrink-0 pt-px text-[0.6875rem] text-ink-soft">{row.label}</span>
                 <span className="text-right text-xs font-medium leading-snug text-ink">{row.value}</span>
               </div>
             ))}
           </div>
 
           {decision.preview.note && (
-            <p className="mt-3 px-1 text-[0.6875rem] leading-relaxed text-ink-mute">{decision.preview.note}</p>
+            <p className="mt-3 px-1 text-[0.6875rem] leading-relaxed text-ink-soft">{decision.preview.note}</p>
           )}
 
           {conflict ? (
@@ -249,16 +253,16 @@ function PreviewSheet({
                       resolve(decision.id, option.id)
                       onClose()
                     }}
-                    className="group flex w-full items-start gap-3 rounded-2xl border border-line bg-surface px-4 py-3 text-left transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-soft active:scale-[0.99]"
+                    className="group flex w-full items-start gap-3 rounded-2xl border border-line bg-surface px-4 py-3 text-left transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 active:scale-[0.99]"
                   >
-                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-line text-ink-mute transition-colors group-hover:border-primary group-hover:bg-primary-soft group-hover:text-primary">
-                      <ArrowUpRight size={11} strokeWidth={2.2} />
+                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-line text-ink-soft transition-colors group-hover:border-primary group-hover:bg-primary-soft group-hover:text-primary">
+                      <ArrowUpRight size={14} strokeWidth={2.2} aria-hidden />
                     </span>
                     <span className="min-w-0">
                       <span className="block text-[0.8125rem] font-semibold leading-snug text-ink">
                         {option.label}
                       </span>
-                      <span className="mt-0.5 block text-[0.6875rem] leading-relaxed text-ink-mute">
+                      <span className="mt-0.5 block text-[0.6875rem] leading-relaxed text-ink-soft">
                         {option.detail}
                       </span>
                     </span>
@@ -313,8 +317,10 @@ function MissionStrip() {
   const done = status === 'done'
   const running = status === 'running'
   const waiting = status === 'waiting'
-  const tone = done ? TONE.mint : running ? TONE.primary : TONE.amber
-  const barTone = done ? 'bg-mint' : running ? 'bg-primary' : 'bg-amber'
+  const planning = status === 'planning'
+  const paused = status === 'paused'
+  const tone = done ? TONE.mint : running ? TONE.primary : paused ? TONE.graphite : TONE.amber
+  const barTone = done ? 'bg-mint' : running ? 'bg-primary' : paused ? 'bg-ink-mute/60' : 'bg-amber'
   const progress = Math.min(100, Math.max(0, mission.progress))
   /* 计划里出现的成员按顺序取前 4 位叠放，不额外铺文字 */
   const crew = Array.from(new Set(mission.plan.map((task) => task.agentId))).slice(0, 4)
@@ -349,7 +355,7 @@ function MissionStrip() {
             </span>
             <span
               className={cn(
-                'shrink-0 rounded-full px-2 py-0.5 text-[0.625rem] font-medium',
+                'shrink-0 rounded-full px-2 py-0.5 text-[0.6875rem] font-medium',
                 tone.soft,
                 tone.text,
               )}
@@ -358,20 +364,27 @@ function MissionStrip() {
             </span>
           </span>
           <span className="mt-2 flex items-center gap-2">
-            <span className="h-1 flex-1 overflow-hidden rounded-full bg-line/80">
-              <span
-                className={cn('block h-full rounded-full d-progress-glow', barTone)}
-                style={{ width: `${progress}%` }}
-              />
-            </span>
-            <span className="shrink-0 text-[0.625rem] tabular-nums text-ink-mute">{progress}%</span>
+            {planning ? (
+              <span className="text-[0.6875rem] font-medium text-ink-soft">待确认 · 计划还没开跑</span>
+            ) : (
+              <>
+                <span className="h-1 flex-1 overflow-hidden rounded-full bg-line/80">
+                  <span
+                    className={cn('block h-full rounded-full d-progress-glow', barTone)}
+                    style={{ width: `${progress}%` }}
+                  />
+                </span>
+                <span className="shrink-0 text-[0.6875rem] tabular-nums text-ink-soft">{progress}%</span>
+              </>
+            )}
           </span>
         </span>
 
         <ChevronRight
           size={16}
           strokeWidth={2}
-          className="shrink-0 text-ink-mute transition-transform duration-300 group-hover:translate-x-0.5 group-hover:text-primary"
+          aria-hidden
+          className="shrink-0 text-ink-soft transition-transform duration-300 group-hover:translate-x-0.5 group-hover:text-primary"
         />
       </button>
     </section>
@@ -403,8 +416,9 @@ function EmptyDecisions() {
 export default function InboxSurface() {
   const decisions = useDirectorStore((s) => s.decisions)
   const stats = useDirectorStore((s) => s.stats)
-  const toast = useDirectorStore((s) => s.toast)
-  const openMission = useDirectorStore((s) => s.openMission)
+  const planMission = useDirectorStore((s) => s.planMission)
+  const cancelPlanning = useDirectorStore((s) => s.cancelPlanning)
+  const planLoading = useDirectorStore((s) => s.planLoading)
   const snoozeDecision = useDirectorStore((s) => s.snoozeDecision)
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -433,31 +447,35 @@ export default function InboxSurface() {
     snoozeDecision(id)
   }
 
-  /* 原型不做真实解析：先给「拆成 5 个环节」的结果，再进作战室看计划 */
+  /* v1.1：原话交给 store 真拆解（路由 → 真 LLM / 模板兜底 → 计划待确认） */
   const dispatch = () => {
-    toast('已理解 · 拆成 5 个环节')
+    const text = draft.trim()
+    if (!text || planLoading) return
     setDraft('')
-    openMission()
+    void planMission(text)
+  }
+  const cancelDispatch = () => {
+    cancelPlanning()
   }
 
   return (
     <div data-testid="director-inbox" className="d-scrollbar-thin h-full w-full overflow-y-auto">
-      <div className="mx-auto w-full max-w-[1120px] px-4 pb-36 pt-6 sm:px-6 sm:pb-28 sm:pt-8">
+      <div className="mx-auto flex min-h-full w-full max-w-[1120px] flex-col px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-6 sm:px-6 sm:pb-28 sm:pt-8 lg:justify-between">
         {/* 1 · 问候 + 战情条：日期一行，数字三格 */}
         <header className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
           <div className="d-rise">
-            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.6875rem] font-medium tracking-wide text-ink-mute">
-              <span className="inline-flex items-center gap-1">
-                <CalendarDays size={11} strokeWidth={2} />
+            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.6875rem] font-medium tracking-wide text-ink-soft">
+              <span data-testid="director-date" className="inline-flex items-center gap-1">
+                <CalendarDays size={14} strokeWidth={2} aria-hidden />
                 {dateLabel(now)}
               </span>
               <span aria-hidden className="h-1 w-1 rounded-full bg-ink-mute/40" />
-              <span className="inline-flex items-center gap-1">
-                <Timer size={11} strokeWidth={2} className="text-mint" />
+              <span data-testid="director-saved" className="inline-flex items-center gap-1">
+                <Timer size={14} strokeWidth={2} className="text-mint" aria-hidden />
                 省时 {stats.savedHours}h
               </span>
             </p>
-            <h1 className="mt-1.5 text-[1.0625rem] font-semibold tracking-tight sm:text-lg">
+            <h1 data-testid="director-greeting" className="mt-1.5 text-[1.0625rem] font-semibold tracking-tight sm:text-lg">
               {greetingFor(now.getHours())}，李老师
             </h1>
           </div>
@@ -476,11 +494,11 @@ export default function InboxSurface() {
           <div className="mb-3 flex items-baseline justify-between gap-3">
             <h2
               id="inbox-decisions-title"
-              className="text-[0.6875rem] font-medium tracking-[0.16em] text-ink-mute"
+              className="text-[0.6875rem] font-medium tracking-[0.16em] text-ink-soft"
             >
               {stats.pending > 0 ? '待你拍板' : '今日已清'}
             </h2>
-            <span className="inline-flex items-center gap-1.5 text-[0.6875rem] tabular-nums text-ink-mute">
+            <span className="inline-flex items-center gap-1.5 text-[0.6875rem] tabular-nums text-ink-soft">
               <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-primary/50" />
               {stats.pending} 件
             </span>
@@ -495,6 +513,7 @@ export default function InboxSurface() {
                   key={decision.id}
                   decision={decision}
                   index={index}
+                  guideTarget={index === 0 ? 'decision-first' : undefined}
                   onOpen={openPreview}
                   onSnooze={snooze}
                 />
@@ -507,7 +526,7 @@ export default function InboxSurface() {
         <section className="mt-7 d-rise d-delay-2" aria-labelledby="inbox-compose-title">
           <h2
             id="inbox-compose-title"
-            className="mb-2.5 text-[0.6875rem] font-medium tracking-[0.16em] text-ink-mute"
+            className="mb-2.5 text-[0.6875rem] font-medium tracking-[0.16em] text-ink-soft"
           >
             一句话委托
           </h2>
@@ -520,12 +539,13 @@ export default function InboxSurface() {
               aria-hidden
               className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary"
             >
-              <Sparkles size={15} strokeWidth={1.9} />
+              <Sparkles size={16} strokeWidth={1.9} aria-hidden />
             </span>
             <input
               ref={inputRef}
               type="text"
               value={draft}
+              disabled={planLoading}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
@@ -533,18 +553,25 @@ export default function InboxSurface() {
                   dispatch()
                 }
               }}
-              placeholder={COMPOSE_HINTS[hintIndex]}
+              placeholder={planLoading ? '正在拆解计划…' : COMPOSE_HINTS[hintIndex]}
               aria-label="一句话委托"
-              className="min-w-0 flex-1 bg-transparent py-2 text-[0.9375rem] text-ink outline-none placeholder:text-ink-mute sm:text-[0.8125rem]"
+              className="min-w-0 flex-1 bg-transparent py-2 text-[0.9375rem] text-ink outline-none placeholder:text-ink-soft disabled:cursor-wait disabled:opacity-70 sm:text-[0.8125rem]"
             />
             <button
               type="button"
-              onClick={dispatch}
-              aria-label="交给战队"
-              title="交给战队"
-              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-white shadow-soft transition-all duration-300 hover:bg-primary-deep hover:shadow-pop active:scale-95"
+              onClick={planLoading ? cancelDispatch : dispatch}
+              aria-label={planLoading ? '取消拆解' : '交给战队'}
+              title={planLoading ? '取消拆解' : '交给战队'}
+              className={cn(
+                'inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white shadow-soft transition-all duration-300 hover:shadow-pop active:scale-95',
+                planLoading ? 'bg-ink-mute hover:bg-ink-soft' : 'bg-primary hover:bg-primary-deep',
+              )}
             >
-              <ArrowUpRight size={17} strokeWidth={2.2} />
+              {planLoading ? (
+                <Loader2 size={18} strokeWidth={2.2} className="animate-spin" aria-hidden />
+              ) : (
+                <ArrowUpRight size={18} strokeWidth={2.2} aria-hidden />
+              )}
             </button>
           </div>
 
@@ -569,9 +596,9 @@ export default function InboxSurface() {
         <MissionStrip />
 
         {/* 5 · 安静的收尾：晚间只汇总、不打扰 */}
-        <div className="d-rise d-delay-5 mt-5 flex items-center justify-between px-2 text-[0.6875rem] text-ink-mute">
+        <div className="d-rise d-delay-5 mt-5 flex shrink-0 items-center justify-between px-2 text-[0.6875rem] text-ink-soft">
           <span className="inline-flex items-center gap-1.5">
-            <Moon size={12} strokeWidth={1.8} />
+            <Moon size={14} strokeWidth={1.8} aria-hidden />
             晚间战报 · 21:30
           </span>
           <span className="inline-flex items-center gap-1.5" title="战报只读，不要求动作">

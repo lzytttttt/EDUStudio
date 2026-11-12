@@ -1,7 +1,7 @@
 /**
  * v0.4 M3③：包体预算门禁。
  * - 主 chunk（index-*.js）gzip ≤ 120KB
- * - 全部 JS gzip ≤ 310KB
+ * - 全部 JS gzip ≤ 342KB（v1.1 实测重校；见下方校准注释）
  * 超限 exit 1，CI 中作为 build 后门禁执行。
  */
 import { gzipSync } from 'node:zlib'
@@ -30,8 +30,12 @@ const BUDGET = {
 // v1.0 预览校准：总指挥模式（Director 原型）整体为独立 lazy chunk（DirectorApp 17.3KB gzip，
 // 含 3 屏 + Mock 编排 + 引导层；其 CSS 独立 1.1KB 不计入 JS 口径），另新增 e2e/store 用例但无新依赖；
 // 主 chunk 仍 119.3 / 120KB。全 JS 实测 323.2KB，按实测 + 余量校准 310 → 330KB。
+// v1.1 校准：原型加固（真 LLM 拆解 planner/validate/facts/verifyCitations + 状态持久化 +
+// 第二剧本模板化 data + 视觉/引导收口），全部新增代码随总指挥模式独立 lazy chunk 进入
+//（DirectorApp 17.4 → 33.9KB gzip；主 chunk 119.5 / 120KB 不动，未抬阈值）；零新依赖。
+// 全 JS 实测 340.04KB，按实测 + 余量校准 330 → 342KB。
 // 主 chunk 120KB 阈值不动：本版新增逻辑若逼近上限，走懒加载而非抬阈值
-totalJsKB: 330, // 全部 JS gzip 上限
+totalJsKB: 342, // 全部 JS gzip 上限
 }
 
 const dist = 'dist/assets'

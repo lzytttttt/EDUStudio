@@ -58,6 +58,20 @@ describe('csvImport · 长表（一行一条成绩）', () => {
     expect(math.passRate).toBeGreaterThan(0)
     expect(r.preview.warnings.some((w) => w.includes('估算'))).toBe(true)
   })
+
+  it('已聚合行两率兼容 0–1 小数，导入边界归一为 0–100（v1.1 P0-1）', () => {
+    const csv = ['科目,平均分,及格率,优秀率', '物理,82.4,0.91,0.38', '数学,78.6,87,31'].join('\n')
+    const r = parseScoreCsv(csv)
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    const physics = r.preview.scores.find((s) => s.subject === '物理')!
+    expect(physics.passRate).toBe(91)
+    expect(physics.excellenceRate).toBe(38)
+    /* 已是 0–100 的列原样保留，不重复放大 */
+    const math = r.preview.scores.find((s) => s.subject === '数学')!
+    expect(math.passRate).toBe(87)
+    expect(math.excellenceRate).toBe(31)
+  })
 })
 
 describe('csvImport · 容错与提示', () => {

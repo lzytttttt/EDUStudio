@@ -44,7 +44,7 @@
 | [v1.0-research/02-swarm-architecture.md](./v1.0-research/02-swarm-architecture.md) | 研究 | 多 Agent 编排架构：现状 file:line 核验、AgentSpec/Mission/TeamTask/Handoff 草案、MissionRunner 调度、包体与阶段落点 |
 | [v1.0-research/03-director-ux-and-demo.md](./v1.0-research/03-director-ux-and-demo.md) | 研究 | Director 交互：四表面信息架构、事找人优先级/打扰预算、授权与信任、10 分钟演示脚本 |
 | [v1.0-research/04-agent-roster-and-scenarios.md](./v1.0-research/04-agent-roster-and-scenarios.md) | 研究 | 战队编制：6 Agent 规格与 rubric、单体 vs 战队对比、编排协议、三条端到端剧本（A/B/C） |
-| [v1.1-roadmap.md](./v1.1-roadmap.md) | — | **v1.1 路线图（待实施）**：原型加固——真 LLM 拆解接入 / 状态持久化 / 第二剧本（单元考闭环）/ 视觉再打磨；含 P0 前置修复、里程碑、验收与风险 |
+| [v1.1-roadmap.md](./v1.1-roadmap.md) | — | **v1.1 路线图（已实施，v1.1.0）**：原型加固——真 LLM 拆解接入 / 状态持久化 / 第二剧本（单元考闭环）/ 视觉再打磨；含 P0 前置修复、里程碑、验收与风险 |
 | [v1.1-research/01-llm-and-persistence.md](./v1.1-research/01-llm-and-persistence.md) | 研究 | v1.1 研究：真 LLM 拆解（planner/validate/回退）+ 状态持久化（schema/paused/迁移/备份）+ 数据上下文等 P0 前置修复 |
 | [v1.1-research/02-scenario-and-visual.md](./v1.1-research/02-scenario-and-visual.md) | 研究 | v1.1 研究：第二剧本（单元考闭环）模板化设计 + 逐屏视觉审计/P0 清单/视觉基线 |
 
@@ -52,7 +52,7 @@
 
 - 统一模板：背景与目标 → 现状与改动文件 → 技术方案 → 任务拆解 → 验收标准 → 风险与对策
 - 任务拆解标注优先级（P0/P1/P2）与依赖关系；验收标准可测试、可演示
-- 保持轻量定位：方案不引入重依赖，标注对生产包体（v1.0 预览实测主 chunk 119.3KB / 全部 JS 323.3KB gzip，门禁 120 / 330KB；v1.1 计划重校至 340KB）的增量预算
+- 保持轻量定位：方案不引入重依赖，标注对生产包体（v1.1.0 实测主 chunk 119.5KB / 全部 JS 340.04KB gzip，门禁 120 / 342KB；总指挥模式整体独立 lazy chunk DirectorApp 33.9KB；旧 v1.0 预览基线 119.3 / 323.3KB）的增量预算
 
 ## 版本约定
 
@@ -71,4 +71,4 @@
 - v0.9.4（已完成）：Loom 空间任务台（简报任务平铺进画布、拖拽编排与可视依赖、单飞串行拓扑真实执行、Agent Trace 空间投影、人工确认节点；零新依赖，画布整体懒加载），见 [v0.9.4-roadmap.md](./v0.9.4-roadmap.md) 与实施参考 [v0.9.4-01-loom-implementation.md](./v0.9.4-01-loom-implementation.md)；增量 v0.9.4-02 体验打磨（画布高度可拖拽 / 标题统一「xx画布」/ 大字档位可读性 / 通知分级），见 [v0.9.4-02-loom-ux-polish.md](./v0.9.4-02-loom-ux-polish.md)；增量 v0.9.4-03 画布真实接入 LLM 修复（便签不执行 / 文档节点接线 / artifact 入 Trace / 上游穿透与注入 / function-calling 补 plan / 降级可见），见 [v0.9.4-03-loom-llm-hardening.md](./v0.9.4-03-loom-llm-hardening.md)；增量 v0.9.4-04 png-art 美术资源接入（6 张卡片类型插画 / 3 角色形象 / 4 处空态插画（含 mascot）/ 品牌标与 favicon-PWA 图标 / README 横幅；零新依赖，图片不进包体门禁），见 [v0.9.4-04-art-assets.md](./v0.9.4-04-art-assets.md)；增量 v0.9.4-05 角色画像与 mascot 重做（纯 token 单色人像消除「脸色不对」/ 纸感书本精灵 mascot / trim 限幅放大让主体填满画布），见 [v0.9.4-05-art-role-rework.md](./v0.9.4-05-art-role-rework.md)
 - v0.9.5（已完成）：路演可信度专项 —— 以「10 分钟路演能否被当场问倒」为唯一标尺，补数据真实性、跨角色闭环与产物可用度三块缺口；验收标准改为可现场演示的动作。P0 报告按 `REGION_METRICS` / `SCHOOL_ALERTS` 逐项渲染（消除冻结快照，模板源码零数据字面量）+ 12 校四片区三学段演示数据与报告聚焦下拉 + 数字 hover 溯源（`{{值~来源}}` 行内规则），P1 `listTaskFlows` / `dispatchTaskFlow` 进 Agent 工具集（仅管理侧）+ 断网降级显式横幅与恢复后自动补推队列 + 预置 3/5 回执的进行中任务链，P2 手写 zip STORE + 最小 OOXML 的真 docx 与新增 xlsx 导出；第 0 步重校包体门禁 297 → 310，主 chunk 阈值 120 不动、靠懒加载守住（report / taskFlow / knowledgeRun 三个新 chunk），见 [v0.9.5-roadmap.md](./v0.9.5-roadmap.md)
 - v1.0（预览完成，产品计划待全量实施）：总指挥模式（Director）——事找人 + 异步托管，三屏原型（战情台 / 作战室 / 战队）以 `?v1=1` 直达、独立 lazy chunk 接入，Mock 编排 + 引导 + 授权演示；单测 474 / E2E 28（含 5 条 v1 用例）/ 主 chunk 119.3KB / 全 JS 323.3KB（门禁 330），零新依赖，旧三屏与 `?demo=1` 全保留；产品计划见 [v1.0-roadmap.md](./v1.0-roadmap.md)，实现协议见 [v1.0-01-team-protocol.md](./v1.0-01-team-protocol.md)
-- v1.1（规划中）：原型加固——真 LLM 拆解接入（planner + 校验 + 模板兜底）、状态持久化（schema/迁移/暂停继续/备份）、第二剧本（单元考闭环）、视觉再打磨（P0 问题清零 + 视觉基线）；含 dataContext 百分比重复 ×100、t8 文案口径等 P0 前置修复，见 [v1.1-roadmap.md](./v1.1-roadmap.md)
+- v1.1（已完成，v1.1.0）：原型加固——真 LLM 拆解接入（planner + validatePlan 8 条矩阵 + 事实快照 citations + 模板兜底可见，`?llm=0` 强制模板）、状态持久化（`edustudio:director` v1 / schema 迁移 / 刷新 `running→paused` 续跑 / 决策授权保留 / 备份白名单）、第二剧本「单元考闭环」（MissionTemplate 注册表 + 关键词意图路由 + d-drill 采纳联动 + 4 件可溯源交付物）、视觉再打磨（V1–V10 P0 清单 + 对比度/a11y/引导收口 + 三屏 2% 视觉基线）；含 dataContext 百分比重复 ×100、t8 文案口径等 P0 前置修复。实测 662 单测 / 35 E2E / 主 chunk 119.5KB / 全 JS 340.04KB（门禁 342），零新依赖，见 [v1.1-roadmap.md](./v1.1-roadmap.md) 与配套研究 [v1.1-research/01](./v1.1-research/01-llm-and-persistence.md)、[02](./v1.1-research/02-scenario-and-visual.md)

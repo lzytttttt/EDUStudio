@@ -31,6 +31,8 @@ export const BACKUP_KEY_WHITELIST: readonly string[] = [
   'importedDocs',
   'memory',
   'loom',
+  // v1.1 M2：总指挥模式状态（edustudio:director，schemaVersion 1；旧备份无此键恢复后回初始）
+  'director',
 ]
 
 /** 分享批注为动态键（share-anno-<snapshotKey>），按前缀放行 */

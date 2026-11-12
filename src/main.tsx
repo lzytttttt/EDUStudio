@@ -29,6 +29,10 @@ useSettingsStore.subscribe(applyAppearance)
 function flushPersist(): void {
   flushArtifactPersist()
   flushSettingsPersist()
+  // v1.1 总指挥模式状态（M2）：导演模块是独立 lazy chunk，载入后把同步 flush 挂到 window；
+  // 主 chunk 不静态 import 导演数据，避免把懒加载 chunk 的代码拉回主包（预算 ≤120KB）
+  const flushDirector = (window as Window & { __edustudioFlushDirector?: () => void }).__edustudioFlushDirector
+  flushDirector?.()
 }
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') flushPersist()

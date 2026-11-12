@@ -37,15 +37,18 @@ function clamp(text: string, max = DATA_CONTEXT_MAX_CHARS): string {
 export function formatClassProfile(res: ClassProfileResult): string {
   const { profile, meta } = res
   if (!profile) return '（暂无班级学情数据）'
+  /* v1.1 P0-1：passRate / excellenceRate / homeworkCompletion 全链路唯一口径是 0–100
+     （seed、CSV 导入、远端代理、scripts/report、dataCards 都直接加 %）。
+     这里不再 ×100；0–1 小数的归一放在 Source/CSV 边界（见 lib/csvImport.ts）。 */
   const subjects = profile.scores
-    .map((s) => `${s.subject} 均分${s.avg}（及格率${Math.round(s.passRate * 100)}%、优秀率${Math.round(s.excellenceRate * 100)}%、环比${s.trend >= 0 ? '+' : ''}${s.trend}）`)
+    .map((s) => `${s.subject} 均分${s.avg}（及格率${Math.round(s.passRate)}%、优秀率${Math.round(s.excellenceRate)}%、环比${s.trend >= 0 ? '+' : ''}${s.trend}）`)
     .join('；')
   const weak = profile.weakPoints.length ? profile.weakPoints.join('、') : '无明显薄弱点'
   return [
     `【班级学情】（来源：${meta.label} · ${formatAge(meta.fetchedAt)}${meta.degraded ? ' · 降级演示数据' : ''}）`,
     `班级：${profile.className}（${profile.classId}）`,
     `各科：${subjects}`,
-    `作业完成率：${Math.round(profile.homeworkCompletion * 100)}%；课堂专注度：${profile.attentionIndex}`,
+    `作业完成率：${Math.round(profile.homeworkCompletion)}%；课堂专注度：${profile.attentionIndex}`,
     `薄弱点：${weak}`,
   ].join('\n')
 }
@@ -58,7 +61,7 @@ export function formatSchoolOverview(res: SchoolOverviewResult): string {
   if (trend.length) {
     const recent = trend.slice(-4)
     lines.push(
-      `近 ${recent.length} 周趋势：${recent.map((p) => `${p.week} 均分${p.avgScore}/作业${Math.round(p.homework * 100)}%/专注${p.attention}`).join(' → ')}`,
+      `近 ${recent.length} 周趋势：${recent.map((p) => `${p.week} 均分${p.avgScore}/作业${Math.round(p.homework)}%/专注${p.attention}`).join(' → ')}`,
     )
   }
   if (alerts.length) {

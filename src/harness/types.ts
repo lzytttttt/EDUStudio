@@ -28,6 +28,10 @@ export interface LLMDelta {
 export interface StreamChatRawOptions {
   /** 角色工具 JSON Schema 列表；非空数组合入请求体，缺省/空数组 = 不携带（向后兼容） */
   tools?: unknown[]
+  /** 采样温度（v1.1 M1）：数字时合入请求体 `temperature`，缺省不下发（旧路径行为不变） */
+  temperature?: number
+  /** 最大输出 token 数（v1.1 M1）：数字时合入请求体 `max_tokens`，缺省不下发（旧路径行为不变） */
+  maxTokens?: number
 }
 
 export interface LLMProvider {

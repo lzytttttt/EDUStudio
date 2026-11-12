@@ -99,7 +99,7 @@ const teacherDeck: BriefingCard[] = [
     title: '家长会发言提纲草稿已备好，可直接修改',
     body: '按「成绩概览 → 进步亮点 → 分层建议 → 家校配合」四段生成，引用班级真实成绩数据，点击正文即可编辑。',
     extra: 'editable',
-    payload: { kind: 'editable', text: '各位家长：\n\n本次月考班级均分 82.4，较上次提升 1.8 分…\n\n一、整体情况\n二、进步亮点\n三、分层建议\n四、家校配合' },
+    payload: { kind: 'editable', text: '各位家长：\n\n本次月考物理均分 82.4，较上次 +2.1 分…\n\n一、整体情况\n二、进步亮点\n三、分层建议\n四、家校配合' },
     confidence: 2, source: 'AI 生成 · 基于月考数据',
     action: { kind: 'openTask', goal: '完善家长会发言稿并生成配套 PPT 大纲' },
     link: { kind: 'source', label: '查看成绩数据来源' },

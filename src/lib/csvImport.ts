@@ -109,6 +109,14 @@ function round1(n: number): number {
   return Math.round(n * 10) / 10
 }
 
+/**
+ * 百分比列归一（v1.1 P0-1）：与作业完成率同一口径——0–1 小数按百分比展开，0–100 直接采用。
+ * 归一放在导入边界，业务侧（dataContext / report / dataCards …）一律只消费 0–100。
+ */
+function normPercent(v: number): number {
+  return round1(v <= 1 ? v * 100 : v)
+}
+
 function aggregate(values: number[]): { avg: number; passRate: number; excellenceRate: number } {
   const total = values.length
   const sum = values.reduce((a, b) => a + b, 0)
@@ -207,8 +215,9 @@ export function parseScoreCsv(text: string, opts?: { className?: string; fileNam
         scores.push({
           subject,
           avg: round1(e.avg),
-          passRate: e.pass ?? Math.max(0, Math.min(100, (e.avg - 30) * 2)),
-          excellenceRate: e.exc ?? Math.max(0, Math.min(100, (e.avg - 55) * 2.2)),
+          /* 已聚合行的两率可能是 0–1 小数（如 0.91）或 0–100（如 91），在导入边界统一归一 */
+          passRate: e.pass !== undefined ? normPercent(e.pass) : Math.max(0, Math.min(100, (e.avg - 30) * 2)),
+          excellenceRate: e.exc !== undefined ? normPercent(e.exc) : Math.max(0, Math.min(100, (e.avg - 55) * 2.2)),
           trend: 0,
         })
         warnings.push(`「${subject}」无明细分数，及格/优秀率按均分口径估算`)
@@ -267,7 +276,7 @@ export function parseScoreCsv(text: string, opts?: { className?: string; fileNam
     const vals = rows.map((r) => toNum(r[hwIdx])).filter((v): v is number => v !== null)
     if (vals.length > 0) {
       const mean = vals.reduce((a, b) => a + b, 0) / vals.length
-      homeworkCompletion = Math.round((mean <= 1 ? mean * 100 : mean) * 10) / 10
+      homeworkCompletion = normPercent(mean)
     }
   }
 

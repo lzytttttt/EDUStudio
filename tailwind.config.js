@@ -22,6 +22,12 @@ export default {
         coral: { DEFAULT: 'rgb(var(--coral) / <alpha-value>)', soft: 'rgb(var(--coral-soft) / <alpha-value>)' },
         amber: { DEFAULT: 'rgb(var(--amber) / <alpha-value>)', soft: 'rgb(var(--amber-soft) / <alpha-value>)' },
         mint: { DEFAULT: 'rgb(var(--mint) / <alpha-value>)', soft: 'rgb(var(--mint-soft) / <alpha-value>)' },
+        /* v1.1 视觉 P0（roadmap §7.1 / D10）：对比度文本变体——只加深同色相，不加新色相、不改主色。
+           白底对比度：amber-ink 5.92 / coral-ink 4.64 / mint-ink 5.16，满足正文 ≥4.5。
+           用法：director 组件内的文字/图标（coral 本体只作图标/圆点/底色）。 */
+        'amber-ink': 'rgb(var(--amber-ink) / <alpha-value>)',
+        'coral-ink': 'rgb(var(--coral-ink) / <alpha-value>)',
+        'mint-ink': 'rgb(var(--mint-ink) / <alpha-value>)',
         danger: 'rgb(var(--danger) / <alpha-value>)',
       },
       fontFamily: {

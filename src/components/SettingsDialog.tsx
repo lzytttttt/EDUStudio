@@ -18,6 +18,23 @@ function sizeLabel(px: number): string {
 }
 
 /**
+ * v1.1 M2：总指挥模式状态（edustudio:director）为独立 lazy chunk 的 writer，
+ * 清库 / 恢复备份前必须撤销其待写快照，否则 300ms 后旧状态会写回（roadmap §5.4）。
+ * 导演模块未载入时无待写快照，钩子不存在即空操作；不在主 chunk 静态 import 导演数据。
+ */
+function cancelDirectorPendingPersist(): void {
+  const cancel = (window as Window & { __edustudioCancelDirectorPersist?: () => void })
+    .__edustudioCancelDirectorPersist
+  cancel?.()
+}
+
+/** 导出备份前把总指挥模式的 300ms 待写快照 flush 进存储，保证备份是最新状态（v1.1 M2） */
+function flushDirectorPendingPersist(): void {
+  const flush = (window as Window & { __edustudioFlushDirector?: () => void }).__edustudioFlushDirector
+  flush?.()
+}
+
+/**
  * 字号拖拽滑杆（v0.6.1）：Pointer Events 零依赖，复刻 Resizer 交互范式。
  * 点击/拖拽轨道调值，方向键微调，双击重置默认；拖拽中禁选文本。
  */
@@ -120,6 +137,7 @@ export default function SettingsDialog({ onClose }: { onClose: () => void }) {
       return
     }
     setConfirmExport(false)
+    flushDirectorPendingPersist()
     downloadBackup(buildBackupFile())
     setBackupMsg('备份文件已开始下载，请妥善保管。')
   }
@@ -142,6 +160,8 @@ export default function SettingsDialog({ onClose }: { onClose: () => void }) {
   /** 确认恢复：全量覆盖写入后 reload（store 重新从 LocalStorage 初始化） */
   const confirmImport = () => {
     if (!pendingImport) return
+    // v1.1 M2：导演模式为独立 lazy chunk，先撤销其待写快照，避免 reload 的 pagehide flush 把旧状态写回刚恢复的备份
+    cancelDirectorPendingPersist()
     importAll(pendingImport)
     window.location.reload()
   }
@@ -511,7 +531,7 @@ export default function SettingsDialog({ onClose }: { onClose: () => void }) {
           </div>
           <p className="mb-3 text-xs leading-relaxed text-ink-mute">
             所有数据仅保存在本机浏览器，不会上传；换设备或清理浏览器数据前请先导出备份。
-            备份包含会话、文档、收藏、技能、导入的成绩等全部内容。
+            备份包含会话、文档、收藏、技能、导入的成绩、总指挥模式状态等全部内容。
           </p>
           <div className="flex flex-wrap gap-2">
             <button
@@ -588,6 +608,7 @@ export default function SettingsDialog({ onClose }: { onClose: () => void }) {
             <button
               onClick={() => {
                 if (confirmClear) {
+                  cancelDirectorPendingPersist()
                   s.clearAllData()
                 } else {
                   setConfirmClear(true)

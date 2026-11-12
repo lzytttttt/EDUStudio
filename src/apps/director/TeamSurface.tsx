@@ -9,12 +9,11 @@
  */
 import { useState } from 'react'
 import { Check, ChevronRight, Lock, Sparkles, Target, type LucideIcon } from 'lucide-react'
-import { AGENTS, AGENT_MAP, WEEKLY } from '../../harness/director/data'
+import { AGENTS, AGENT_MAP, GATE_OWNER, WEEKLY } from '../../harness/director/data'
 import type {
   AgentProfile,
   AutonomyLevel,
   DirectorAgentId,
-  GateId,
   MissionState,
   Tone,
 } from '../../harness/director/types'
@@ -29,14 +28,6 @@ const AUTONOMY: Record<AutonomyLevel, { word: string; tone: Tone }> = {
   L1: { word: '草稿', tone: 'amber' },
   L2: { word: '代办', tone: 'primary' },
   L3: { word: '全权', tone: 'mint' },
-}
-
-/** 审批门 → 被卡住的成员（与 store.rejectGate 的归因保持一致；M3 起统一由 data.ts 导出） */
-const GATE_OWNER: Record<GateId, DirectorAgentId> = {
-  speech: 'curriculum',
-  letters: 'communicator',
-  worksheet: 'assessor',
-  lesson: 'curriculum',
 }
 
 /** 任何等级下都不能自动越过的边界；锁提示只出现在详情，卡片保持干净 */
@@ -72,17 +63,17 @@ export default function TeamSurface() {
 
   return (
     <div className="d-scrollbar-thin h-full w-full overflow-y-auto">
-      <div className="mx-auto w-full max-w-[1120px] px-4 pb-36 pt-6 sm:px-6 sm:pb-28 sm:pt-8">
-        {/* ① 周报条：一行小字 + 三个大数字，不做图表墙 */}
+      <div className="mx-auto flex min-h-full w-full max-w-[1120px] flex-col px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-6 sm:px-6 sm:pb-28 sm:pt-8">
+        {/* ① 周报条：一行小字 + 三个大数字，不做图表墙；lg 下与成员组一起垂直居中（V7） */}
         <section
           aria-label="本周周报"
-          className="d-rise flex items-center justify-between gap-3 rounded-[22px] bg-surface/75 px-4 py-3 shadow-soft backdrop-blur-sm sm:px-6 sm:py-4"
+          className="d-rise flex items-center justify-between gap-3 rounded-[22px] bg-surface/75 px-4 py-3 shadow-soft backdrop-blur-sm sm:px-6 sm:py-4 lg:mt-auto"
         >
-          <span className="inline-flex items-center gap-1.5 text-[0.625rem] font-medium tracking-[0.18em] text-ink-mute">
-            <Sparkles size={12} strokeWidth={1.9} className="text-primary" aria-hidden />
+          <span className="inline-flex items-center gap-1.5 text-[0.6875rem] font-medium tracking-[0.18em] text-ink-soft">
+            <Sparkles size={14} strokeWidth={1.9} className="text-primary" aria-hidden />
             本周
           </span>
-          <div className="flex items-center gap-5 sm:gap-8">
+          <div className="grid flex-1 grid-cols-3 items-center justify-items-center gap-2 sm:max-w-[420px]">
             <StatCell value={WEEKLY.done} label="完成" tone="primary" />
             <StatCell value={WEEKLY.acceptRate} suffix="%" label="采纳" tone="mint" />
             <StatCell value={WEEKLY.savedHours} suffix="h" label="省时" tone="amber" />
@@ -92,8 +83,8 @@ export default function TeamSurface() {
         {/* ② 成员网格：桌面 3 列 / 平板 2 列 / 手机 1 列 */}
         <section className="mt-5 sm:mt-6" aria-label="战队成员">
           <div className="mb-2.5 flex items-baseline justify-between px-1">
-            <h2 className="text-[0.6875rem] font-medium tracking-[0.18em] text-ink-mute">战队</h2>
-            <span className="d-num text-[0.625rem] text-ink-mute">
+            <h2 className="text-[0.6875rem] font-medium tracking-[0.18em] text-ink-soft">战队</h2>
+            <span className="d-num text-[0.6875rem] text-ink-soft">
               {onDuty > 0 ? `${onDuty} 在办` : `${AGENTS.length} 人`}
             </span>
           </div>
@@ -114,7 +105,7 @@ export default function TeamSurface() {
                     aria-haspopup="dialog"
                     aria-label={`${agent.name} · ${agent.role} · 授权 ${level} · ${STATUS_TEXT[status]} · 打开详情`}
                     className={cn(
-                      'd-card group flex h-full w-full flex-col rounded-[26px] bg-surface/90 p-5 text-left shadow-card-next',
+                      'd-card group flex h-full w-full flex-col rounded-[26px] bg-surface/90 p-4 text-left shadow-card-next sm:p-5',
                       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45',
                       status === 'waiting' && 'ring-1 ring-amber/35',
                       status === 'running' && 'ring-1 ring-primary/20',
@@ -132,7 +123,7 @@ export default function TeamSurface() {
                       </span>
                     </div>
 
-                    <div className="mt-4 flex flex-wrap items-center gap-2">
+                    <div className="mt-3 flex flex-wrap items-center gap-2 sm:mt-4">
                       <span className="text-[0.9375rem] font-semibold tracking-tight text-ink">
                         {agent.name}
                       </span>
@@ -144,20 +135,20 @@ export default function TeamSurface() {
                         {agent.expertise.map((word) => (
                           <span
                             key={word}
-                            className="rounded-full bg-surface-2 px-2 py-0.5 text-[0.625rem] font-medium text-ink-soft"
+                            className="rounded-full bg-surface-2 px-2 py-0.5 text-[0.6875rem] font-medium text-ink-soft"
                           >
                             {word}
                           </span>
                         ))}
                       </span>
-                      <span className="d-num flex shrink-0 items-center gap-2 text-[0.6875rem] font-semibold text-ink-mute">
+                      <span className="d-num flex shrink-0 items-center gap-2 text-[0.6875rem] font-semibold text-ink-soft">
                         <span className="inline-flex items-center gap-1">
-                          <Check size={12} className="text-mint" strokeWidth={2.8} aria-hidden />
+                          <Check size={14} className="text-mint" strokeWidth={2.8} aria-hidden />
                           {agent.stats.done}
                         </span>
                         <span aria-hidden className="h-3 w-px bg-line" />
                         <span className="inline-flex items-center gap-1">
-                          <Target size={12} strokeWidth={2} aria-hidden />
+                          <Target size={14} strokeWidth={2} aria-hidden />
                           {agent.stats.rate}%
                         </span>
                       </span>
@@ -169,8 +160,8 @@ export default function TeamSurface() {
           </div>
         </section>
 
-        {/* ④ 本周复盘：一条紧凑行，点一下只记一笔，不做新页面 */}
-        <div className="d-rise d-delay-7 mt-5">
+        {/* ④ 本周复盘：一条紧凑行，点一下只记一笔，不做新页面；lg 下贴底（与周报 auto 边距对称居中） */}
+        <div className="d-rise d-delay-7 mt-5 shrink-0 lg:mt-auto">
           <button
             type="button"
             onClick={() => toast('已记录', 'mint')}
@@ -179,15 +170,15 @@ export default function TeamSurface() {
           >
             <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[0.75rem]">
               <span className="font-medium text-ink">本周复盘</span>
-              <span className="text-ink-mute">
+              <span className="text-ink-soft">
                 退回 {WEEKLY.declined} 次 · 主因：语气
               </span>
             </span>
             <ChevronRight
-              size={15}
+              size={16}
               strokeWidth={2}
               aria-hidden
-              className="shrink-0 text-ink-mute transition-transform duration-300 group-hover:translate-x-0.5 motion-reduce:transition-none"
+              className="shrink-0 text-ink-soft transition-transform duration-300 group-hover:translate-x-0.5 motion-reduce:transition-none"
             />
           </button>
         </div>
@@ -239,15 +230,15 @@ function AgentDetail({
       </div>
 
       {/* 详情页唯一允许的一句说明（≤30 字） */}
-      <p className="mt-4 text-[0.6875rem] leading-relaxed text-ink-mute">{agent.boundary}</p>
+      <p className="mt-4 text-[0.6875rem] leading-relaxed text-ink-soft">{agent.boundary}</p>
 
       {/* 授权滑杆：4 段，点选即生效；白色 pill 滑动 + 颜色渐入 */}
       <section className="mt-6" aria-label="授权等级设置">
         <div className="mb-2 flex min-h-[22px] items-center justify-between gap-2">
-          <h3 className="text-[0.6875rem] font-medium tracking-[0.18em] text-ink-mute">授权</h3>
+          <h3 className="text-[0.6875rem] font-medium tracking-[0.18em] text-ink-soft">授权</h3>
           {lockHint && (
-            <Chip tone="coral" className="gap-1 px-2 py-0.5 text-[0.625rem]">
-              <Lock size={10} strokeWidth={2.4} aria-hidden />
+            <Chip tone="coral" className="gap-1 px-2 py-0.5 text-[0.6875rem]">
+              <Lock size={14} strokeWidth={2.4} aria-hidden />
               {lockHint}
             </Chip>
           )}
@@ -276,10 +267,10 @@ function AgentDetail({
                     'relative flex h-11 flex-col items-center justify-center gap-0.5 rounded-full',
                     'transition-colors duration-300 motion-reduce:transition-none',
                     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
-                    selected ? TONE[meta.tone].text : 'text-ink-mute hover:text-ink-soft',
+                    selected ? TONE[meta.tone].text : 'text-ink-soft hover:text-ink',
                   )}
                 >
-                  <span className="text-[0.5625rem] font-medium tracking-[0.14em] opacity-70">
+                  <span className="text-[0.6875rem] font-medium tracking-[0.14em] opacity-70">
                     {option}
                   </span>
                   <span className="text-[0.6875rem] font-semibold">{meta.word}</span>
@@ -311,7 +302,7 @@ function AutonomyChip({
 }) {
   const meta = AUTONOMY[level]
   return (
-    <Chip tone={meta.tone} className={cn('px-2 py-0.5 text-[0.625rem] font-semibold', className)}>
+    <Chip tone={meta.tone} className={cn('px-2 py-0.5 text-[0.6875rem] font-semibold', className)}>
       {level}
       {word && <span className="font-normal opacity-75">{meta.word}</span>}
     </Chip>
@@ -331,10 +322,10 @@ function MiniStat({
 }) {
   return (
     <div className="flex items-center gap-2.5 rounded-2xl bg-surface-2/70 px-3 py-2.5">
-      <Icon size={15} strokeWidth={2} className={TONE[tone].text} aria-hidden />
+      <Icon size={16} strokeWidth={2} className={TONE[tone].text} aria-hidden />
       <div className="flex items-baseline gap-1.5">
         <span className="d-num text-[1.0625rem] font-semibold leading-none text-ink">{value}</span>
-        <span className="text-[0.625rem] text-ink-mute">{label}</span>
+        <span className="text-[0.6875rem] text-ink-soft">{label}</span>
       </div>
     </div>
   )
