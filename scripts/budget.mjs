@@ -1,7 +1,7 @@
 /**
  * v0.4 M3③：包体预算门禁。
  * - 主 chunk（index-*.js）gzip ≤ 120KB
- * - 全部 JS gzip ≤ 295KB
+ * - 全部 JS gzip ≤ 310KB
  * 超限 exit 1，CI 中作为 build 后门禁执行。
  */
 import { gzipSync } from 'node:zlib'
@@ -24,7 +24,14 @@ const BUDGET = {
 // v0.9.4-03 校准：画布真实接入 LLM 修复（非执行节点过滤 / 文档节点接线 / 上游穿透与注入 / function-calling
 // 补 plan / 降级可见）合计 +1.7KB（零新依赖，主 chunk 117.9KB 仍守 120KB），实测 295.4KB，
 // 按实测 + 余量校准 295 → 297KB
-totalJsKB: 297, // 全部 JS gzip 上限
+// v0.9.5 校准：报告按数据渲染 + 12 所演示数据 + 数字溯源标注 + 任务链接入工具集，合计约 +4KB 业务代码；
+// OOXML 导出（src/lib/ooxml.ts，zip STORE 手写封装）为新增 lib，约 +3KB。两者均为零新依赖，
+// recharts 懒加载 chunk 不变。基线实测 295.8KB（主 chunk 118.4KB），按实测 + 余量校准 297 → 310KB。
+// v1.0 预览校准：总指挥模式（Director 原型）整体为独立 lazy chunk（DirectorApp 17.3KB gzip，
+// 含 3 屏 + Mock 编排 + 引导层；其 CSS 独立 1.1KB 不计入 JS 口径），另新增 e2e/store 用例但无新依赖；
+// 主 chunk 仍 119.3 / 120KB。全 JS 实测 323.2KB，按实测 + 余量校准 310 → 330KB。
+// 主 chunk 120KB 阈值不动：本版新增逻辑若逼近上限，走懒加载而非抬阈值
+totalJsKB: 330, // 全部 JS gzip 上限
 }
 
 const dist = 'dist/assets'

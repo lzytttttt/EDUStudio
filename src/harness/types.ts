@@ -2,7 +2,7 @@
 
 export type ProviderMode = 'mock' | 'api'
 export type RoleId = 'bureau' | 'schoolAdmin' | 'teacher'
-export type Stage = 'login' | 'briefing' | 'workbench'
+export type Stage = 'login' | 'briefing' | 'workbench' | 'command'
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant' | 'tool'

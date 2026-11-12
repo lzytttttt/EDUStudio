@@ -4,7 +4,9 @@ import {
 } from 'recharts'
 import { ArrowUpRight, ArrowDownRight, Globe2, RefreshCw, Clock, WifiOff } from 'lucide-react'
 import type { RegionMetric } from '../../data/seed'
+import { classesWithLearning, SCHOOLS } from '../../data/seed'
 import { getSourceProvider, formatAge, isStale, type RegionResult } from '../../harness/sources'
+import { useDataFocusStore } from '../../stores/dataFocusStore'
 import { cn } from '../../lib/cn'
 
 const PERIODS = ['T-5', 'T-4', 'T-3', 'T-2', 'T-1', '本期']
@@ -15,6 +17,12 @@ export default function RegionBoard() {
   const [loading, setLoading] = useState(true)
   const [reloadKey, setReloadKey] = useState(0)
   const [selected, setSelected] = useState(0)
+  /* 报告数据聚焦（v0.9.5 P0-B）：切下拉 → 新报告按该范围出数 */
+  const schoolId = useDataFocusStore((s) => s.schoolId)
+  const classId = useDataFocusStore((s) => s.classId)
+  const setSchool = useDataFocusStore((s) => s.setSchool)
+  const setClass = useDataFocusStore((s) => s.setClass)
+  const classOptions = classesWithLearning(schoolId)
 
   useEffect(() => {
     let alive = true
@@ -43,7 +51,46 @@ export default function RegionBoard() {
           <Globe2 size={15} className="shrink-0 text-ink-mute" />
           <h2 className="text-sm font-semibold">区域指标看板</h2>
         </div>
-        <span className="text-[0.625rem] text-ink-mute">12 所监测校</span>
+        <span className="text-[0.625rem] text-ink-mute">{SCHOOLS.length} 所监测校</span>
+      </div>
+
+      {/* 报告取数范围（v0.9.5 P0-B）：与报告正文同一数据源，切这里报告数字就变 */}
+      <div className="flex flex-wrap items-center gap-1.5 border-b border-line px-4 py-2">
+        <select
+          data-testid="focus-school"
+          value={schoolId}
+          onChange={(e) => setSchool(e.target.value)}
+          className="rounded-lg border border-line bg-surface-2 px-2 py-1 text-[0.6875rem] text-ink-soft"
+        >
+          <option value="">全区（{SCHOOLS.length} 所）</option>
+          {SCHOOLS.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name} · {s.district}{s.level}
+            </option>
+          ))}
+        </select>
+        <select
+          data-testid="focus-class"
+          value={classId}
+          disabled={!schoolId}
+          onChange={(e) => setClass(e.target.value)}
+          className="rounded-lg border border-line bg-surface-2 px-2 py-1 text-[0.6875rem] text-ink-soft disabled:opacity-50"
+        >
+          <option value="">全校</option>
+          {classOptions.map(({ info, learning }) => (
+            <option key={info.id} value={info.id}>
+              {info.name} · {Math.round(learning.scores[0]?.avg ?? 0)} 分
+            </option>
+          ))}
+        </select>
+        {(schoolId || classId) && (
+          <button
+            onClick={() => setSchool('')}
+            className="rounded-lg border border-line px-2 py-1 text-[0.6875rem] text-ink-mute transition-colors hover:text-primary"
+          >
+            回到全区
+          </button>
+        )}
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-4">

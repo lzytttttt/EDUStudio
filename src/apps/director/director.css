@@ -1,0 +1,168 @@
+/* Director（总指挥模式）原型视觉层 —— 只服务 v1 预览，前缀 d- 避免影响旧界面 */
+
+.d-root {
+  --d-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  background:
+    radial-gradient(1100px 620px at 12% -8%, rgb(var(--primary) / 0.10), transparent 62%),
+    radial-gradient(900px 560px at 92% 4%, rgb(var(--mint) / 0.10), transparent 60%),
+    radial-gradient(760px 520px at 68% 108%, rgb(var(--amber) / 0.10), transparent 62%),
+    rgb(var(--bg));
+}
+
+.d-noise {
+  background-image: radial-gradient(rgb(var(--line)) 0.6px, transparent 0.6px);
+  background-size: 22px 22px;
+  opacity: 0.45;
+}
+
+.d-card {
+  transition:
+    transform 0.45s var(--d-ease),
+    box-shadow 0.45s var(--d-ease),
+    border-color 0.45s var(--d-ease);
+  will-change: transform;
+}
+.d-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 26px 60px -28px rgba(38, 34, 29, 0.28), 0 8px 22px -14px rgba(38, 34, 29, 0.12);
+}
+
+/* 引导高亮：柔和光圈呼吸，不遮挡内容 */
+.d-guide-ring {
+  position: relative;
+  z-index: 30;
+  border-radius: 24px;
+  animation: d-guide-pulse 2.4s ease-in-out infinite;
+}
+@keyframes d-guide-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 2px rgb(var(--primary) / 0.28), 0 0 30px 2px rgb(var(--primary) / 0.10);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgb(var(--primary) / 0.20), 0 0 54px 10px rgb(var(--primary) / 0.18);
+  }
+}
+
+.d-breathe {
+  animation: d-breathe 3.4s ease-in-out infinite;
+}
+@keyframes d-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.035); }
+}
+
+.d-dot {
+  position: relative;
+}
+.d-dot::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 9999px;
+  border: 1px solid rgb(var(--primary) / 0.45);
+  animation: d-dot 2.2s ease-out infinite;
+}
+@keyframes d-dot {
+  0% { transform: scale(0.7); opacity: 0.8; }
+  100% { transform: scale(1.9); opacity: 0; }
+}
+
+/* 逐项浮现：列表 / 动态流 */
+.d-rise {
+  animation: d-rise 0.6s var(--d-ease) both;
+}
+@keyframes d-rise {
+  from { opacity: 0; transform: translateY(14px) scale(0.992); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.d-delay-1 { animation-delay: 0.06s; }
+.d-delay-2 { animation-delay: 0.12s; }
+.d-delay-3 { animation-delay: 0.18s; }
+.d-delay-4 { animation-delay: 0.24s; }
+.d-delay-5 { animation-delay: 0.3s; }
+.d-delay-6 { animation-delay: 0.36s; }
+.d-delay-7 { animation-delay: 0.42s; }
+.d-delay-8 { animation-delay: 0.48s; }
+
+.d-fade {
+  animation: d-fade 0.45s ease both;
+}
+@keyframes d-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.d-sheet {
+  animation: d-sheet 0.42s var(--d-ease) both;
+}
+@keyframes d-sheet {
+  from { opacity: 0; transform: translateY(28px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.d-feed-in {
+  animation: d-feed-in 0.5s var(--d-ease) both;
+}
+@keyframes d-feed-in {
+  from { opacity: 0; transform: translateX(-8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.d-progress-glow {
+  transition: width 0.9s var(--d-ease);
+  box-shadow: 0 0 18px rgb(var(--primary) / 0.45);
+}
+
+.d-num {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.d-dock {
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: saturate(180%) blur(18px);
+  -webkit-backdrop-filter: saturate(180%) blur(18px);
+}
+
+.d-orb {
+  filter: blur(46px);
+  opacity: 0.5;
+  border-radius: 9999px;
+}
+
+.d-sheen {
+  position: relative;
+  overflow: hidden;
+}
+.d-sheen::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, transparent 30%, rgb(255 255 255 / 0.55) 48%, transparent 62%);
+  transform: translateX(-130%);
+  animation: d-sheen 3.6s var(--d-ease) infinite;
+  pointer-events: none;
+}
+@keyframes d-sheen {
+  0% { transform: translateX(-130%); }
+  55%, 100% { transform: translateX(130%); }
+}
+
+.d-scrollbar-thin {
+  scrollbar-width: thin;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .d-card,
+  .d-guide-ring,
+  .d-breathe,
+  .d-dot::after,
+  .d-rise,
+  .d-fade,
+  .d-sheet,
+  .d-feed-in,
+  .d-sheen::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

@@ -7,6 +7,7 @@ import { useAuthStore } from './stores/authStore'
 import { useSettingsStore, flushSettingsPersist } from './stores/settingsStore'
 import { flushArtifactPersist } from './stores/artifactStore'
 import { isDemoEntry } from './lib/demoEntry'
+import { isDirectorEntry } from './lib/directorEntry'
 import { installTelemetry } from './lib/telemetry'
 
 // 界面外观同步（v0.6.1 评审修订）：字号全局生效——
@@ -38,8 +39,16 @@ window.addEventListener('pagehide', flushPersist)
 installTelemetry()
 
 // 演示直达（v0.9.3 P1-B②）：`?demo=1` 在渲染前完成「跳过引导 + 自动登录 + 直达简报」，
-// 避免冷启动先闪一帧登录页；分享路由（#share=）优先级更高，不参与直达
-if (!window.location.hash.startsWith('#share=') && isDemoEntry(window.location.search)) {
+// 避免冷启动先闪一帧登录页；分享路由（#share=）优先级更高，不参与直达。
+// v1.0 预览：`?v1=1` 优先于 `?demo=1`，以教师身份直达「总指挥模式」（独立 lazy chunk）。
+const search = window.location.search
+const isShareRoute = window.location.hash.startsWith('#share=')
+if (!isShareRoute && isDirectorEntry(search)) {
+  useSettingsStore.getState().markGuideSeen()
+  const auth = useAuthStore.getState()
+  if (auth.role !== 'teacher') auth.login('teacher')
+  auth.setStage('command')
+} else if (!isShareRoute && isDemoEntry(search)) {
   useSettingsStore.getState().markGuideSeen()
   const auth = useAuthStore.getState()
   if (auth.role) auth.setStage('briefing')

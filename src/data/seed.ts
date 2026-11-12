@@ -72,10 +72,21 @@ export interface PolicyDoc {
   summary: string
 }
 
+/** 区域学校清单：12 所 = 城东/城西/城北/城南四片区 × 小学/初中/高中三学段。
+ *  规模与 REGION_METRICS[0].note 的「全区 12 所中小学」口径一致（v0.9.5 P0-B）。 */
 export const SCHOOLS: School[] = [
   { id: 's1', name: '实验一中', district: '城东区', level: '高中', classes: 36, teachers: 142, students: 1890 },
   { id: 's2', name: '育才中学', district: '城西区', level: '初中', classes: 28, teachers: 98, students: 1420 },
   { id: 's3', name: '朝阳小学', district: '城东区', level: '小学', classes: 24, teachers: 76, students: 1180 },
+  { id: 's4', name: '朝阳中学', district: '城东区', level: '初中', classes: 30, teachers: 105, students: 1510 },
+  { id: 's5', name: '育才实验小学', district: '城西区', level: '小学', classes: 22, teachers: 71, students: 1090 },
+  { id: 's6', name: '城西外国语学校', district: '城西区', level: '高中', classes: 32, teachers: 128, students: 1720 },
+  { id: 's7', name: '城北实验学校', district: '城北区', level: '小学', classes: 26, teachers: 82, students: 1240 },
+  { id: 's8', name: '城北第二中学', district: '城北区', level: '初中', classes: 25, teachers: 91, students: 1310 },
+  { id: 's9', name: '城北高级中学', district: '城北区', level: '高中', classes: 33, teachers: 131, students: 1780 },
+  { id: 's10', name: '城南实验小学', district: '城南区', level: '小学', classes: 23, teachers: 74, students: 1130 },
+  { id: 's11', name: '城南中学', district: '城南区', level: '初中', classes: 27, teachers: 96, students: 1390 },
+  { id: 's12', name: '城南第一中学', district: '城南区', level: '高中', classes: 31, teachers: 118, students: 1650 },
 ]
 
 export const CLASSES: ClassInfo[] = [
@@ -84,6 +95,11 @@ export const CLASSES: ClassInfo[] = [
   { id: 'c3', schoolId: 's2', grade: '初二', name: '初二（5）班', headTeacher: '陈静', students: 42 },
   { id: 'c4', schoolId: 's2', grade: '初三', name: '初三（1）班', headTeacher: '刘强', students: 44 },
   { id: 'c5', schoolId: 's3', grade: '五年级', name: '五（2）班', headTeacher: '赵敏', students: 40 },
+  { id: 'c6', schoolId: 's4', grade: '初三', name: '初三（4）班', headTeacher: '孙丽', students: 43 },
+  { id: 'c7', schoolId: 's6', grade: '高二', name: '高二（2）班', headTeacher: '周文彬', students: 41 },
+  { id: 'c8', schoolId: 's7', grade: '四年级', name: '四（1）班', headTeacher: '吴海燕', students: 38 },
+  { id: 'c9', schoolId: 's9', grade: '高一', name: '高一（1）班', headTeacher: '郑伟', students: 44 },
+  { id: 'c10', schoolId: 's11', grade: '初二', name: '初二（3）班', headTeacher: '黄志明', students: 41 },
 ]
 
 export const CLASS_LEARNING: ClassLearning[] = [
@@ -145,6 +161,30 @@ export const CLASS_LEARNING: ClassLearning[] = [
     homeworkCompletion: 94,
     attentionIndex: 88,
     weakPoints: ['分数应用题', '阅读概括能力'],
+  },
+  /* 以下为 v0.9.5 P0-B 新增学段覆盖：让「切换班级 → 数字变化」在现场有得可切。
+     只补规模，不改动上方与简报/Agent 剧本/宣传片对齐的锚点数字。 */
+  {
+    classId: 'c8',
+    className: '四（1）班',
+    scores: [
+      { subject: '数学', avg: 84.5, passRate: 95, excellenceRate: 44, trend: 2.0 },
+      { subject: '科学', avg: 82.1, passRate: 92, excellenceRate: 39, trend: 1.1 },
+    ],
+    homeworkCompletion: 95,
+    attentionIndex: 89,
+    weakPoints: ['小数乘法应用题'],
+  },
+  {
+    classId: 'c10',
+    className: '初二（3）班',
+    scores: [
+      { subject: '英语', avg: 82.6, passRate: 91, excellenceRate: 37, trend: 0.9 },
+      { subject: '数学', avg: 76.3, passRate: 82, excellenceRate: 24, trend: -2.1 },
+    ],
+    homeworkCompletion: 83,
+    attentionIndex: 77,
+    weakPoints: ['一次函数图像与系数', '完形填空上下文推断'],
   },
 ]
 
@@ -225,4 +265,16 @@ export function findClassLearning(keyword: string): ClassLearning | undefined {
   return CLASS_LEARNING.find(
     (c) => c.className.includes(keyword) || c.classId === keyword,
   )
+}
+
+/**
+ * 已有学情数据的班级（v0.9.5 P0-B）。
+ * 班级下拉只列这些：CLASSES 是全量班级名录（任务下发选人用），
+ * 但没有学情的班级切过去只会拿到空档，不该出现在「切一下看数字变」的演示路径上。
+ */
+export function classesWithLearning(schoolId: string): { info: ClassInfo; learning: ClassLearning }[] {
+  return CLASS_LEARNING.flatMap((learning) => {
+    const info = CLASSES.find((c) => c.id === learning.classId)
+    return info && info.schoolId === schoolId ? [{ info, learning }] : []
+  })
 }

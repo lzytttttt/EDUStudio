@@ -33,7 +33,8 @@ const KIND_LABEL: Record<string, string> = {
 
 const EXPORT_ITEMS: { format: ExportFormat; label: string; hint: string }[] = [
   { format: 'md', label: 'Markdown', hint: '.md 源文件' },
-  { format: 'docx', label: 'Word 文档', hint: '.doc 兼容格式' },
+  { format: 'docx', label: 'Word 文档', hint: '.docx 标准格式' },
+  { format: 'xlsx', label: 'Excel 表格', hint: '.xlsx 工作表' },
   { format: 'pdf', label: 'PDF', hint: '浏览器打印导出' },
 ]
 

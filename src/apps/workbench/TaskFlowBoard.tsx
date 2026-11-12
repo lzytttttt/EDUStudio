@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  Send, ChevronDown, ChevronRight, Clock, CheckCircle2, Inbox, FileCheck, Trash2, X, Users, Plus, RefreshCw,
+  Send, ChevronDown, ChevronRight, Clock, CheckCircle2, Inbox, FileCheck, Trash2, X, Users, Plus, RefreshCw, WifiOff,
 } from 'lucide-react'
 import { useAuthStore } from '../../stores/authStore'
 import { useTaskFlowStore, flowsForRole, myReceipt } from '../../stores/taskFlowStore'
@@ -51,7 +51,7 @@ function targetOptions(role: 'bureau' | 'schoolAdmin'): { name: string; role: 's
 
 export default function TaskFlowBoard() {
   const role = useAuthStore((s) => s.role)
-  const { flows, syncState, refresh, issue, acknowledge, submit, remove } = useTaskFlowStore()
+  const { flows, syncState, pendingOps, refresh, issue, acknowledge, submit, remove } = useTaskFlowStore()
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [formOpen, setFormOpen] = useState(false)
 
@@ -101,6 +101,25 @@ export default function TaskFlowBoard() {
           </button>
         )}
       </header>
+
+      {/* 断网降级提示（v0.9.5 P1-B）：把「服务不可用」讲成一个可演的诚实状态，
+          而不是角落里一个没人解释的灰徽标 */}
+      {syncState === 'degraded' && (
+        <div
+          data-testid="sync-offline-hint"
+          className="flex items-start gap-2 border-b border-amber-200 bg-amber-soft px-4 py-2.5"
+        >
+          <WifiOff size={13} className="mt-0.5 shrink-0 text-amber-600" />
+          <div className="min-w-0 flex-1">
+            <p className="text-[0.6875rem] leading-relaxed text-amber-700">{t('flow.sync.offlineHint')}</p>
+            {pendingOps.length > 0 && (
+              <p className="mt-0.5 text-[0.625rem] font-medium text-amber-600">
+                {t('flow.sync.offlineQueued', { n: pendingOps.length })}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* 任务列表 */}
       <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto p-3">

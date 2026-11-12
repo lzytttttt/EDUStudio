@@ -81,4 +81,23 @@ export const SEED_TASK_FLOWS: TaskFlow[] = [
       { id: 'r7', target: '王芳', targetRole: 'teacher', status: 'acknowledged', updatedAt: Date.now() - DAY / 8 },
     ],
   },
+  /* v0.9.5 P1-C：进场即有一条回执过半的进行中任务链，双窗口演示不必先手工造数据。
+     主题与 P0 报告口径同源：体质健康下滑是报告里那条「中」风险指标。 */
+  {
+    id: 'tf-4',
+    title: '学生体质健康专项督导整改回执',
+    content:
+      '本期学生体质健康优良率环比下降，请对照本区报告「存在问题」一节所列指标逐校说明体育课开足开齐情况，并于截止前提交整改台账。',
+    from: '区教育局',
+    fromRole: 'bureau',
+    issuedAt: Date.now() - DAY / 3,
+    deadline: '本周三 18:00',
+    receipts: [
+      { id: 'r8', target: '实验一中', targetRole: 'schoolAdmin', status: 'submitted', updatedAt: Date.now() - DAY / 4, note: '体育课已全时开齐，场地排班表已上传' },
+      { id: 'r9', target: '育才中学', targetRole: 'schoolAdmin', status: 'acknowledged', updatedAt: Date.now() - DAY / 5 },
+      { id: 'r10', target: '朝阳小学', targetRole: 'schoolAdmin', status: 'acknowledged', updatedAt: Date.now() - DAY / 5 },
+      { id: 'r11', target: '城北实验学校', targetRole: 'schoolAdmin', status: 'pending' },
+      { id: 'r12', target: '城南实验小学', targetRole: 'schoolAdmin', status: 'pending' },
+    ],
+  },
 ]

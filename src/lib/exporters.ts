@@ -1,15 +1,17 @@
 /**
- * 文档导出（v0.3 专项 ② → v0.4 M2④ 增强 → v0.5 M5③ 水印）
+ * 文档导出（v0.3 专项 ② → v0.4 M2④ 增强 → v0.5 M5③ 水印 → v0.9.5 P2 真 OOXML）
  * - md：直接下载 Markdown 源文件
- * - docx：以 Word 兼容 HTML（MHTML 简化版）生成 .doc 文件，Word/WPS 可直接打开；
- *   v0.4 升级：封面（标题/作者/日期）、页眉行、精修样式、可选附带评审批注
+ * - docx：v0.9.5 起为真 OOXML（.docx），Word/WPS 打开不再弹「格式与扩展名不匹配」；
+ *   此前是 HTML 伪装 .doc，表格塌陷、h1 巨大
+ * - xlsx：v0.9.5 新增，把文档里的 Markdown 表格导成工作表
  * - pdf：调用浏览器打印（另存为 PDF），print CSS 精修（A4 页边距、分页保护）
  * - v0.5 M5③：可选「机构 · 人员 · 日期」页脚水印（设置中开启后默认生效）
  */
 import type { ShareAnnotation } from './share'
 import { useSettingsStore } from '../stores/settingsStore'
+import { buildDocx, buildXlsx, type DocxBlock, type DocxRun } from './ooxml'
 
-export type ExportFormat = 'md' | 'docx' | 'pdf'
+export type ExportFormat = 'md' | 'docx' | 'xlsx' | 'pdf'
 
 export interface ExportWatermark {
   org: string
@@ -176,7 +178,7 @@ blockquote.anno-quote{margin:4pt 0;padding:4pt 10pt;border-left:3px solid #4f46e
 </head><body>${headerBand}\n${cover}\n${out.join('\n')}\n${annotationsHtml(options.annotations ?? [])}\n${watermarkFooter}</body></html>`
 }
 
-/** 导出文档：md 直接下载；docx 生成 Word 兼容文件；pdf 走打印（可附带批注/水印） */
+/** 导出文档：md 直接下载；docx/xlsx 走真 OOXML；pdf 走打印（可附带批注/水印） */
 export function exportDoc(md: string, title: string, format: ExportFormat, options: ExportOptions = {}): void {
   // 水印（v0.5 M5③）：调用方未显式指定时，读取设置中的水印开关
   const settings = useSettingsStore.getState()
@@ -193,9 +195,11 @@ export function exportDoc(md: string, title: string, format: ExportFormat, optio
     return
   }
   if (format === 'docx') {
-    const html = markdownToWordHtml(content, filename, opts)
-    // Word 兼容：以 .doc 扩展名携带 HTML 内容，Word/WPS 打开时自动按文档渲染
-    downloadBlob(new Blob(['\ufeff', html], { type: 'application/msword;charset=utf-8' }), `${filename}.doc`)
+    downloadBlob(buildDocx(docxBlocks(content, filename, opts)), `${filename}.docx`)
+    return
+  }
+  if (format === 'xlsx') {
+    downloadBlob(buildXlsx(markdownTable(content), filename.slice(0, 28)), `${filename}.xlsx`)
     return
   }
   // pdf：打印当前文档（用户在打印对话框中选择「另存为 PDF」）
@@ -205,4 +209,152 @@ export function exportDoc(md: string, title: string, format: ExportFormat, optio
   w.document.close()
   w.focus()
   w.print()
+}
+
+/* ---------- v0.9.5 P2：Markdown → OOXML 块序列 ---------- */
+
+/**
+ * 行内标记 → 加粗 run；数字溯源标记 `{{值~来源}}` 退化为纯文本（Word/Excel 里没有 hover）。
+ * 相邻同粗细的 run 会合并：run 越多 document.xml 越大。
+ */
+export function inlineRuns(s: string): DocxRun[] {
+  const runs: DocxRun[] = []
+  const push = (text: string, bold: boolean) => {
+    if (!text) return
+    const prev = runs[runs.length - 1]
+    if (prev && !!prev.bold === bold) prev.text += text
+    else runs.push({ text, bold })
+  }
+  const re = /\{\{([^|~{}]+)~[^}]+\}\}|\*\*(.+?)\*\*/g
+  let last = 0
+  for (let m = re.exec(s); m; m = re.exec(s)) {
+    push(s.slice(last, m.index), false)
+    if (m[1] !== undefined) push(m[1], false)
+    else push(m[2], true)
+    last = m.index + m[0].length
+  }
+  push(s.slice(last), false)
+  return runs.length ? runs : [{ text: '' }]
+}
+
+/** 读取一张 Markdown 表格（跳过分隔行），返回 null 表示当前位置不是表格 */
+function readTable(lines: string[], start: number): { rows: string[][]; next: number } | null {
+  const head = lines[start]?.trim()
+  if (!head || !head.startsWith('|') || !head.endsWith('|')) return null
+  const rows: string[][] = []
+  let i = start
+  while (i < lines.length) {
+    const t = lines[i].trim()
+    if (!t.startsWith('|') || !t.endsWith('|')) break
+    const cells = t.slice(1, -1).split('|').map((c) => c.trim())
+    if (!cells.every((c) => /^:?-{2,}:?$/.test(c))) rows.push(cells)
+    i++
+  }
+  return rows.length ? { rows, next: i } : null
+}
+
+/** Markdown → docx 块序列（保留封面署名、水印行与批注附录） */
+export function docxBlocks(md: string, title: string, options: ExportOptions = {}): DocxBlock[] {
+  const blocks: DocxBlock[] = [
+    { kind: 'h', level: 1, style: 'Title', text: title },
+    { kind: 'p', text: `${options.author ?? '智教工坊 · EDUStudio'} · ${fmtDate()}` },
+  ]
+  if (options.watermark) {
+    blocks.push({ kind: 'p', text: `水印：${options.watermark.org || '—'} · ${options.watermark.person || '—'}` })
+  }
+
+  const lines = md.replace(/\r\n/g, '\n').split('\n')
+  let i = 0
+  while (i < lines.length) {
+    const line = lines[i].trim()
+    if (!line) {
+      i++
+      continue
+    }
+    if (line.startsWith('```')) {
+      i++
+      while (i < lines.length && !lines[i].trim().startsWith('```')) {
+        blocks.push({ kind: 'p', runs: [{ text: lines[i] || ' ' }] })
+        i++
+      }
+      i++
+      continue
+    }
+    if (/^(---|\*\*\*)$/.test(line)) {
+      blocks.push({ kind: 'p', runs: [{ text: '────────' }] })
+      i++
+      continue
+    }
+    const heading = /^(#{1,4})\s+(.*)$/.exec(line)
+    if (heading) {
+      /* 正文的一级标题与封面标题重复，跳过 */
+      if (!(heading[1].length === 1 && heading[2].trim() === title)) {
+        blocks.push({ kind: 'h', level: heading[1].length, text: heading[2] })
+      }
+      i++
+      continue
+    }
+    const table = readTable(lines, i)
+    if (table) {
+      blocks.push({ kind: 'table', rows: table.rows, headerRow: true })
+      i = table.next
+      continue
+    }
+    const bullet = /^[-*]\s+(.*)$/.exec(line)
+    const ordered = /^\d+[.、]\s+(.*)$/.exec(line)
+    if (bullet || ordered) {
+      blocks.push({ kind: 'p', runs: inlineRuns(`· ${(bullet ?? ordered)![1]}`) })
+      i++
+      continue
+    }
+    blocks.push({ kind: 'p', runs: inlineRuns(line.replace(/^>\s*/, '「 ') + (line.startsWith('> ') ? '」' : '')) })
+    i++
+  }
+
+  const notes = options.annotations ?? []
+  if (notes.length) {
+    blocks.push({ kind: 'h', level: 1, text: `评审批注（${notes.length} 条）` })
+    for (const a of notes) {
+      blocks.push({ kind: 'p', text: `${a.author} · ${fmtDate(a.createdAt)}` })
+      if (a.quote) blocks.push({ kind: 'p', text: `「${a.quote}」` })
+      blocks.push({ kind: 'p', runs: inlineRuns(a.text) })
+    }
+  }
+  return blocks
+}
+
+/** 纯数字文本按数值写入，Excel 里才能直接求和；其余保持字符串 */
+function coerceNumber(v: string): string | number {
+  return /^-?[\d,]+(\.\d+)?%?$/.test(v) ? Number(v.replace(/,/g, '').replace(/%$/, '')) : v
+}
+
+/**
+ * Markdown → 二维表（xlsx 导出用）。
+ * 取文档中行数最多的那张表（报告的「存在问题」清单）；没有表格时把段落铺成单列，
+ * 保证导出的 xlsx 永远不是空表。
+ */
+export function markdownTable(md: string): (string | number)[][] {
+  const lines = md.replace(/\r\n/g, '\n').split('\n')
+  let best: string[][] = []
+  let i = 0
+  while (i < lines.length) {
+    const t = lines[i].trim()
+    if (!t.startsWith('|') || !t.endsWith('|')) {
+      i++
+      continue
+    }
+    const found = readTable(lines, i)
+    if (!found) {
+      i++
+      continue
+    }
+    if (found.rows.length > best.length) best = found.rows
+    i = found.next
+  }
+  if (best.length) return best.map((r) => r.map(coerceNumber))
+  return md
+    .split(/\n{2,}/)
+    .map((p) => p.replace(/^[#>\-*\s]+/, '').replace(/\{\{([^|~{}]+)~[^}]+\}\}/g, '$1').replace(/\*\*/g, '').trim())
+    .filter(Boolean)
+    .map((line) => [line])
 }

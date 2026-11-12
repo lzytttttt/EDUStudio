@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, lazy, Suspense } from 'react'
 import { useAuthStore } from './stores/authStore'
 import LoginScreen from './shell/LoginScreen'
 import BriefingPage from './apps/briefing/BriefingPage'
@@ -8,6 +8,9 @@ import { cn } from './lib/cn'
 import type { Stage } from './harness/types'
 
 const STAGE_EXIT_MS = 200
+
+/** v1.0 总指挥模式：独立 lazy chunk，旧三屏与主 chunk 不受影响 */
+const DirectorApp = lazy(() => import('./apps/director/DirectorApp'))
 
 /** 分享路由：hash 以 #share= 开头时渲染只读分享视图（独立于登录状态机，v0.4 M2①） */
 function useShareRoute(): boolean {
@@ -50,7 +53,24 @@ function useHistorySync(): void {
   }, [stage])
 }
 
-/** 阶段状态机：login → briefing → workbench（无路由库，轻量分流 + 双向过渡动画） */
+/** 懒加载占位：与品牌一致的柔和呼吸点，避免白闪 */
+function DirectorFallback() {
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-4 bg-bg">
+      <div className="flex items-center gap-2" aria-hidden>
+        {[0, 1, 2, 3, 4, 5].map((i) => (
+          <span
+            key={i}
+            className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary/50"
+            style={{ animationDelay: `${i * 0.12}s`, animationDuration: '1.2s' }}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/** 阶段状态机：login → briefing → workbench；v1.0 追加 command（总指挥模式，可直达） */
 export default function App() {
   const isShare = useShareRoute()
   const stage = useAuthStore((s) => s.stage)
@@ -75,7 +95,17 @@ export default function App() {
 
   return (
     <div key={rendered} className={cn('h-full', leaving ? 'animate-stage-out' : 'animate-stage-in')}>
-      {rendered === 'login' ? <LoginScreen /> : rendered === 'briefing' ? <BriefingPage /> : <AppShell />}
+      {rendered === 'login' ? (
+        <LoginScreen />
+      ) : rendered === 'briefing' ? (
+        <BriefingPage />
+      ) : rendered === 'command' ? (
+        <Suspense fallback={<DirectorFallback />}>
+          <DirectorApp />
+        </Suspense>
+      ) : (
+        <AppShell />
+      )}
     </div>
   )
 }

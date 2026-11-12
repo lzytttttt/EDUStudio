@@ -31,7 +31,9 @@ export const zhCN = {
   'flow.sync.local': '本地模式',
   'flow.sync.syncing': '同步中…',
   'flow.sync.remote': '已同步',
-  'flow.sync.degraded': '离线兜底',
+  'flow.sync.degraded': '离线已记录',
+  'flow.sync.offlineHint': '同步服务未连接。下发与回执已保存在本机，恢复连接后会自动补推。',
+  'flow.sync.offlineQueued': '待补推 {n} 项',
 
   'settings.keyCheck': '检测 Key 有效性',
   'settings.keyValid': 'Key 有效',

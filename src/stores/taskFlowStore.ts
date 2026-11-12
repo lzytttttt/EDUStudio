@@ -17,6 +17,8 @@ interface TaskFlowState {
   flows: TaskFlow[]
   /** 远端同步状态（v0.5 M2③）：local=未配置服务 syncing=同步中 remote=已连接 degraded=服务不可用（本地兜底） */
   syncState: 'local' | 'syncing' | 'remote' | 'degraded'
+  /** 断网期间未能推送成功的操作（v0.9.5 P1-B）：服务恢复后由 refresh 补推 */
+  pendingOps: PendingOp[]
   /** 下发任务（局→校 / 校→教师） */
   issue: (input: IssueInput) => void
   /** 接收方回执：确认接收 */
@@ -31,6 +33,16 @@ interface TaskFlowState {
   /** 回执状态推送到服务端（内部） */
   pushReceipt: (flowId: string, receiptId: string, action: 'acknowledge' | 'submit', note?: string) => Promise<void>
 }
+
+/**
+ * 待补推操作（v0.9.5 P1-B）。
+ * 断网时下发/回执不丢：入队，服务恢复后由 refresh 逐条补推。
+ * create 必须先于其下的 receipt 补推，且 create 成功后要把后续 receipt 的
+ * flowId 从本地 id 改写成服务端 id——否则补推会打到不存在的任务链上。
+ */
+export type PendingOp =
+  | { kind: 'create'; flowId: string }
+  | { kind: 'receipt'; flowId: string; receiptId: string; action: 'acknowledge' | 'submit'; note?: string }
 
 const persisted = loadJSON<TaskFlow[]>('taskFlows', SEED_TASK_FLOWS)
 
@@ -85,9 +97,22 @@ export function mergeFlows(local: TaskFlow[], remote: TaskFlow[]): TaskFlow[] {
   return [...byId.values()].sort((a, b) => b.issuedAt - a.issuedAt)
 }
 
+/** 两条待补推操作是否同一条（create 比 flowId，receipt 再比 receiptId） */
+export function isSameOp(a: PendingOp, b: PendingOp): boolean {
+  if (a.kind !== b.kind || a.flowId !== b.flowId) return false
+  if (a.kind === 'create' || b.kind === 'create') return true
+  return a.receiptId === (b as { receiptId: string }).receiptId
+}
+
+/** 入队去重：同一条操作重复失败只排一次 */
+export function enqueue(ops: PendingOp[], op: PendingOp): PendingOp[] {
+  return ops.some((x) => isSameOp(x, op)) ? ops : [...ops, op]
+}
+
 export const useTaskFlowStore = create<TaskFlowState>((set, get) => ({
   flows: persisted,
   syncState: 'local',
+  pendingOps: [],
 
   /* 新建任务链推送到服务端（v0.5 M2③）；失败降级为本地模式，不丢数据 */
   pushCreate: async (localId) => {
@@ -108,10 +133,18 @@ export const useTaskFlowStore = create<TaskFlowState>((set, get) => ({
         }),
       })
       const remote = fromServerFlow(j.flow)
-      set({ flows: get().flows.map((f) => (f.id === localId ? remote : f)), syncState: 'remote' })
+      const op: PendingOp = { kind: 'create', flowId: localId }
+      set({
+        flows: get().flows.map((f) => (f.id === localId ? remote : f)),
+        syncState: 'remote',
+        /* 出队本条；服务端换了 id，队列里挂在旧 id 上的回执跟着改写，否则补推会 404 */
+        pendingOps: get().pendingOps
+          .filter((o) => !isSameOp(o, op))
+          .map((o) => (o.kind === 'receipt' && o.flowId === localId ? { ...o, flowId: remote.id } : o)),
+      })
       persist(get().flows)
     } catch {
-      set({ syncState: 'degraded' })
+      set({ syncState: 'degraded', pendingOps: enqueue(get().pendingOps, { kind: 'create', flowId: localId }) })
     }
   },
 
@@ -125,10 +158,18 @@ export const useTaskFlowStore = create<TaskFlowState>((set, get) => ({
         body: JSON.stringify({ receiptId, note }),
       })
       const remote = fromServerFlow(j.flow)
-      set({ flows: get().flows.map((f) => (f.id === flowId ? remote : f)), syncState: 'remote' })
+      const op: PendingOp = { kind: 'receipt', flowId, receiptId, action, note }
+      set({
+        flows: get().flows.map((f) => (f.id === flowId ? remote : f)),
+        syncState: 'remote',
+        pendingOps: get().pendingOps.filter((o) => !isSameOp(o, op)),
+      })
       persist(get().flows)
     } catch {
-      set({ syncState: 'degraded' })
+      set({
+        syncState: 'degraded',
+        pendingOps: enqueue(get().pendingOps, { kind: 'receipt', flowId, receiptId, action, note }),
+      })
     }
   },
 
@@ -236,11 +277,33 @@ export const useTaskFlowStore = create<TaskFlowState>((set, get) => ({
       }
       set({ flows: mergeFlows(get().flows, remote), syncState: 'remote' })
       persist(get().flows)
+      /* v0.9.5 P1-B：网络恢复即补推断网期间积压的下发与回执 */
+      await drainPending()
     } catch {
       set({ syncState: 'degraded' })
     }
   },
 }))
+
+/**
+ * 补推队列（v0.9.5 P1-B）：服务恢复后把断网期间失败的下发/回执重放一遍。
+ * 逐条出队再推：某条再次失败就停在本条并保留队列，不会把后面的操作按错序打出去。
+ */
+async function drainPending(): Promise<void> {
+  const queue = useTaskFlowStore.getState().pendingOps
+  for (const op of queue) {
+    if (op.kind === 'create') {
+      await useTaskFlowStore.getState().pushCreate(op.flowId)
+    } else {
+      await useTaskFlowStore.getState().pushReceipt(op.flowId, op.receiptId, op.action, op.note)
+    }
+    /* 该条仍失败时会被重新入队，队列未缩短即中止 */
+    if (useTaskFlowStore.getState().pendingOps.length >= queue.length) break
+  }
+  if (useTaskFlowStore.getState().pendingOps.length === 0) {
+    useTaskFlowStore.setState({ syncState: 'remote' })
+  }
+}
 
 /** 视图过滤：当前角色可见的下发任务（v0.4 M2③） */
 export function flowsForRole(flows: TaskFlow[], role: RoleId): TaskFlow[] {

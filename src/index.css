@@ -157,6 +157,9 @@ html[data-font='xlarge'] .agent-trace pre {
   .md-body a {
     @apply text-primary underline underline-offset-2;
   }
+  .md-body .md-cite {
+    @apply cursor-help border-b border-dotted border-primary/60;
+  }
   .md-body strong {
     @apply font-semibold text-ink;
   }

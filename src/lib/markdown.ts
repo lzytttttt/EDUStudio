@@ -8,12 +8,25 @@ function escapeHtml(s: string): string {
     .replace(/"/g, '&quot;')
 }
 
+/**
+ * 行内解析：数字溯源标记 `{{值~来源}}` 渲染为可悬停 span（title 携带出处）。
+ * 先摘出标记再跑其余行内规则，否则来源文案里的 * ` 会被二次解析、污染 title 属性。
+ */
 function inline(s: string): string {
-  return escapeHtml(s)
+  const cites: { value: string; src: string }[] = []
+  const body = escapeHtml(s).replace(/\{\{([^|~{}]+)~([^}]+)\}\}/g, (_, value, src) => {
+    cites.push({ value, src })
+    return `\u0000${cites.length - 1}\u0000`
+  })
+  return body
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
     .replace(/(^|[^*])\*([^*]+)\*/g, '$1<em>$2</em>')
     .replace(/`([^`]+)`/g, '<code class="md-code">$1</code>')
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>')
+    .replace(/\u0000(\d+)\u0000/g, (_, i) => {
+      const c = cites[Number(i)]
+      return `<span class="md-cite" title="${c.src}">${c.value}</span>`
+    })
 }
 
 /** 渲染为 HTML 字符串；支持标题/列表/引用/表格/代码块/分割线/段落 */

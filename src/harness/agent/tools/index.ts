@@ -262,6 +262,40 @@ export const analyzeClass: ToolDef = {
   },
 }
 
+
+/**
+ * 任务链工具（v0.9.5 P1-A）：元信息在此、实现懒加载（见 tools/taskFlow.ts）。
+ * 不进教师工具集——下发是管理侧动作，教师在看板里回执即可。
+ */
+export const listTaskFlows: ToolDef = {
+  name: 'listTaskFlows',
+  label: '任务进度',
+  description: '查询已下发任务链的接收与回执进度，找出还没回执的接收方',
+  roles: ['bureau', 'schoolAdmin'],
+  parameters: { type: 'object', properties: {} },
+  display: () => '正在查看已下发任务的回执进度',
+  run: () => import('./taskFlow').then((m) => m.runListTaskFlows()),
+}
+
+export const dispatchTaskFlow: ToolDef = {
+  name: 'dispatchTaskFlow',
+  label: '下发任务',
+  description: '起草并下发任务通知到学校或教师，并跟踪回执进度',
+  roles: ['bureau', 'schoolAdmin'],
+  parameters: {
+    type: 'object',
+    properties: {
+      title: { type: 'string', description: '任务标题，如「关于开展期中质量分析的通知」' },
+      content: { type: 'string', description: '任务要求与说明' },
+      deadline: { type: 'string', description: '截止时间，如「本周五 17:00」' },
+      targets: { type: 'string', description: '接收方名称，多个用顿号或逗号分隔；留空则下发至全部可选接收方' },
+    },
+    required: ['title'],
+  },
+  display: (args) => `正在下发「${String(args.title ?? '新任务')}」`,
+  run: (args) => import('./taskFlow').then((m) => m.runDispatchTaskFlow(args)),
+}
+
 export const TOOLS: ToolDef[] = [
   queryClassLearning,
   querySchoolStats,
@@ -271,6 +305,9 @@ export const TOOLS: ToolDef[] = [
   genQuiz,
   draftNotice,
   analyzeClass,
+  // v0.9.5 P1-A：任务链接入 Agent（仅管理侧，下发是管理动作）
+  listTaskFlows,
+  dispatchTaskFlow,
   // v0.5 M3①：知识检索 + 跨文档工具
   searchCurriculum,
   searchResources,
@@ -285,9 +322,12 @@ export const TEACHER_TOOLS = [
 ]
 export const SCHOOL_ADMIN_TOOLS = [
   'queryClassLearning', 'querySchoolStats', 'analyzeClass', 'draftNotice', 'searchPolicy',
+  // v0.9.5 P1-A：教师侧由看板回执，不进对话工具集
+  'listTaskFlows', 'dispatchTaskFlow',
   'searchCurriculum', 'searchResources', 'listDocuments', 'quoteDocument', 'mergeDocuments',
 ]
 export const BUREAU_TOOLS = [
   'queryRegionData', 'searchPolicy', 'draftNotice',
+  'listTaskFlows', 'dispatchTaskFlow',
   'searchCurriculum', 'searchResources', 'listDocuments', 'quoteDocument', 'mergeDocuments',
 ]

@@ -46,4 +46,30 @@ describe('renderMarkdown', () => {
     expect(html).toContain('<blockquote class="md-quote">提示内容</blockquote>')
     expect(html).toContain('<hr class="md-hr" />')
   })
+
+  /* v0.9.5 P0-C：报告数字的 hover 溯源 */
+  it('数字溯源标记渲染为带 title 的 span', () => {
+    const html = renderMarkdown('综合指数 {{86.4~演示数据 · 1 天前}}，环比 {{+1.6~演示数据 · 1 天前}}。')
+    expect(html).toContain('<span class="md-cite" title="演示数据 · 1 天前">86.4</span>')
+    expect(html).toContain('>+1.6</span>')
+    expect(html).not.toContain('{{')
+  })
+
+  it('溯源标记在表格单元格内不被拆列', () => {
+    const html = renderMarkdown('| 指标 | 现状 |\n| --- | --- |\n| 优良率 | {{62.7%~区域数据平台}} |')
+    expect(html).toContain('<th>指标</th><th>现状</th>')
+    expect(html).toContain('<span class="md-cite" title="区域数据平台">62.7%</span>')
+  })
+
+  it('来源文案中的行内标记不会被二次解析、污染 title', () => {
+    const html = renderMarkdown('{{86.4~**来源**：数据平台}}')
+    expect(html).toContain('title="**来源**：数据平台"')
+    expect(html).not.toContain('<strong>来源</strong>：数据平台"')
+  })
+
+  it('溯源标记的 title 对引号做转义，不破坏属性', () => {
+    const html = renderMarkdown('{{1~a" onmouseover="x}}')
+    expect(html).toContain('title="a&quot; onmouseover=&quot;x"')
+    expect(html).not.toContain('onmouseover="x"')
+  })
 })
