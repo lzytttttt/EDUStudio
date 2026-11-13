@@ -1,8 +1,8 @@
 /**
- * v1.2 M3 · director 持久化 optional 增量单测（D11 过渡期纪律）
+ * v1.2 M3/M4 · 执行元数据持久化单测（v2 形状）
  *
- * 验证：schemaVersion 仍为 1、只增字段；execution/intake/artifactIds/stale 写出→读回保留；
- * 旧 v1 数据（无新字段）读回后行为不变；坏字段逐个丢弃；体积仍 <30KB。
+ * 验证：execution/intake/artifactIds/stale 在 toPersistedDirector → migrate 往返后保留；
+ * v2 runtime 坏字段回落；旧 v2 数据（无新字段）读回不产生副作用。
  */
 import { describe, expect, it } from 'vitest'
 import {
@@ -13,7 +13,7 @@ import {
   toPersistedDirector,
   type DirectorPersistSource,
 } from '../stores/directorPersistence'
-import type { MissionState, PersistedDirectorV1 } from '../harness/director/types'
+import type { MissionState, PersistedDirectorV2 } from '../harness/director/types'
 
 function mission(overrides: Partial<MissionState> = {}): MissionState {
   return {
@@ -43,17 +43,22 @@ function source(overrides: Partial<DirectorPersistSource> = {}): DirectorPersist
   }
 }
 
-describe('toPersistedDirector · M3 optional 增量', () => {
-  it('缺省（旧 v1 形状）：不出现 execution/intake/artifactIds/stale 字段', () => {
+function initial(): PersistedDirectorV2 {
+  return toPersistedDirector(source(), false)
+}
+
+describe('toPersistedDirector · M3/M4 执行元数据（v2 runtime）', () => {
+  it('缺省：runtime.execution=mock、migrations=[]、artifactIds=[]，不出现 intake', () => {
     const payload = toPersistedDirector(source(), false)
     expect(payload.schemaVersion).toBe(DIRECTOR_SCHEMA_VERSION)
-    expect('execution' in payload).toBe(false)
+    expect(payload.mission.runtime.execution).toBe('mock')
+    expect(payload.mission.runtime.completedTasks).toEqual([])
+    expect(payload.artifactIds).toEqual([])
+    expect(payload.migrations).toEqual([])
     expect('intake' in payload).toBe(false)
-    expect('artifactIds' in payload).toBe(false)
-    expect('stale' in payload).toBe(false)
   })
 
-  it('写出现有 execution 元数据（missionId/outcome/failedTasks/attempts）', () => {
+  it('写出 validation execution：missionId 不落盘（仅 runtime 语义字段）', () => {
     const payload = toPersistedDirector(
       source({
         execution: {
@@ -69,10 +74,11 @@ describe('toPersistedDirector · M3 optional 增量', () => {
       }),
       false,
     )
-    expect(payload.execution?.mode).toBe('real')
-    expect(payload.execution?.outcome).toBe('partial')
-    expect(payload.execution?.failedTasks?.[0]).toEqual({ taskId: 't2', reason: '超时' })
-    expect(payload.execution?.attempts).toBe(3)
+    expect(payload.mission.runtime.execution).toBe('real')
+    expect(payload.mission.runtime.outcome).toBe('partial')
+    expect(payload.mission.runtime.failedTasks?.[0]).toEqual({ taskId: 't2', reason: '超时' })
+    expect(payload.mission.runtime.attempts).toBe(3)
+    expect(JSON.stringify(payload)).not.toContain('m-1700000000000')
   })
 
   it('写出 intake / artifactIds / stale', () => {
@@ -89,7 +95,7 @@ describe('toPersistedDirector · M3 optional 增量', () => {
     expect(payload.stale).toBe(true)
   })
 
-  it('坏 execution/intake 被丢弃，不污染 v1 字段', () => {
+  it('坏 execution/intake 被丢弃，artifactIds 过滤非字符串', () => {
     const payload = toPersistedDirector(
       source({
         execution: { mode: 'bad' } as never,
@@ -98,7 +104,7 @@ describe('toPersistedDirector · M3 optional 增量', () => {
       }),
       false,
     )
-    expect(payload.execution).toBeUndefined()
+    expect(payload.mission.runtime.execution).toBe('mock')
     expect(payload.intake).toBeUndefined()
     expect(payload.artifactIds).toEqual(['ok'])
   })
@@ -112,51 +118,51 @@ describe('toPersistedDirector · M3 optional 增量', () => {
   })
 })
 
-describe('migrateDirectorPersisted · M3 optional 增量读回', () => {
-  it('往返：写出 → 读回保留全部新字段', () => {
+describe('migrateDirectorPersisted · v2 执行字段读回', () => {
+  it('v2 往返：runtime/artifactIds/intake 保留，migrations 不重复', () => {
     const written = toPersistedDirector(
       source({
-        execution: { mode: 'mock', missionId: 'm-1', outcome: 'done', completedTasks: ['t1'], attempts: 2 },
+        execution: { mode: 'real', outcome: 'done', completedTasks: ['t1'], attempts: 2 },
         intake: { source: 'inbox' },
         artifactIds: ['doc-1'],
+        migrations: [{ from: 1, at: 5 }],
       }),
       false,
     )
     const read = migrateDirectorPersisted(written, emptyDirectorPersisted(written))
-    expect(read.execution).toEqual(written.execution)
+    expect(read.mission.runtime).toEqual(written.mission.runtime)
     expect(read.intake).toEqual({ source: 'inbox' })
     expect(read.artifactIds).toEqual(['doc-1'])
+    expect(read.migrations).toEqual([{ from: 1, at: 5 }])
   })
 
-  it('旧 v1 数据（无新字段）：读回不产生新字段（行为不变）', () => {
-    const written = toPersistedDirector(source(), false)
-    const read = migrateDirectorPersisted(written, emptyDirectorPersisted(written))
-    expect(read.execution).toBeUndefined()
-    expect(read.intake).toBeUndefined()
-    expect(read.artifactIds).toBeUndefined()
-    expect(read.stale).toBeUndefined()
-    expect(read.mission.status).toBe('planning')
-  })
-
-  it('刷新语义不变：running → paused（真执行中断由 controller/resume 处理）', () => {
+  it('刷新语义不变：running → paused（真执行中断由控制器/resume 处理），runtime 保留', () => {
     const written = toPersistedDirector(
-      source({ mission: mission({ status: 'running' }), execution: { mode: 'real', missionId: 'm-2' } }),
+      source({
+        mission: mission({ status: 'running' }),
+        execution: { mode: 'real', outcome: undefined, completedTasks: ['t9'], attempts: 4 },
+      }),
       false,
     )
     const read = migrateDirectorPersisted(written, emptyDirectorPersisted(written))
     expect(read.mission.status).toBe('paused')
-    expect(read.execution?.mode).toBe('real')
+    expect(read.mission.runtime.execution).toBe('real')
+    expect(read.mission.runtime.completedTasks).toEqual(['t9'])
   })
 
   it('损坏的新字段逐个丢弃，其余字段仍可用', () => {
-    const written = toPersistedDirector(source({ intake: { source: 'chat' } }), false) as PersistedDirectorV1
-    const corrupted: PersistedDirectorV1 = {
+    const written = toPersistedDirector(source({ intake: { source: 'chat' } }), false)
+    const corrupted: PersistedDirectorV2 = {
       ...written,
-      execution: { mode: 'nope', attempts: -2 } as never,
+      mission: {
+        ...written.mission,
+        runtime: { execution: 'nope', attempts: -2, completedTasks: 'x' } as never,
+      },
       artifactIds: ['ok', 42] as never,
     }
     const read = migrateDirectorPersisted(corrupted, emptyDirectorPersisted(written))
-    expect(read.execution).toBeUndefined()
+    expect(read.mission.runtime.execution).toBe('mock')
+    expect(read.mission.runtime.attempts).toBe(0)
     expect(read.artifactIds).toEqual(['ok'])
     expect(read.intake).toEqual({ source: 'chat' })
   })

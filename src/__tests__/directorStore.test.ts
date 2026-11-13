@@ -7,6 +7,7 @@ import {
 } from '../stores/directorStore'
 import { GUIDE_STEPS, MISSION_TEMPLATES } from '../harness/director/data'
 import { migrateDirectorPersisted, toPersistedDirector } from '../stores/directorPersistence'
+import type { PersistedDirectorV2 } from '../harness/director/types'
 import { useSettingsStore } from '../stores/settingsStore'
 
 /** Director 原型状态机单测：决策卡 / 作战斗争链 / 审批门 / 授权 / 引导 */
@@ -337,9 +338,9 @@ describe('directorStore · planMission（v1.1 M1，默认 Mock）', () => {
 /* v1.1 M2：持久化 / 刷新恢复 / 续跑                                     */
 /* ------------------------------------------------------------------ */
 
-function persistedOfLocalStorage() {
+function persistedOfLocalStorage(): PersistedDirectorV2 | null {
   const raw = window.localStorage.getItem('edustudio:director')
-  return raw ? (JSON.parse(raw) as Record<string, unknown>) : null
+  return raw ? (JSON.parse(raw) as PersistedDirectorV2) : null
 }
 
 describe('directorStore · 持久化与暂停续跑（v1.1 M2）', () => {
@@ -361,8 +362,8 @@ describe('directorStore · 持久化与暂停续跑（v1.1 M2）', () => {
     useDirectorStore.getState().startMission('exam_loop')
     vi.advanceTimersByTime(300)
     const persisted = persistedOfLocalStorage()
-    expect(persisted?.schemaVersion).toBe(1)
-    expect(persisted?.missionKind).toBe('exam_loop')
+    expect(persisted?.schemaVersion).toBe(2)
+    expect(persisted?.mission.kind).toBe('exam_loop')
 
     /* confirmPlan 是强制 flush 点：不推进定时器也应立刻落盘为 running */
     useDirectorStore.getState().confirmPlan()
@@ -374,7 +375,7 @@ describe('directorStore · 持久化与暂停续跑（v1.1 M2）', () => {
     const waiting = persistedOfLocalStorage()
     expect((waiting?.mission as { status: string }).status).toBe('waiting')
     expect((waiting?.mission as { gate: string }).gate).toBe('worksheet')
-    expect(waiting?.missionCursor).toBe(4)
+    expect(waiting?.mission.runtime.cursor).toBe(4)
   })
 
   it('刷新恢复矩阵：running→paused 且自动落作战室（screen 派生）', () => {
@@ -453,7 +454,7 @@ describe('directorStore · 持久化与暂停续跑（v1.1 M2）', () => {
     /* 重置后立刻落盘的应是初始态，不是 300ms 后回写的旧 running 态 */
     const persisted = persistedOfLocalStorage()
     expect((persisted?.mission as { status: string }).status).toBe('planning')
-    expect(persisted?.missionKind).toBe('parent_meeting')
+    expect(persisted?.mission.kind).toBe('parent_meeting')
     expect(useDirectorStore.getState().mission.feed).toHaveLength(0)
     expect(hasSeenDirectorGuide()).toBe(true)
     vi.advanceTimersByTime(5000)

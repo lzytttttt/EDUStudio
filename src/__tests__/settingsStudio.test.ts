@@ -95,10 +95,18 @@ describe('统一壳开关：URL > settings.studio > 角色默认 > build', () =>
     expect(isLegacyRequested('?legacy=1')).toBe(true)
   })
 
-  it('无 URL 参数时 settings.studio.landing=inbox 打开统一壳（影子期默认仍 off）', () => {
+  it('M4 默认期：无 URL 参数时 teacher 默认进统一壳；landing=inbox 同样；校/局仅 landing=inbox 可开', () => {
     expect(isStudioV2Enabled('', 'teacher', { ...DEFAULT_STUDIO_SETTINGS, landing: 'inbox' })).toBe(true)
-    expect(isStudioV2Enabled('', 'teacher', DEFAULT_STUDIO_SETTINGS)).toBe(false)
+    expect(isStudioV2Enabled('', 'teacher', DEFAULT_STUDIO_SETTINGS)).toBe(true)
     expect(isStudioV2Enabled('', 'schoolAdmin', { ...DEFAULT_STUDIO_SETTINGS, landing: 'inbox' })).toBe(true)
+    expect(isStudioV2Enabled('', 'schoolAdmin', DEFAULT_STUDIO_SETTINGS)).toBe(false)
+  })
+
+  it('M4 回滚口径：?stage= / ?demo=1 强制旧壳，?v2=1 显式可覆盖 stage', () => {
+    expect(isStudioV2Enabled('?stage=briefing', 'teacher', DEFAULT_STUDIO_SETTINGS)).toBe(false)
+    expect(isStudioV2Enabled('?demo=1', 'teacher', DEFAULT_STUDIO_SETTINGS)).toBe(false)
+    expect(isStudioV2Enabled('?v2=1&stage=briefing', 'teacher', DEFAULT_STUDIO_SETTINGS)).toBe(true)
+    expect(isStudioV2Enabled('?v1=1', 'teacher', DEFAULT_STUDIO_SETTINGS)).toBe(true)
   })
 
   it('settings.flags 内部灰度覆盖优先于 landing', () => {

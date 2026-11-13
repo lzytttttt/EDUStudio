@@ -14,9 +14,9 @@ test.beforeEach(async ({ page }) => {
   })
 })
 
-/** 快捷路径：教师身份经「跳过简报」进入中性工作台 */
+/** 快捷路径：教师身份经「跳过简报」进入中性工作台（v1.2 M4 起旧壳用 ?legacy=1 显式入口） */
 async function loginAsTeacher(page: Page) {
-  await page.goto('/')
+  await page.goto('/?legacy=1')
   await page.getByTestId('login-account').fill('teacher@edustudio.cn')
   await page.getByTestId('login-password').fill('demo1234')
   await page.getByTestId('role-card-teacher').click()

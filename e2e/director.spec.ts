@@ -3,7 +3,8 @@ import { test, expect, type Page } from '@playwright/test'
 /**
  * v1.0/v1.1 总指挥模式 E2E：
  * - 少字界面靠 data-testid 定位，不依赖文案；
- * - `?v1=1` 直达（教师身份），`?tour=0` 关闭引导，保证可重复；
+ * - 旧整屏入口 `?v1=1&legacy=1` 直达（教师身份），`?tour=0` 关闭引导，保证可重复；
+ *   （v1.2 M4 起 `?v1=1` 无 legacy 会重定向统一壳；旧整屏只读保留走 legacy=1）
  * - v1.1 新增（M0–M3 收口后）：
  *   · 真 LLM 成功（page.route 固定 SSE → plan-source「真 LLM」）；
  *   · LLM 失败回退（500 + `?llm=0` 强制模板，route 0 命中）；
@@ -74,7 +75,7 @@ const LLM_PLAN = {
 /* 通用步骤                                                            */
 /* ------------------------------------------------------------------ */
 
-async function openInbox(page: Page, query = '?v1=1&tour=0'): Promise<void> {
+async function openInbox(page: Page, query = '?v1=1&legacy=1&tour=0'): Promise<void> {
   await page.goto(`/${query}`)
   await expect(page.getByTestId('director-inbox')).toBeVisible()
 }
@@ -176,7 +177,7 @@ test.describe('Director 总指挥模式（v1.0 预览）', () => {
   })
 
   test('引导：可逐步推进并跳过，收尾回到战情台', async ({ page }) => {
-    await page.goto('/?v1=1&tour=1')
+    await page.goto('/?v1=1&legacy=1&tour=1')
     await expect(page.getByText('先看这一张')).toBeVisible({ timeout: 8000 })
     await page.getByLabel('下一步').click()
     await expect(page.getByText('长链路事务，一句话交给战队')).toBeVisible()
@@ -280,7 +281,7 @@ test.describe('Director 总指挥模式（v1.0 预览）', () => {
     })
 
     /* --- ① ?llm=0 彩排护栏：即使 api 模式也不发请求 --- */
-    await openInbox(page, '?v1=1&tour=0&llm=0')
+    await openInbox(page, '?v1=1&legacy=1&tour=0&llm=0')
     await dispatch(page, PARENT_UTTERANCE)
     await waitPlan(page)
     await expect(page.getByTestId('plan-source')).toContainText('模板兜底')

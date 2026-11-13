@@ -8,7 +8,13 @@ import GuideDialog from '../components/GuideDialog'
 import Resizer from './Resizer'
 import { useAuthStore } from '../stores/authStore'
 import { useArtifactStore } from '../stores/artifactStore'
-import { useSettingsStore, DEFAULT_COLUMN_WIDTHS, clampColumnWidth, flushSettingsPersist } from '../stores/settingsStore'
+import {
+  useSettingsStore,
+  DEFAULT_COLUMN_WIDTHS,
+  clampColumnWidth,
+  flushSettingsPersist,
+} from '../stores/settingsStore'
+import { EMPTY_ONBOARDING, nextStep, tourModeAtLoad } from '../lib/onboarding'
 import { flushLoomPersist } from '../stores/loomStore'
 import { useNotificationStore, unreadCount } from '../stores/notificationStore'
 import { t } from '../lib/i18n'
@@ -27,14 +33,40 @@ export interface AppShellProps {
   onOpenBriefing?: () => void
 }
 
+/** 「?tour=1 强制重看经典引导」每页面加载只强制一次（首次进入经典工作区），切工作区往返不重复弹 */
+let forcedClassicGuideShown = false
+
 export default function AppShell({ embedded = false, onOpenBriefing }: AppShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [artifactOpen, setArtifactOpen] = useState(false)
   const setStage = useAuthStore((s) => s.setStage)
-  // 首次进入工作台：自动弹出操作说明（v0.3 UI 专项）
+  // 首次进入工作台：自动弹出操作说明（v0.3 UI 专项；v1.2 M4 起由两段式 onboarding 驱动）
   const guideSeen = useSettingsStore((s) => s.guideSeen)
   const markGuideSeen = useSettingsStore((s) => s.markGuideSeen)
-  const [guideOpen, setGuideOpen] = useState(!guideSeen)
+  const updateOnboarding = useSettingsStore((s) => s.updateOnboarding)
+  /**
+   * v1.2 M4 经典段引导弹出条件（`?tour` 取「进入页面时」锁存值，工作区往返不丢语义）：
+   * - `?tour=0` → 不弹（截图 / 回归）；`?tour=1` → 强制弹（手动重看，不占打扰预算）；
+   * - 缺省：`settings.studio.onboarding` 说「下一站是经典」（总指挥已完成、经典未完成）→ 弹，
+   *   这是两段式引导的接力点，即使旧 settings.guideSeen 已为 true 也要弹；
+   * - 其它情况沿用旧行为（没看过操作说明 → 首次弹出）。
+   */
+  const [guideOpen, setGuideOpen] = useState(() => {
+    const mode = tourModeAtLoad()
+    if (mode === 'off') return false
+    if (mode === 'force' && !forcedClassicGuideShown) {
+      forcedClassicGuideShown = true
+      return true
+    }
+    const studio = useSettingsStore.getState().studio
+    return !guideSeen || nextStep(studio.onboarding ?? EMPTY_ONBOARDING) === 'classic'
+  })
+  /** 关闭经典引导：旧 guideSeen 与 M4 onboarding.classicSeen 同时记账（onboarded 由 merge 派生） */
+  const closeClassicGuide = (): void => {
+    setGuideOpen(false)
+    markGuideSeen()
+    updateOnboarding({ classicSeen: true })
+  }
   // 三栏栏宽（v0.6 M4②）
   const columnWidths = useSettingsStore((s) => s.columnWidths)
   const setColumnWidth = useSettingsStore((s) => s.setColumnWidth)
@@ -187,16 +219,8 @@ export default function AppShell({ embedded = false, onOpenBriefing }: AppShellP
       {/* 通知中心（v0.5 M2④） */}
       {panelOpen && <NotificationPanel onClose={closePanel} />}
 
-      {/* 首次进入操作说明 */}
-      {guideOpen && (
-        <GuideDialog
-          stage="workbench"
-          onClose={() => {
-            setGuideOpen(false)
-            markGuideSeen()
-          }}
-        />
-      )}
+      {/* 首次进入操作说明（v1.2 M4：关闭时同时记 onboarding.classicSeen，onboarded 派生更新） */}
+      {guideOpen && <GuideDialog stage="workbench" onClose={closeClassicGuide} />}
     </div>
   )
 }

@@ -7,7 +7,7 @@ import { expect, test, type Page } from '@playwright/test'
  * - `?v2=1&view=inbox|mission|team` 深链可达、URL 与视图一致；
  * - 工作区切换（总指挥 ⇄ 经典）与浏览器返回逐级；
  * - 移动端同一时刻只有一套底部导航（总指挥 3 tab / 经典 AppShell tabbar）；
- * - 旧入口不回归（`?v1=1` 仍是旧整屏、`?v2=1&legacy=1` 不进统一壳）；
+ * - 旧入口不回归（`?v1=1&legacy=1` 仍是旧整屏、`?v2=1&legacy=1` 不进统一壳）；
  * - 一句话委托从经典工作区顶栏发起 → 统一壳切作战室并出计划。
  */
 
@@ -113,8 +113,8 @@ test.describe('统一工作区（M1 影子期）', () => {
     await expect(page).toHaveURL(/view=mission/)
   })
 
-  test('旧入口不回归：?v1=1 仍是旧整屏；?v2=1&legacy=1 不进统一壳', async ({ page }) => {
-    await page.goto('/?v1=1&tour=0')
+  test('旧入口不回归：?v1=1&legacy=1 仍是旧整屏；?v2=1&legacy=1 不进统一壳', async ({ page }) => {
+    await page.goto('/?v1=1&legacy=1&tour=0')
     await expect(page.getByTestId('director-dock-inbox')).toBeVisible()
     await expect(page.getByTestId('studio-shell')).toHaveCount(0)
 

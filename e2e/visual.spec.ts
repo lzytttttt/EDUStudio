@@ -67,7 +67,8 @@ for (const { name, setup } of SHOTS) {
       }
     })
     await page.clock.install({ time: FIXED_NOW }) // v0.9 M8②：固定日期对齐派生卡组
-    await page.goto('/')
+    /* v1.2 M4：旧壳 4 张基线必须走显式回滚入口（无参数默认已切统一壳战情台） */
+    await page.goto('/?legacy=1')
     await setup(page)
     await page.waitForTimeout(400) // 等待入场动画结束
     await expect(page).toHaveScreenshot(`${name}.png`, { fullPage: false })

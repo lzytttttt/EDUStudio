@@ -446,6 +446,16 @@ export interface FlagContext {
   defaultMode?: 'shadow' | 'default'
 }
 
+/** v1.2 M4：两段式引导进度（`onboarded` 由本对象派生：两段都看过 = true） */
+export interface StudioOnboardingProgress {
+  /** 总指挥工作区引导（3 步）已看 */
+  directorSeen: boolean
+  /** 经典工作区引导（3 步）已看 */
+  classicSeen: boolean
+  /** 老用户「新增：总指挥工作区」升级提示已关闭（打扰预算：仅一次） */
+  noticeSeen: boolean
+}
+
 export interface StudioSettings {
   /** 「启动页」 */
   landing: 'auto' | 'inbox' | 'briefing' | 'workbench'
@@ -461,6 +471,8 @@ export interface StudioSettings {
    * 缺省 = 跟随 landing/execution 派生语义与角色默认。
    */
   flags?: Partial<Record<FlagName, FlagValue>>
+  /** v1.2 M4：引导进度事实源（`onboarded` 只由它派生；旧 guideSeen 仅迁移来源） */
+  onboarding?: StudioOnboardingProgress
 }
 
 /* ------------------------------------------------------------------ */

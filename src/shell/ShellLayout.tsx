@@ -17,7 +17,7 @@
  *（ChunkBoundary 测试扫描 src/shell/**）；只允许 `lazy(() => import(...))`。
  */
 import { Suspense, lazy, useEffect } from 'react'
-import { ArrowLeft, Inbox, Play, Users, type LucideIcon } from 'lucide-react'
+import { ArrowLeft, Inbox, Play, Sparkles, Users, X, type LucideIcon } from 'lucide-react'
 import ShellChrome from './ShellChrome'
 import AppShell from './AppShell'
 import { CLASSIC_ROUTE } from './WorkspaceSwitcher'
@@ -25,8 +25,14 @@ import { useRouteStore } from '../stores/routeStore'
 import { useAuthStore } from '../stores/authStore'
 import { useUiStore } from '../stores/uiStore'
 import { useChatStore } from '../stores/chatStore'
+import { useSettingsStore } from '../stores/settingsStore'
 import { inboxCounts, useStudioInbox } from '../stores/studioInboxStore'
 import { goRoute, navigateTo } from '../studio/router'
+import {
+  EMPTY_ONBOARDING,
+  nextStep,
+  shouldShowUpgradeNotice,
+} from '../lib/onboarding'
 import type { DirectorView, RightTab, WorkspaceId } from '../studio/contracts'
 import { cn } from '../lib/cn'
 
@@ -138,6 +144,103 @@ function DirectorNav(): JSX.Element {
   )
 }
 
+/* ------------------------------------------------------------------ */
+/* v1.2 M4 · 连续引导提示条（升级提示 / 下一站 CTA，两条互斥）            */
+/* ------------------------------------------------------------------ */
+
+/** 提示条按钮统一的焦点环 + 触控高度（≥44px，沿用 §3.8 a11y 约定） */
+const ONBOARDING_BTN =
+  'inline-flex min-h-[44px] items-center rounded-xl px-3 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 focus-visible:ring-offset-2 focus-visible:ring-offset-bg'
+
+/**
+ * 顶栏下方的轻提示条（只对教师生效；两条互斥，升级提示优先）：
+ * - 升级提示：M4 之前就有数据的用户首次进入 → 「新增：总指挥工作区」；关闭只写 `noticeSeen`
+ *   （不推进引导进度，保证「只在版本升级后出现一次」的打扰预算）；
+ * - 经典 CTA：`settings.studio.onboarding` 显示下一站是经典（总指挥段已完成、经典段未完成）→
+ *   「下一站：经典工作区（30 秒）」；跳过写 `classicSeen`（onboarded 由 merge 派生）。
+ * 样式复用现有 token，不新增色相；role=status + aria-live，可关闭、不遮挡内容。
+ */
+function OnboardingBar(): JSX.Element | null {
+  const role = useAuthStore((s) => s.role)
+  /* 只订阅 onboarding 段（digest 等高频更新不触发提示条重渲染） */
+  const onboarding = useSettingsStore((s) => s.studio.onboarding)
+  const legacyUser = useSettingsStore((s) => s.onboardingLegacyUser)
+  const updateOnboarding = useSettingsStore((s) => s.updateOnboarding)
+  /* D14：总指挥工作区仅教师可见，提示条同理（校/局不展示升级/接力提示） */
+  if (role !== 'teacher') return null
+  const progress = onboarding ?? EMPTY_ONBOARDING
+
+  if (shouldShowUpgradeNotice(progress, legacyUser)) {
+    return (
+      <div
+        data-testid="studio-onboarding-notice"
+        role="status"
+        aria-live="polite"
+        className="flex min-h-[44px] shrink-0 flex-wrap items-center gap-x-2 gap-y-1 border-b border-line bg-primary-soft/70 px-3 py-1.5 text-xs text-ink sm:px-4"
+      >
+        <Sparkles size={14} strokeWidth={1.9} className="text-primary" aria-hidden />
+        <span className="font-semibold">新增：总指挥工作区</span>
+        <span className="hidden text-ink-soft sm:inline">事找人 · 一句话交给战队</span>
+        <span className="ml-auto flex items-center gap-1.5">
+          <button
+            type="button"
+            data-testid="studio-onboarding-notice-open"
+            onClick={() => {
+              updateOnboarding({ noticeSeen: true })
+              navigateTo({ kind: 'inbox' })
+            }}
+            className={cn(ONBOARDING_BTN, 'bg-primary text-white hover:bg-primary-deep')}
+          >
+            看一眼新工作区
+          </button>
+          <button
+            type="button"
+            data-testid="studio-onboarding-notice-close"
+            title="关闭升级提示"
+            aria-label="关闭升级提示"
+            onClick={() => updateOnboarding({ noticeSeen: true })}
+            className="inline-flex h-11 w-11 items-center justify-center rounded-xl text-ink-soft transition-colors hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45"
+          >
+            <X size={14} strokeWidth={2} aria-hidden />
+          </button>
+        </span>
+      </div>
+    )
+  }
+
+  if (nextStep(progress) === 'classic') {
+    return (
+      <div
+        data-testid="studio-onboarding-cta"
+        role="status"
+        aria-live="polite"
+        className="flex min-h-[44px] shrink-0 flex-wrap items-center gap-x-2 gap-y-1 border-b border-line bg-mint-soft/60 px-3 py-1.5 text-xs text-ink sm:px-4"
+      >
+        <Sparkles size={14} strokeWidth={1.9} className="text-mint-ink" aria-hidden />
+        <button
+          type="button"
+          data-testid="studio-onboarding-cta-go"
+          onClick={() => goRoute(CLASSIC_ROUTE)}
+          className={cn(ONBOARDING_BTN, 'bg-primary text-white hover:bg-primary-deep')}
+        >
+          下一站：经典工作区（30 秒）
+        </button>
+        <span className="hidden text-ink-soft sm:inline">总指挥看完了，再看看经典三栏</span>
+        <button
+          type="button"
+          data-testid="studio-onboarding-cta-skip"
+          onClick={() => updateOnboarding({ classicSeen: true })}
+          className={cn(ONBOARDING_BTN, 'ml-auto text-ink-soft hover:bg-surface-2 hover:text-ink')}
+        >
+          跳过
+        </button>
+      </div>
+    )
+  }
+
+  return null
+}
+
 export default function ShellLayout(): JSX.Element {
   const route = useRouteStore((s) => s.route)
   const role = useAuthStore((s) => s.role)
@@ -214,6 +317,8 @@ export default function ShellLayout(): JSX.Element {
   return (
     <div data-testid="studio-shell" className="flex h-full flex-col overflow-hidden bg-bg">
       <ShellChrome />
+      {/* v1.2 M4：连续引导提示条（升级提示 → 经典 CTA；两条互斥，教师专属） */}
+      <OnboardingBar />
 
       {workspace === 'director' ? (
         <div className="flex min-h-0 flex-1">

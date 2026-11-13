@@ -26,8 +26,16 @@ function readAuth(): PersistedAuth | null {
 }
 
 describe('planEntry（URL + 角色 → 入口计划）', () => {
-  it('教师 + ?v1=1 → director，且不 markGuideSeen（P0-2）', () => {
+  it('M4：教师 + ?v1=1 → directorRedirect（重定向新战情台，R-7）', () => {
     expect(planEntry('?v1=1', '', 'teacher')).toEqual({
+      kind: 'directorRedirect',
+      loginRole: null,
+      markGuideSeen: false,
+    })
+  })
+
+  it('M4：教师 + ?v1=1&legacy=1 → director 旧整屏只读，且不 markGuideSeen', () => {
+    expect(planEntry('?v1=1&legacy=1', '', 'teacher')).toEqual({
       kind: 'director',
       loginRole: null,
       markGuideSeen: false,
@@ -35,12 +43,19 @@ describe('planEntry（URL + 角色 → 入口计划）', () => {
     })
   })
 
-  it('无角色 + ?v1=1 → 先补教师登录再进 director（P0-3）', () => {
+  it('无角色 + ?v1=1 → 先补教师登录再重定向新战情台（P0-3）', () => {
     const plan = planEntry('?v1=1', '', null)
+    expect(plan.kind).toBe('directorRedirect')
+    expect(plan.loginRole).toBe('teacher')
+    expect(plan.stage).toBeUndefined()
+    expect(plan.markGuideSeen).toBe(false)
+  })
+
+  it('无角色 + ?v1=1&legacy=1 → 补教师登录再进旧整屏', () => {
+    const plan = planEntry('?v1=1&legacy=1', '', null)
     expect(plan.kind).toBe('director')
     expect(plan.loginRole).toBe('teacher')
     expect(plan.stage).toBe('command')
-    expect(plan.markGuideSeen).toBe(false)
   })
 
   it('schoolAdmin + ?v1=1 → directorDenied：不登录、不指定阶段、带可见提示（P0-3）', () => {
@@ -78,18 +93,48 @@ describe('planEntry（URL + 角色 → 入口计划）', () => {
     expect(planEntry('?demo=1', '#share=abc', null)).toEqual(none)
   })
 
-  it('?v1=1&demo=1 → director 优先', () => {
-    expect(planEntry('?v1=1&demo=1', '', null).kind).toBe('director')
+  it('?v1=1&demo=1 → M4 重定向优先（v1 入口优先于 demo）', () => {
+    expect(planEntry('?v1=1&demo=1', '', null).kind).toBe('directorRedirect')
   })
 
-  it('无参数 + 已登录 → none，入口阶段由 auth 恢复决定', () => {
-    expect(planEntry('', '', 'teacher')).toEqual({ kind: 'none', loginRole: null, markGuideSeen: false })
+  it('无参数 + teacher → 统一壳战情台（M4 默认，R-1）；未登录 → none', () => {
+    expect(planEntry('', '', 'teacher')).toEqual({
+      kind: 'studio',
+      loginRole: null,
+      markGuideSeen: false,
+      studioLanding: 'inbox',
+    })
     expect(planEntry('', '', null)).toEqual({ kind: 'none', loginRole: null, markGuideSeen: false })
   })
 
+  it('无参数 + 校/局 → 旧壳（D14：总指挥只对 teacher 开放）', () => {
+    expect(planEntry('', '', 'schoolAdmin').kind).toBe('none')
+    expect(planEntry('', '', 'bureau').kind).toBe('none')
+  })
+
+  it('settings.studio.landing=briefing/workbench → 旧壳阶段入口（启动页回滚，R-1）', () => {
+    expect(planEntry('', '', 'teacher', { landing: 'briefing' }).kind).toBe('legacyStage')
+    expect(planEntry('', '', 'teacher', { landing: 'briefing' }).stage).toBe('briefing')
+    expect(planEntry('', '', 'teacher', { landing: 'workbench' }).stage).toBe('workbench')
+  })
+
+  it('?stage= 显式旧阶段机入口（旧 E2E/视觉回归）', () => {
+    expect(planEntry('?stage=briefing', '', 'teacher').kind).toBe('legacyStage')
+    expect(planEntry('?stage=workbench', '', 'teacher').stage).toBe('workbench')
+    expect(planEntry('?stage=briefing', '', null).loginRole).toBe('teacher')
+  })
+
+  it('?legacy=1 冷启动 → 旧壳（none 阶段由 auth 恢复决定）', () => {
+    expect(planEntry('?legacy=1', '', 'teacher').kind).toBe('none')
+  })
+
   it('布尔串兼容：?v1=true / ?demo=true 与 =1 等价', () => {
-    expect(planEntry('?v1=true', '', 'teacher').kind).toBe('director')
+    expect(planEntry('?v1=true', '', 'teacher').kind).toBe('directorRedirect')
     expect(planEntry('?demo=true', '', null).kind).toBe('demo')
+  })
+
+  it('?v2=1 显式统一壳优先于 v1/demo（排障/演示）', () => {
+    expect(planEntry('?v2=1&v1=1&demo=1', '', 'teacher').kind).toBe('studio')
   })
 })
 
@@ -187,21 +232,22 @@ describe('authStore 恢复归一与 command 不落盘（P0-1）', () => {
     expect(readAuth()).toEqual({ role: null, stage: 'login' })
   })
 
-  it('模拟 ?v1=1 冷启动后无参数重开：不会粘在 command（P0-1 端到端回归）', async () => {
+  it('模拟 ?v1=1 冷启动后无参数重开：不会粘在 command（P0-1 端到端回归；M4 改为重定向）', async () => {
     const { useAuthStore } = await import('../stores/authStore')
 
-    /* ① `?v1=1` 冷启动：无角色 → 补教师 → 临时 command */
+    /* ① `?v1=1` 冷启动：M4 入口返回 directorRedirect（无 stage/command 副作用）→ 先补教师 */
     const plan = planEntry('?v1=1', '', useAuthStore.getState().role)
     expect(plan.loginRole).toBe('teacher')
+    expect(plan.kind).toBe('directorRedirect')
+    expect(plan.stage).toBeUndefined()
     useAuthStore.getState().login(plan.loginRole!)
-    useAuthStore.getState().setStage(plan.stage!)
-    expect(useAuthStore.getState().stage).toBe('command')
+    expect(useAuthStore.getState().stage).toBe('briefing')
     expect(readAuth()).toEqual({ role: 'teacher', stage: 'briefing' })
 
-    /* ② 重新加载模块模拟无参数冷启动：恢复到 briefing，不再进 Director */
+    /* ② 重新加载模块模拟无参数冷启动：仍是 briefing（M4 默认壳由入口计划决定，auth 不感知） */
     vi.resetModules()
     const reopened = await import('../stores/authStore')
     expect(reopened.useAuthStore.getState().stage).toBe('briefing')
-    expect(planEntry('', '', reopened.useAuthStore.getState().role).kind).toBe('none')
+    expect(planEntry('', '', reopened.useAuthStore.getState().role).kind).toBe('studio')
   })
 })

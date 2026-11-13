@@ -8,7 +8,7 @@ import { useSettingsStore, flushSettingsPersist } from './stores/settingsStore'
 import { useNotificationStore } from './stores/notificationStore'
 import { flushArtifactPersist } from './stores/artifactStore'
 import { planEntry } from './lib/entryPlan'
-import { startStudioRouting } from './studio/router'
+import { startStudioRouting, goRoute } from './studio/router'
 import { startStudioInboxSources } from './stores/studioInboxStore'
 import { startStudioDigestRuntime } from './stores/studioDigestStore'
 import { installTelemetry } from './lib/telemetry'
@@ -50,10 +50,10 @@ installTelemetry()
 startStudioDigestRuntime()
 startStudioInboxSources()
 
-// 入口直达（v1.2 M0 P0-1/P0-2/P0-3 + M1 ?v2=1）：入口判定在 lib/entryPlan.ts（纯函数），这里只应用副作用。
-// 分享路由（#share=）优先且不参与；`?v1=1` 不再写旧引导已读位、不覆盖已有校/局身份，
-// command 阶段由 authStore 保证不落盘，之后无参数冷启动回到角色合法阶段。
-// `?v2=1`：统一工作区（影子期），启动路由运行时（URL → routeStore + popstate 回灌）。
+// 入口直达（v1.2 M0 P0-1/P0-2/P0-3 + M1 ?v2=1 + M4 默认期）：入口判定在 lib/entryPlan.ts（纯函数），这里只应用副作用。
+// 分享路由（#share=）优先且不参与；`?v1=1` 不写旧引导已读位、不覆盖已有校/局身份；
+// M4 起：teacher 无参数默认统一壳（战情台）；`?v1=1` 重定向新战情台；`?v1=1&legacy=1` 旧整屏只读；
+// `?legacy=1` / `?stage=` 保留旧壳回归能力；`?demo=1` 行为不变。
 const entry = planEntry(
   window.location.search,
   window.location.hash,
@@ -62,8 +62,26 @@ const entry = planEntry(
 )
 const auth = useAuthStore.getState()
 if (entry.loginRole) auth.login(entry.loginRole)
-if (entry.kind === 'studio') {
+if (entry.kind === 'studio' || entry.kind === 'directorRedirect') {
+  /* M4：`?v1=1` 旧整屏映射到新战情台：先规范化 URL（去 v1、补 v2=1），再启动路由后落到战情台 */
+  if (entry.kind === 'directorRedirect') {
+    const url = new URL(window.location.href)
+    url.searchParams.delete('v1')
+    url.searchParams.set('v2', '1')
+    window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`)
+  }
   startStudioRouting()
+  const params = new URLSearchParams(window.location.search)
+  const hasExplicitRoute = ['view', 'id', 'task', 'agent', 'tab'].some((key) => params.has(key))
+  if (!hasExplicitRoute) {
+    /* 默认期冷启动：teacher → 战情台（设置 landing=inbox/auto 时；briefing/workbench 已在入口计划走旧壳） */
+    const landing = entry.studioLanding ?? 'inbox'
+    if (landing === 'inbox') goRoute({ workspace: 'director', directorView: 'inbox' }, { replace: true })
+    else if (landing === 'briefing') goRoute({ workspace: 'classic', target: { kind: 'briefing' } }, { replace: true })
+    else goRoute({ workspace: 'classic', classicView: 'chat' }, { replace: true })
+  }
+} else if (entry.kind === 'legacyStage' && entry.stage) {
+  auth.setStage(entry.stage)
 } else if (entry.stage) {
   auth.setStage(entry.stage)
 }

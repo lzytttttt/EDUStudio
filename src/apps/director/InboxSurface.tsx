@@ -48,6 +48,8 @@ const MISSION_WORD: Record<MissionStatus, string> = {
   paused: '已暂停',
   waiting: '待你拍板',
   done: '已交付',
+  partial: '部分完成',
+  failed: '执行失败',
 }
 
 function greetingFor(hour: number): string {

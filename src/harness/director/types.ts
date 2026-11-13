@@ -171,7 +171,7 @@ export interface FeedItem {
   kind: FeedKind
 }
 
-export type MissionStatus = 'idle' | 'planning' | 'running' | 'paused' | 'waiting' | 'done'
+export type MissionStatus = 'idle' | 'planning' | 'running' | 'paused' | 'waiting' | 'done' | 'partial' | 'failed'
 
 export interface MissionPlanTask {
   id: string
@@ -313,9 +313,50 @@ export interface PersistedDirectorV1 {
   stale?: boolean
 }
 
+/** v1.2 M4：mission 运行时账本（v2 起 mission.runtime；Mock 续跑 / 真执行 outcome / 门与任务账本） */
+export interface DirectorMissionRuntime {
+  /** 执行模式（真执行 / Mock 兜底） */
+  execution: 'real' | 'mock'
+  /** 执行结果（MissionStatus 六值之外的诚实结果；M4 起 partial/failed 也可进 status） */
+  outcome?: 'done' | 'partial' | 'failed' | 'cancelled'
+  /** Mock/剧本续跑位置（真执行以 completedTasks 为准） */
+  cursor: number
+  completedTasks: string[]
+  failedTasks: { taskId: string; reason: string }[]
+  /** 累计 attempt 数（含重试） */
+  attempts: number
+  startedAt?: number
+  finishedAt?: number
+}
+
+/**
+ * v1.2 M4：持久化 v2（单键 `edustudio:director`，schemaVersion=2）。
+ * - 从 v1 迁移：missionCursor → mission.runtime.cursor；execution → runtime；artifactIds/intake/stale 保留；
+ * - `guideSeen` 仅作迁移来源保留一个版本，M4 起以 settings.studio.onboarded 为唯一事实源；
+ * - decisions 仍是 DecisionItem（D8：决策卡实体不变；DecisionRecord 是 studio 视图类型，不落盘）。
+ */
+export interface PersistedDirectorV2 {
+  schemaVersion: 2
+  updatedAt: number
+  /** 上限 12 */
+  decisions: DecisionItem[]
+  stats: DirectorStats
+  mission: MissionState & { runtime: DirectorMissionRuntime }
+  autonomy: Record<DirectorAgentId, AutonomyLevel>
+  /** 迁移来源保留（M5 后可删）；新代码只读 settings.studio.onboarded */
+  guideSeen?: boolean
+  facts: Fact[]
+  /** 已发布到 artifactStore 的文档 id（引用，不含正文） */
+  artifactIds: string[]
+  intake?: PersistedDirectorIntake
+  /** 数据源换源导致事实快照过期 */
+  stale?: boolean
+  /** 迁移记录（v1 → v2 一次性；幂等） */
+  migrations: { from: 1; at: number }[]
+}
+
 /** store 行为契约（UI 只依赖本接口，便于单测与后续替换实现） */
-export interface DirectorStoreActions {
-  setScreen: (screen: DirectorScreen) => void
+export interface DirectorStoreActions {  setScreen: (screen: DirectorScreen) => void
   acceptDecision: (id: string) => void
   resolveConflict: (id: string, optionId: string) => void
   snoozeDecision: (id: string) => void

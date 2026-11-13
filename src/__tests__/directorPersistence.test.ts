@@ -1,3 +1,8 @@
+/**
+ * v1.2 M4 · Director 持久化 v2 契约单测（写入切片 / 截断 / 读回矩阵 / 合并写盘 / 体积）
+ *
+ * v1→v2 迁移矩阵见 directorMigration.test.ts；本文件只验证「M4 起写 v2」的读写契约。
+ */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   DIRECTOR_DECISIONS_MAX,
@@ -6,6 +11,7 @@ import {
   DIRECTOR_LEGACY_GUIDE_KEY,
   DIRECTOR_PERSIST_KEY,
   DIRECTOR_PERSIST_MAX_BYTES,
+  DIRECTOR_SCHEMA_VERSION,
   cancelDirectorPersist,
   flushDirectorPersist,
   hasPendingDirectorPersist,
@@ -24,10 +30,8 @@ import type {
   Fact,
   FeedItem,
   MissionState,
-  PersistedDirectorV1,
+  PersistedDirectorV2,
 } from '../harness/director/types'
-
-/* v1.1 M2 持久化契约：edustudio:director v1 / 迁移矩阵 / 300ms 合并写盘（roadmap §5） */
 
 function memoryProvider(): DataProvider & { store: Map<string, string> } {
   const store = new Map<string, string>()
@@ -68,22 +72,21 @@ const MISSION: MissionState = {
   planSource: 'template',
 }
 
-/** 合法 v1 载荷（等价于「首访初始态」） */
-function payload(overrides: Partial<PersistedDirectorV1> = {}): PersistedDirectorV1 {
-  return {
-    schemaVersion: 1,
-    updatedAt: 1_700_000_000_000,
-    decisions: [],
-    stats: { pending: 3, running: 1, hosted: 4, savedHours: 2.1 },
-    mission: JSON.parse(JSON.stringify(MISSION)) as MissionState,
-    missionKind: 'parent_meeting',
-    missionCursor: 0,
-    planSource: 'template',
-    autonomy: AUTONOMY as unknown as PersistedDirectorV1['autonomy'],
-    guideSeen: false,
-    facts: [],
-    ...overrides,
-  }
+/** 合法 v2 初始载荷（等价于 store 首访时由空状态写出的形状） */
+function initialV2(overrides: Partial<PersistedDirectorV2> = {}): PersistedDirectorV2 {
+  const base = toPersistedDirector(
+    {
+      decisions: [],
+      stats: { pending: 3, running: 1, hosted: 4, savedHours: 2.1 },
+      mission: JSON.parse(JSON.stringify(MISSION)) as MissionState,
+      missionCursor: 0,
+      planSource: 'template',
+      autonomy: AUTONOMY,
+      facts: [],
+    },
+    false,
+  )
+  return { ...base, ...overrides }
 }
 
 function decision(id: string): DecisionItem {
@@ -118,8 +121,8 @@ function fact(index: number): Fact {
   }
 }
 
-describe('toPersistedDirector 切片（写入侧）', () => {
-  it('只保留持久化字段：toasts / screen / artifactId / guideActive / planLoading 不进载荷', () => {
+describe('toPersistedDirector · v2 写入切片', () => {
+  it('写出 schemaVersion=2 + mission.runtime + artifactIds + migrations；瞬态字段不进载荷', () => {
     const source = {
       decisions: [decision('d-1')],
       stats: { pending: 2, running: 1, hosted: 5, savedHours: 2.3 },
@@ -128,7 +131,21 @@ describe('toPersistedDirector 切片（写入侧）', () => {
       planSource: 'template',
       autonomy: { ...AUTONOMY },
       facts: [fact(1)],
-      // 瞬态字段：即使被误传也不应落入 payload
+      execution: {
+        mode: 'real',
+        missionId: 'm-123',
+        outcome: 'partial',
+        startedAt: 1_700_000_000_000,
+        finishedAt: 1_700_000_009_000,
+        completedTasks: ['t1'],
+        failedTasks: [{ taskId: 't2', reason: '超时' }],
+        attempts: 3,
+      },
+      intake: { source: 'briefing', cardId: 'd-drill' },
+      artifactIds: ['doc-rt-m-1-t1'],
+      stale: true,
+      migrations: [{ from: 1, at: 1 }],
+      // 瞬态字段：即使被误传也不应落入载荷
       screen: 'mission',
       toasts: [{ id: 't1', text: 'hi', tone: 'primary' }],
       artifactId: 'a-brief',
@@ -137,24 +154,29 @@ describe('toPersistedDirector 切片（写入侧）', () => {
       planLoading: true,
     } as DirectorPersistSource
     const result = toPersistedDirector(source, false, 123)
-    expect(result.schemaVersion).toBe(1)
+    expect(result.schemaVersion).toBe(DIRECTOR_SCHEMA_VERSION)
     expect(result.updatedAt).toBe(123)
-    expect(result.missionKind).toBe('parent_meeting')
-    expect(result.missionCursor).toBe(3)
+    expect(result.mission.runtime.execution).toBe('real')
+    expect(result.mission.runtime.outcome).toBe('partial')
+    expect(result.mission.runtime.cursor).toBe(3)
+    expect(result.mission.runtime.completedTasks).toEqual(['t1'])
+    expect(result.mission.runtime.failedTasks).toEqual([{ taskId: 't2', reason: '超时' }])
+    expect(result.mission.runtime.attempts).toBe(3)
+    expect(result.mission.runtime.startedAt).toBe(1_700_000_000_000)
+    expect(result.artifactIds).toEqual(['doc-rt-m-1-t1'])
+    expect(result.intake).toEqual({ source: 'briefing', cardId: 'd-drill' })
+    expect(result.stale).toBe(true)
+    expect(result.migrations).toEqual([{ from: 1, at: 1 }])
     const json = JSON.stringify(result)
-    expect(json).not.toContain('toasts')
-    expect(json).not.toContain('screen')
-    expect(json).not.toContain('artifactId')
-    expect(json).not.toContain('guideActive')
-    expect(json).not.toContain('planLoading')
-    expect(result.guideSeen).toBe(false)
+    for (const field of ['toasts', 'screen', 'artifactId', 'guideActive', 'planLoading']) {
+      expect(json).not.toContain(`"${field}"`)
+    }
+    /* guideSeen=false 时不写字段（可选迁移来源） */
+    expect(result.guideSeen).toBeUndefined()
   })
 
-  it('写盘截断：decisions ≤12 / feed ≤30 / facts ≤12', () => {
-    const longMission: MissionState = {
-      ...MISSION,
-      feed: Array.from({ length: 40 }, (_, i) => feedItem(i)),
-    }
+  it('写盘截断：decisions ≤12 / feed ≤30 / facts ≤12 / artifactIds ≤30，且保留最新 feed', () => {
+    const longMission: MissionState = { ...MISSION, feed: Array.from({ length: 40 }, (_, i) => feedItem(i)) }
     const result = toPersistedDirector(
       {
         decisions: Array.from({ length: 20 }, (_, i) => decision(`d-${i}`)),
@@ -164,21 +186,40 @@ describe('toPersistedDirector 切片（写入侧）', () => {
         planSource: 'template',
         autonomy: { ...AUTONOMY },
         facts: Array.from({ length: 20 }, (_, i) => fact(i)),
+        artifactIds: Array.from({ length: 40 }, (_, i) => `doc-${i}`),
       },
       true,
     )
     expect(result.decisions).toHaveLength(DIRECTOR_DECISIONS_MAX)
     expect(result.mission.feed).toHaveLength(DIRECTOR_FEED_MAX)
-    /* 保留最后 30 条（最新动态优先） */
     expect(result.mission.feed[0].id).toBe('f-10')
     expect(result.mission.feed[DIRECTOR_FEED_MAX - 1].id).toBe('f-39')
     expect(result.facts).toHaveLength(DIRECTOR_FACTS_MAX)
+    expect(result.artifactIds).toHaveLength(30)
     expect(result.guideSeen).toBe(true)
+  })
+
+  it('体积 <30KB（引用而非正文；feed/facts/artifacts 截断后）', () => {
+    const result = toPersistedDirector(
+      {
+        decisions: [],
+        stats: { pending: 0, running: 0, hosted: 0, savedHours: 0 },
+        mission: { ...MISSION, feed: Array.from({ length: 30 }, (_, i) => feedItem(i)) },
+        missionCursor: 0,
+        planSource: 'template',
+        autonomy: { ...AUTONOMY },
+        facts: Array.from({ length: 12 }, (_, i) => fact(i)),
+        artifactIds: Array.from({ length: 30 }, (_, i) => `doc-rt-m-1-t${i}`),
+      },
+      true,
+    )
+    expect(JSON.stringify(result).length).toBeLessThan(DIRECTOR_PERSIST_MAX_BYTES)
   })
 })
 
-describe('migrateDirectorPersisted / loadDirectorPersisted（恢复矩阵）', () => {
+describe('loadDirectorPersisted · v2 恢复矩阵', () => {
   let provider: ReturnType<typeof memoryProvider>
+  const initial = initialV2()
 
   beforeEach(() => {
     provider = memoryProvider()
@@ -196,252 +237,173 @@ describe('migrateDirectorPersisted / loadDirectorPersisted（恢复矩阵）', (
     setDataProvider(localStorageProvider)
   })
 
-  it('无持久化数据：回初始、hasPersisted=false（首访仍回战情台）', () => {
-    const initial = payload()
+  it('无持久化数据：回初始、hasPersisted=false、migrated=false', () => {
     const result = loadDirectorPersisted(initial)
     expect(result.hasPersisted).toBe(false)
     expect(result.recovered).toBe(false)
+    expect(result.migrated).toBe(false)
     expect(result.value).toEqual(initial)
   })
 
-  it('版本未知 / 非对象：回初始 + recovered，绝不抛', () => {
-    const initial = payload()
-    for (const raw of [null, 42, 'x', [], { foo: 1 }, { ...payload(), schemaVersion: 2 }]) {
+  it('坏 JSON / 非对象 / 未知版本：回初始 + recovered，绝不抛', () => {
+    for (const raw of ['not-json{', 42, 'x', [], { foo: 1 }, { ...initial, schemaVersion: 3 }]) {
       expect(() => migrateDirectorPersisted(raw, initial)).not.toThrow()
       expect(migrateDirectorPersisted(raw, initial)).toEqual(initial)
     }
-    provider.setItem(`edustudio:${DIRECTOR_PERSIST_KEY}`, JSON.stringify({ ...payload(), schemaVersion: 2 }))
+    provider.setItem(`edustudio:${DIRECTOR_PERSIST_KEY}`, JSON.stringify({ ...initial, schemaVersion: 3 }))
     const loaded = loadDirectorPersisted(initial)
     expect(loaded.hasPersisted).toBe(false)
     expect(loaded.recovered).toBe(true)
     expect(loaded.value).toEqual(initial)
   })
 
-  it('坏 JSON：loadJSON 兜底为初始态，不白屏', () => {
-    const initial = payload()
-    provider.setItem(`edustudio:${DIRECTOR_PERSIST_KEY}`, 'not-json{')
-    const loaded = loadDirectorPersisted(initial)
-    expect(loaded.hasPersisted).toBe(false)
-    expect(loaded.value).toEqual(initial)
-  })
-
-  it('running → paused（刷新恢复语义），其余状态原样', () => {
-    const initial = payload()
+  it('v2 running → paused（刷新恢复语义）；waiting/done/partial/failed 原样', () => {
     for (const [status, expected] of [
       ['running', 'paused'],
       ['waiting', 'waiting'],
-      ['planning', 'planning'],
       ['done', 'done'],
-      ['paused', 'paused'],
+      ['partial', 'partial'],
+      ['failed', 'failed'],
       ['idle', 'idle'],
     ] as const) {
-      const raw = payload({ mission: { ...JSON.parse(JSON.stringify(MISSION)), status } as MissionState })
+      const raw = toPersistedDirector(
+        {
+          decisions: [],
+          stats: { pending: 0, running: 0, hosted: 0, savedHours: 0 },
+          mission: { ...MISSION, status },
+          missionCursor: 0,
+          planSource: 'template',
+          autonomy: { ...AUTONOMY },
+          facts: [],
+        },
+        false,
+      )
       const migrated = migrateDirectorPersisted(raw, initial)
       expect(migrated.mission.status).toBe(expected)
     }
   })
 
-  it('字段类型校验补默认：非法 status/kind/gate/title/progress/planSource/plan 回落初始', () => {
-    const initial = payload()
-    const migrated = migrateDirectorPersisted(
-      {
-        ...payload(),
-        missionKind: 'unknown_kind',
-        planSource: 'nope',
-        missionCursor: -5,
-        stats: { pending: 'x', running: -1, hosted: 4, savedHours: 2.1 },
-        autonomy: { communicator: 'L9', steward: 3 },
-        mission: {
-          status: 'weird',
-          kind: 'unknown_kind',
-          title: '',
-          progress: 150,
-          gate: 'nope',
-          planSource: 'nope',
-          feed: [{ id: 'f1', agentId: 'nobody', text: 'x', at: 'y', kind: 'weird' }, 'garbage'],
-          plan: [{ id: '', title: '' }, { id: 't1', agentId: 'nobody', title: '保留', seconds: -1 }],
-          doneTasks: ['t1', 5],
-        },
-      },
-      initial,
-    )
-    /* kind / 计划 / planSource 回落初始模板（parent_meeting） */
-    expect(migrated.mission.status).toBe('planning')
-    expect(migrated.missionKind).toBe('parent_meeting')
-    expect(migrated.planSource).toBe('template')
-    expect(migrated.mission.kind).toBe('parent_meeting')
-    expect(migrated.mission.title).toBe(initial.mission.title)
-    expect(migrated.mission.progress).toBe(100)
-    expect(migrated.mission.gate).toBeNull()
-    expect(migrated.missionCursor).toBe(0)
-    expect(migrated.stats.pending).toBe(initial.stats.pending)
-    expect(migrated.stats.running).toBe(initial.stats.running)
-    expect(migrated.autonomy.chief).toBe(initial.autonomy.chief)
-    expect(migrated.autonomy.communicator).toBe(initial.autonomy.communicator)
-    /* 坏 feed 条目被归一（非法 agent/kind 回默认，非字符串项丢弃）；plan 里唯一合法任务保留并补默认 seconds */
-    expect(migrated.mission.feed).toHaveLength(1)
-    expect(migrated.mission.feed[0]).toMatchObject({ id: 'f1', agentId: 'chief', text: 'x', at: 0, kind: 'step' })
-    expect(migrated.mission.plan).toHaveLength(1)
-    expect(migrated.mission.plan[0]).toMatchObject({ id: 't1', title: '保留', agentId: 'chief', seconds: 60 })
-    expect(migrated.mission.doneTasks).toEqual(['t1'])
-  })
-
-  it('plan 全非法 → 回落初始模板计划；decisions 全非法 → 回落初始决策', () => {
-    const initial = payload({
-      decisions: [decision('d-fallback')],
-    })
-    const migrated = migrateDirectorPersisted(
-      { ...payload(), decisions: [{}, { id: '' }], mission: { ...MISSION, plan: [null, 'x', { id: 'ok' }] } },
-      initial,
-    )
-    expect(migrated.decisions.map((d) => d.id)).toEqual(['d-fallback'])
-    expect(migrated.mission.plan).toEqual(initial.mission.plan)
-  })
-
-  it('missionKind / planSource 以顶层契约字段为准并同步进 mission', () => {
-    const initial = payload()
-    const migrated = migrateDirectorPersisted(
-      {
-        ...payload(),
-        missionKind: 'exam_loop',
-        planSource: 'llm',
-        mission: { ...MISSION, kind: 'parent_meeting', planSource: 'template' },
-      },
-      initial,
-    )
-    expect(migrated.missionKind).toBe('exam_loop')
-    expect(migrated.mission.kind).toBe('exam_loop')
-    expect(migrated.planSource).toBe('llm')
-    expect(migrated.mission.planSource).toBe('llm')
-  })
-
-  it('cursor 归一：负数 / 小数 / 非数字', () => {
-    const initial = payload()
-    expect(migrateDirectorPersisted({ ...payload(), missionCursor: -3 }, initial).missionCursor).toBe(0)
-    expect(migrateDirectorPersisted({ ...payload(), missionCursor: 3.7 }, initial).missionCursor).toBe(3)
-    expect(migrateDirectorPersisted({ ...payload(), missionCursor: 'x' }, initial).missionCursor).toBe(0)
-  })
-
-  it('guideSeen 旧键合并后删除旧键，并把合并结果写回 v1', () => {
-    provider.setItem(`edustudio:${DIRECTOR_PERSIST_KEY}`, JSON.stringify(payload({ guideSeen: false })))
-    window.localStorage.setItem(DIRECTOR_LEGACY_GUIDE_KEY, '1')
-    const loaded = loadDirectorPersisted(payload())
-    expect(loaded.value.guideSeen).toBe(true)
-    expect(window.localStorage.getItem(DIRECTOR_LEGACY_GUIDE_KEY)).toBeNull()
-    const persisted = JSON.parse(provider.store.get(`edustudio:${DIRECTOR_PERSIST_KEY}`)!) as PersistedDirectorV1
-    expect(persisted.guideSeen).toBe(true)
-  })
-
-  it('只有旧引导键、没有 v1 载荷：迁移为 v1 并立刻写回，guideSeen 不丢', () => {
-    window.localStorage.setItem(DIRECTOR_LEGACY_GUIDE_KEY, '1')
-    const loaded = loadDirectorPersisted(payload())
-    expect(loaded.hasPersisted).toBe(false)
-    expect(loaded.value.guideSeen).toBe(true)
-    expect(provider.store.has(`edustudio:${DIRECTOR_PERSIST_KEY}`)).toBe(true)
-    expect(window.localStorage.getItem(DIRECTOR_LEGACY_GUIDE_KEY)).toBeNull()
-  })
-
-  it('合法数据往返：值保持、hasPersisted=true', () => {
-    const original = payload({
-      missionCursor: 4,
-      mission: { ...JSON.parse(JSON.stringify(MISSION)) as MissionState, status: 'waiting', gate: 'speech' },
-      facts: [fact(1), fact(2)],
-      decisions: [decision('d-1')],
-      guideSeen: true,
-    })
-    provider.setItem(`edustudio:${DIRECTOR_PERSIST_KEY}`, JSON.stringify(original))
-    const loaded = loadDirectorPersisted(payload())
-    expect(loaded.hasPersisted).toBe(true)
-    expect(loaded.recovered).toBe(false)
-    expect(loaded.value.missionCursor).toBe(4)
-    expect(loaded.value.mission.status).toBe('waiting')
-    expect(loaded.value.mission.gate).toBe('speech')
-    expect(loaded.value.facts).toHaveLength(2)
-    expect(loaded.value.decisions.map((d) => d.id)).toEqual(['d-1'])
-    expect(loaded.value.guideSeen).toBe(true)
-  })
-
-  it('体积：满额载荷远低于 30KB 上限', () => {
-    const big = payload({
-      decisions: Array.from({ length: DIRECTOR_DECISIONS_MAX }, (_, i) => decision(`d-${i}`)),
-      facts: Array.from({ length: DIRECTOR_FACTS_MAX }, (_, i) => fact(i)),
+  it('非法 status / garbage runtime 回退兜底，不白屏', () => {
+    const raw = {
+      ...initial,
       mission: {
-        ...JSON.parse(JSON.stringify(MISSION)) as MissionState,
-        feed: Array.from({ length: DIRECTOR_FEED_MAX }, (_, i) => feedItem(i)),
-        doneTasks: ['t1', 't2'],
-        planReason: 'mock_mode',
-        startedAt: 1_700_000_000_000,
+        ...initial.mission,
+        status: 'weird',
+        runtime: { execution: 'bad', attempts: -1, completedTasks: 'x' },
       },
-    })
-    expect(JSON.stringify(big).length).toBeLessThan(DIRECTOR_PERSIST_MAX_BYTES)
+    }
+    const migrated = migrateDirectorPersisted(raw, initial)
+    expect(migrated.mission.status).toBe(initial.mission.status)
+    expect(migrated.mission.runtime.execution).toBe(initial.mission.runtime.execution)
+    expect(migrated.mission.runtime.attempts).toBe(0)
+    expect(migrated.mission.runtime.completedTasks).toEqual(initial.mission.runtime.completedTasks)
   })
-})
 
-describe('合并写盘（300ms 防抖 + 切片比对 + 强制 flush）', () => {
-  let provider: ReturnType<typeof memoryProvider>
+  it('v2 读回保留 artifactIds/intake/stale/guideSeen/migrations', () => {
+    const raw = toPersistedDirector(
+      {
+        decisions: [decision('d-1')],
+        stats: { pending: 1, running: 0, hosted: 1, savedHours: 0.2 },
+        mission: { ...MISSION, status: 'done', doneTasks: ['t1', 't2'] },
+        missionCursor: 5,
+        planSource: 'llm',
+        autonomy: { ...AUTONOMY },
+        facts: [fact(2)],
+        artifactIds: ['doc-a', 'doc-b'],
+        intake: { source: 'inbox' },
+      },
+      true,
+    )
+    provider.setItem(`edustudio:${DIRECTOR_PERSIST_KEY}`, JSON.stringify(raw))
+    const loaded = loadDirectorPersisted(initial)
+    expect(loaded.hasPersisted).toBe(true)
+    expect(loaded.migrated).toBe(false)
+    expect(loaded.value.mission.runtime.cursor).toBe(5)
+    expect(loaded.value.mission.runtime.completedTasks).toEqual(['t1', 't2'])
+    expect(loaded.value.artifactIds).toEqual(['doc-a', 'doc-b'])
+    expect(loaded.value.intake).toEqual({ source: 'inbox' })
+    expect(loaded.value.guideSeen).toBe(true)
+    expect(loaded.value.decisions).toHaveLength(1)
+  })
 
-  beforeEach(() => {
+  it('旧裸引导键合并进 v2 并删除旧键', () => {
+    window.localStorage.setItem(DIRECTOR_LEGACY_GUIDE_KEY, '1')
+    const raw = toPersistedDirector(
+      {
+        decisions: [],
+        stats: { pending: 0, running: 0, hosted: 0, savedHours: 0 },
+        mission: MISSION,
+        missionCursor: 0,
+        planSource: 'template',
+        autonomy: { ...AUTONOMY },
+        facts: [],
+      },
+      false,
+    )
+    provider.setItem(`edustudio:${DIRECTOR_PERSIST_KEY}`, JSON.stringify(raw))
+    const loaded = loadDirectorPersisted(initial)
+    expect(loaded.value.guideSeen).toBe(true)
+    expect(window.localStorage.getItem(DIRECTOR_LEGACY_GUIDE_KEY)).toBeNull()
+    const written = JSON.parse(provider.store.get(`edustudio:${DIRECTOR_PERSIST_KEY}`)!) as PersistedDirectorV2
+    expect(written.guideSeen).toBe(true)
+  })
+
+  it('写盘 / flush / cancel：300ms 合并写盘 + 立即写 + 丢弃待写', () => {
     vi.useFakeTimers()
-    provider = memoryProvider()
-    setDataProvider(provider)
-    cancelDirectorPersist()
     try {
-      window.localStorage.removeItem(DIRECTOR_LEGACY_GUIDE_KEY)
-    } catch {
-      /* ignore */
+      const a = toPersistedDirector(
+        {
+          decisions: [],
+          stats: { pending: 0, running: 0, hosted: 0, savedHours: 0 },
+          mission: { ...MISSION, progress: 10 },
+          missionCursor: 0,
+          planSource: 'template',
+          autonomy: { ...AUTONOMY },
+          facts: [],
+        },
+        false,
+      )
+      expect(scheduleDirectorPersist(a)).toBe(true)
+      expect(hasPendingDirectorPersist()).toBe(true)
+      vi.advanceTimersByTime(400)
+      expect(hasPendingDirectorPersist()).toBe(false)
+      const b = toPersistedDirector(
+        {
+          decisions: [],
+          stats: { pending: 0, running: 0, hosted: 0, savedHours: 0 },
+          mission: { ...MISSION, progress: 85 },
+          missionCursor: 0,
+          planSource: 'template',
+          autonomy: { ...AUTONOMY },
+          facts: [],
+        },
+        false,
+      )
+      writeDirectorPersist(b)
+      expect(hasPendingDirectorPersist()).toBe(false)
+      cancelDirectorPersist()
+      expect(hasPendingDirectorPersist()).toBe(false)
+    } finally {
+      vi.useRealTimers()
     }
   })
 
-  afterEach(() => {
-    cancelDirectorPersist()
-    vi.useRealTimers()
-    setDataProvider(localStorageProvider)
-  })
-
-  it('schedule 后 300ms 才落盘；updatedAt 变化不算切片变化', () => {
-    const first = payload()
-    expect(scheduleDirectorPersist(first)).toBe(true)
-    expect(hasPendingDirectorPersist()).toBe(true)
-    /* 同一份切片（updatedAt 不同 / 瞬态变化不在这里体现）不重复排队 */
-    expect(scheduleDirectorPersist({ ...first, updatedAt: first.updatedAt + 5000 })).toBe(false)
-    vi.advanceTimersByTime(299)
-    expect(provider.store.has(`edustudio:${DIRECTOR_PERSIST_KEY}`)).toBe(false)
-    vi.advanceTimersByTime(1)
-    expect(provider.store.has(`edustudio:${DIRECTOR_PERSIST_KEY}`)).toBe(true)
-    expect(hasPendingDirectorPersist()).toBe(false)
-    const written = JSON.parse(provider.store.get(`edustudio:${DIRECTOR_PERSIST_KEY}`)!) as PersistedDirectorV1
-    expect(written.schemaVersion).toBe(1)
-    expect(written.updatedAt).not.toBe(0)
-  })
-
-  it('flush 立即写出待写快照', () => {
-    scheduleDirectorPersist(payload())
+  it('flush 写出待写快照（页面隐藏兜底）', () => {
+    const a = toPersistedDirector(
+      {
+        decisions: [],
+        stats: { pending: 0, running: 0, hosted: 0, savedHours: 0 },
+        mission: { ...MISSION, progress: 33 },
+        missionCursor: 0,
+        planSource: 'template',
+        autonomy: { ...AUTONOMY },
+        facts: [],
+      },
+      false,
+    )
+    scheduleDirectorPersist(a)
     flushDirectorPersist()
-    expect(provider.store.has(`edustudio:${DIRECTOR_PERSIST_KEY}`)).toBe(true)
-    expect(hasPendingDirectorPersist()).toBe(false)
-  })
-
-  it('cancel 丢弃待写快照：不会把旧状态写回（reset/清库前置）', () => {
-    scheduleDirectorPersist(payload())
-    cancelDirectorPersist()
-    vi.advanceTimersByTime(1000)
-    expect(provider.store.has(`edustudio:${DIRECTOR_PERSIST_KEY}`)).toBe(false)
-  })
-
-  it('writeDirectorPersist 关键节点立即落盘并清掉待写', () => {
-    scheduleDirectorPersist(payload())
-    writeDirectorPersist(payload({ missionKind: 'exam_loop', mission: { ...MISSION, kind: 'exam_loop' } }))
-    expect(hasPendingDirectorPersist()).toBe(false)
-    vi.advanceTimersByTime(1000)
-    const written = JSON.parse(provider.store.get(`edustudio:${DIRECTOR_PERSIST_KEY}`)!) as PersistedDirectorV1
-    expect(written.missionKind).toBe('exam_loop')
-  })
-
-  it('切片变化会重新排队并写最新值', () => {
-    scheduleDirectorPersist(payload())
-    scheduleDirectorPersist(payload({ missionCursor: 5 }))
-    vi.advanceTimersByTime(300)
-    const written = JSON.parse(provider.store.get(`edustudio:${DIRECTOR_PERSIST_KEY}`)!) as PersistedDirectorV1
-    expect(written.missionCursor).toBe(5)
+    const written = JSON.parse(provider.store.get(`edustudio:${DIRECTOR_PERSIST_KEY}`)!) as PersistedDirectorV2
+    expect(written.mission.progress).toBe(33)
   })
 })

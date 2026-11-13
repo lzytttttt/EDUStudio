@@ -4,7 +4,7 @@ import { expect, test, type Locator, type Page } from '@playwright/test'
  * v1.1 M4a：总指挥模式三屏视觉基线（独立于旧 e2e/visual.spec.ts，避免与旧 4 张基线互相牵连）。
  *
  * 覆盖（研究 02 §2.5 / roadmap §7.1）：director-inbox / director-mission-plan / director-team。
- * - 页面：`/?v1=1&tour=0&llm=0`（关闭引导；llm=0 强制模板兜底，避开模型请求的时序抖动）；
+ * - 页面：`/?v1=1&legacy=1&tour=0&llm=0`（旧整屏只读入口；关闭引导；llm=0 强制模板兜底，避开模型请求的时序抖动）；
  * - 固定 clock（问候/日期不随运行日期漂移）+ prefers-reduced-motion + 清空 `edustudio:*`；
  * - mask 动态文本：问候 / 日期 / 省时 / toast 层（优先 data-testid，缺失时按结构兜底）；
  * - 阈值单独收紧到 2%（旧视觉基线仍用全局 5%）；
@@ -35,7 +35,7 @@ async function openDirector(page: Page): Promise<void> {
   })
   await page.clock.install({ time: FIXED_NOW })
   await page.emulateMedia({ reducedMotion: 'reduce' })
-  await page.goto('/?v1=1&tour=0&llm=0')
+  await page.goto('/?v1=1&legacy=1&tour=0&llm=0')
 }
 
 /**

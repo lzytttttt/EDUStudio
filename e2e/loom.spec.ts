@@ -26,9 +26,9 @@ async function dismissGuide(page: Page) {
   await page.getByTestId('guide-done').click({ timeout: 4000 }).catch(() => {})
 }
 
-/** 教师身份经「跳过简报」进入中性工作台 */
+/** 教师身份经「跳过简报」进入中性工作台（v1.2 M4：旧壳走 ?legacy=1 显式回滚入口） */
 async function loginAsTeacher(page: Page) {
-  await page.goto('/')
+  await page.goto('/?legacy=1')
   await page.getByTestId('login-account').fill('teacher@edustudio.cn')
   await page.getByTestId('login-password').fill('demo1234')
   await page.getByTestId('role-card-teacher').click()
@@ -78,7 +78,7 @@ test('② 添加模块 → 节点出现 → 编辑器可改名', async ({ page }
 })
 
 test('③ 简报采纳 → 空间任务台出现任务节点（一卡一节点）', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/?legacy=1')
   await page.getByTestId('login-account').fill('teacher@edustudio.cn')
   await page.getByTestId('login-password').fill('demo1234')
   await page.getByTestId('role-card-teacher').click()

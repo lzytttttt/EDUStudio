@@ -28,9 +28,9 @@ async function dismissGuide(page: Page) {
   await page.getByTestId('guide-done').click({ timeout: 4000 }).catch(() => {})
 }
 
-/** 快捷路径：教师身份经「跳过简报」进入中性工作台（不触发任何任务） */
+/** 快捷路径：教师身份经「跳过简报」进入中性工作台（不触发任何任务；v1.2 M4 起旧壳用 ?legacy=1 显式入口） */
 async function loginAsTeacher(page: Page) {
-  await page.goto('/')
+  await page.goto('/?legacy=1')
   await page.getByTestId('login-account').fill('teacher@edustudio.cn')
   await page.getByTestId('login-password').fill('demo1234')
   await page.getByTestId('role-card-teacher').click()
@@ -41,7 +41,7 @@ async function loginAsTeacher(page: Page) {
 }
 
 test('① 登录 → 简报 → 采纳（后台执行）→ 批示完成 → 统一处理 → 工作台', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/?legacy=1')
   // 登录页：账号密码表单 + 三个身份选项
   await expect(page.getByTestId('login-account')).toBeVisible()
   await expect(page.getByTestId('login-password')).toBeVisible()
@@ -147,7 +147,7 @@ test('④ 生成即见：教案任务后文档面板自动可见且正文持续�
 })
 
 test('⑤ 演示直达：登录页一键进入简报（默认教师 · 跳过引导）', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/?legacy=1')
   await expect(page.getByTestId('demo-login')).toBeVisible()
 
   // 一键直达（v0.9.3 P1-B②）：不填账号密码，1 次点击落到简报
@@ -199,7 +199,7 @@ test('⑦ 重新生成弹窗内方向键不误触简报决策', async ({ page })
  * 这里用同源 GET 守一道——它们正是「必须先物理存在」的那 4 张。
  */
 test('⑧ 稳定 URL 美术资产可直达，且 PWA manifest 自洽', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/?legacy=1')
 
   for (const name of ['favicon-64.png', 'icon-180.png', 'icon-192.png', 'icon-512.png']) {
     const res = await page.request.get(`/${name}`)

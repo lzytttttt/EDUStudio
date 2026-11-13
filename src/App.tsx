@@ -5,7 +5,7 @@ import LoginScreen from './shell/LoginScreen'
 import AppShell from './shell/AppShell'
 import { cn } from './lib/cn'
 import { isStudioV2Enabled } from './lib/studioEntry'
-import { applyStageRouteIntent } from './studio/router'
+import { applyStageRouteIntent, goRoute, startStudioRouting } from './studio/router'
 import type { Stage } from './harness/types'
 
 /** v1.2 M1：统一外壳（主 chunk；内部对 CommandCenter/视图做 chunk 内懒加载） */
@@ -80,6 +80,16 @@ function useStageRouteBridge(enabled: boolean): void {
     }
     if (stage === stageAtMount.current) return
     stageAtMount.current = stage
+    /* v1.2 M4：默认期 teacher 登录后不再落简报，而是战情台（R-1；简报降为发现区）。
+       仅当当前 URL 没有显式视图（深链）且启动页设置为 auto/inbox 时改写。 */
+    if (stage === 'briefing') {
+      const landing = useSettingsStore.getState().studio.landing
+      const hasView = new URLSearchParams(window.location.search).has('view')
+      if (!hasView && (landing === 'auto' || landing === 'inbox')) {
+        goRoute({ workspace: 'director', directorView: 'inbox' }, { replace: true })
+        return
+      }
+    }
     applyStageRouteIntent(stage)
   }, [enabled, stage])
 }
@@ -109,20 +119,29 @@ export default function App() {
   const isShare = useShareRoute()
   const stage = useAuthStore((s) => s.stage)
   const role = useAuthStore((s) => s.role)
-  /* v1.2 M1：统一工作区（`?v2=1` 影子期；`?legacy=1` 强制回滚旧壳；M2 起 settings.studio 也参与判定）。
-     模式在启动时锁定：工作区切换会规范化 URL（正式实现会保留 v2 开关，但 M1 影子期
-     不能被一次外部改写「踢出」新壳）；回滚仍走显式 `?legacy=1` 重新加载。 */
-  const studioV2Ref = useRef<boolean | null>(null)
-  if (studioV2Ref.current === null) {
-    studioV2Ref.current = isStudioV2Enabled(
-      window.location.search,
-      role,
-      useSettingsStore.getState().studio,
-    )
-  }
-  const studioV2 = studioV2Ref.current
+  /* v1.2 M1/M4：统一工作区判定（`?v2=` 显式 / `?legacy=` 回滚 / M4 起 teacher 默认）。
+     M4 起不再在首渲染锁死：登录前 role=null 得到旧壳、登录后 teacher 需切到新壳（登录落点=战情台，R-1）；
+     `?legacy=1` / `?stage=` / `?demo=1` 显式旧路径仍恒为旧壳，因此行为可控。 */
+  const studioV2 = isStudioV2Enabled(
+    window.location.search,
+    role,
+    useSettingsStore.getState().studio,
+  )
   useHistorySync(!studioV2)
   useStageRouteBridge(studioV2)
+
+  /* v1.2 M4：登录后进入默认期（或 `?v2=1` 直开）时初始化路由，并把「无显式视图」的冷启动落到战情台。
+     深链（view/id/task/agent/tab）保持 URL 解析结果，不覆盖。 */
+  useEffect(() => {
+    if (!studioV2 || role !== 'teacher') return
+    startStudioRouting()
+    const params = new URLSearchParams(window.location.search)
+    const hasExplicitRoute = ['view', 'id', 'task', 'agent', 'tab'].some((key) => params.has(key))
+    if (hasExplicitRoute) return
+    const landing = useSettingsStore.getState().studio.landing
+    if (landing === 'briefing' || landing === 'workbench') return
+    goRoute({ workspace: 'director', directorView: 'inbox' }, { replace: true })
+  }, [studioV2, role])
   const [rendered, setRendered] = useState<Stage>(stage)
   const [leaving, setLeaving] = useState(false)
   const timer = useRef<number | undefined>(undefined)

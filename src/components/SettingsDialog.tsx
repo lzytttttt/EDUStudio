@@ -4,6 +4,9 @@ import {
   useSettingsStore, maskKey, clampPref, PREF_MAX_LEN,
   FONT_SIZE_MIN, FONT_SIZE_MAX, FONT_SIZE_DEFAULT,
 } from '../stores/settingsStore'
+import { useStudioInboxStore } from '../stores/studioInboxStore'
+import { useStudioDigestStore } from '../stores/studioDigestStore'
+import { removeKey } from '../lib/storage'
 import { checkApiKey, type KeyCheckResult } from '../lib/keyCheck'
 import { buildBackupFile, downloadBackup, parseBackupFile, importAll, type BackupFile } from '../lib/backup'
 import { cn } from '../lib/cn'
@@ -120,6 +123,7 @@ export default function SettingsDialog({ onClose }: { onClose: () => void }) {
   const s = useSettingsStore()
   const [showKey, setShowKey] = useState(false)
   const [confirmClear, setConfirmClear] = useState(false)
+  const [confirmClearStudio, setConfirmClearStudio] = useState(false)
   const [keyCheck, setKeyCheck] = useState<KeyCheckResult | null>(null)
   const [keyChecking, setKeyChecking] = useState(false)
   const dialogRef = useDialogA11y<HTMLDivElement>(true, onClose)
@@ -163,6 +167,29 @@ export default function SettingsDialog({ onClose }: { onClose: () => void }) {
     // v1.1 M2：导演模式为独立 lazy chunk，先撤销其待写快照，避免 reload 的 pagehide flush 把旧状态写回刚恢复的备份
     cancelDirectorPendingPersist()
     importAll(pendingImport)
+    window.location.reload()
+  }
+
+  /**
+   * v1.2 M4「清空工作区数据」（roadmap §5.3）：**只清总指挥工作区**相关数据，
+   * 不动旧业务 store（会话 / 文档 / 简报 / 记忆 / 技能 / 通知 / 登录态）。
+   * 顺序：撤销 Director 待写快照 → 删 director 键 → 重置派生收件箱 / 只读投影 →
+   * 引导进度复位（onboarded=false，登记唯一事实源）→ reload。
+   */
+  const clearStudioData = () => {
+    if (!confirmClearStudio) {
+      setConfirmClearStudio(true)
+      setTimeout(() => setConfirmClearStudio(false), 4000)
+      return
+    }
+    setConfirmClearStudio(false)
+    cancelDirectorPendingPersist()
+    removeKey('director')
+    useStudioInboxStore.getState().reset()
+    useStudioDigestStore.getState().reset()
+    /* digest 的归零要同步进 settings：reset() 自带 300ms 合并写，会被紧接着的 reload 打断 */
+    useSettingsStore.getState().updateStudioDigest(useStudioDigestStore.getState().digest)
+    useSettingsStore.getState().updateStudio({ onboarded: false, onboarding: undefined })
     window.location.reload()
   }
 
@@ -530,8 +557,9 @@ export default function SettingsDialog({ onClose }: { onClose: () => void }) {
             <h3 className="text-sm font-semibold text-ink">工作区</h3>
           </div>
           <p className="mb-3 text-xs leading-relaxed text-ink-mute">
-            统一工作区（总指挥 ⇄ 经典）仍是影子期预览：地址加 <code className="rounded bg-surface-2 px-1">?v2=1</code> 打开。
-            下面的偏好会被持久化；「自动」保持旧入口不变，默认切换在 M4 生效。
+            统一工作区（总指挥 ⇄ 经典）：教师首次进入默认落在战情台；随时可切回经典三栏工作台，
+            地址加 <code className="rounded bg-surface-2 px-1">?legacy=1</code> 可回滚到旧壳。
+            下面的偏好会被持久化。
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="flex flex-col gap-1 text-xs text-ink-soft">
@@ -540,7 +568,7 @@ export default function SettingsDialog({ onClose }: { onClose: () => void }) {
                 data-testid="studio-landing-select"
                 value={s.studio.landing}
                 onChange={(e) =>
-                  s.updateStudio({ landing: e.target.value as 'auto' | 'inbox' | 'briefing' | 'workbench' })
+                  s.setStudioLanding(e.target.value as 'auto' | 'inbox' | 'briefing' | 'workbench')
                 }
                 className="rounded-xl border border-line bg-surface-2 px-2 py-1.5 text-xs text-ink outline-none focus:border-primary"
               >
@@ -575,6 +603,25 @@ export default function SettingsDialog({ onClose }: { onClose: () => void }) {
             </button>
             <span className="text-[0.6875rem] leading-relaxed text-ink-mute">
               总指挥工作区专属引导用 <code className="rounded bg-surface-2 px-1">?tour=1</code> 重看
+            </span>
+          </div>
+          {/* v1.2 M4（roadmap §5.3）：只清总指挥/收件箱数据，旧业务数据（会话/文档/简报/记忆）不动 */}
+          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line/70 pt-3">
+            <button
+              onClick={clearStudioData}
+              data-testid="clear-studio-data"
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs transition-colors',
+                confirmClearStudio
+                  ? 'border-danger bg-danger text-white'
+                  : 'border-line bg-surface-2 text-ink-soft hover:border-danger/40 hover:text-danger',
+              )}
+            >
+              <Trash2 size={12} />
+              {confirmClearStudio ? '确认清空工作区数据？' : '清空工作区数据'}
+            </button>
+            <span className="text-[0.6875rem] leading-relaxed text-ink-mute">
+              只清总指挥 / 收件箱数据（不清会话、文档、简报、记忆）
             </span>
           </div>
         </section>

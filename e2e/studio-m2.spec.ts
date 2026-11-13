@@ -55,8 +55,8 @@ test.describe('M2 · 简报采纳 → 战情台同源待办', () => {
     await expect(page.getByTestId('chat-input')).toBeVisible()
   })
 
-  test('旧整屏 ?v1=1 战情台不回归（仍为旧决策卡，非派生列表）', async ({ page }) => {
-    await page.goto('/?v1=1&tour=0')
+  test('旧整屏 ?v1=1&legacy=1 战情台不回归（仍为旧决策卡，非派生列表）', async ({ page }) => {
+    await page.goto('/?v1=1&legacy=1&tour=0')
     await expect(page.getByTestId('director-inbox')).toBeVisible()
     await expect(page.getByTestId('director-decision-d-drill')).toBeVisible()
     await expect(page.getByTestId('command-inbox-derived')).toHaveCount(0)

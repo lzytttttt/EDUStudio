@@ -48,9 +48,10 @@ import type {
   MissionKind,
   MissionPlanTask,
   MissionScriptEvent,
+  DirectorMissionRuntime,
   PersistedDirectorExecution,
   PersistedDirectorIntake,
-  PersistedDirectorV1,
+  PersistedDirectorV2,
   ToastItem,
   Tone,
 } from '../harness/director/types'
@@ -89,6 +90,8 @@ let executionMetaValue: PersistedDirectorExecution | undefined
 let intakeValue: PersistedDirectorIntake | undefined
 let artifactIdsValue: string[] | undefined
 let staleValue: boolean | undefined
+/** v1.2 M4：迁移记录（v1→v2 一次性） */
+let migrationsValue: { from: 1; at: number }[] = []
 
 export function setDirectorExecutionController(controller: DirectorExecutionController | null): void {
   executionController = controller
@@ -197,49 +200,68 @@ function persistSourceOf(state: DirectorState): DirectorPersistSource {
     planSource: state.planSource,
     autonomy: state.autonomy,
     facts: state.facts,
-    /* v1.2 M3：optional 增量（缺省不写，旧读取器仍只认 v1 字段） */
+    /* v1.2 M3/M4：optional 增量（M4 起映射进 v2 的 runtime / artifactIds / intake） */
     ...(executionMetaValue ? { execution: executionMetaValue } : {}),
     ...(intakeValue ? { intake: intakeValue } : {}),
     ...(artifactIdsValue ? { artifactIds: artifactIdsValue } : {}),
     ...(staleValue ? { stale: true } : {}),
+    ...(migrationsValue.length > 0 ? { migrations: migrationsValue } : {}),
+  }
+}
+
+/** v1.2 M4：runtime → 运行态 execution 元数据（v1 optional execution 已在迁移时并入 runtime） */
+function executionMetaOf(runtime: DirectorMissionRuntime | undefined): PersistedDirectorExecution | undefined {
+  if (!runtime) return undefined
+  return {
+    mode: runtime.execution,
+    ...(runtime.outcome ? { outcome: runtime.outcome } : {}),
+    ...(runtime.startedAt !== undefined ? { startedAt: runtime.startedAt } : {}),
+    ...(runtime.finishedAt !== undefined ? { finishedAt: runtime.finishedAt } : {}),
+    completedTasks: [...runtime.completedTasks],
+    failedTasks: runtime.failedTasks.map((item) => ({ ...item })),
+    attempts: runtime.attempts,
   }
 }
 
 /**
  * 持久化载荷 → 运行态（导出供单测矩阵）：
- * - 恢复落点：`planning | paused | waiting | done` 自动落作战室（screen 是派生、不落盘）；
+ * - 恢复落点：`planning | paused | waiting | done | partial | failed` 自动落作战室（screen 派生、不落盘）；
+ * - mission.runtime 拆到 state.execution / missionCursor，不把 runtime 混进 mission 实体；
  * - 纯函数、每次都深拷贝数组，避免恢复态与持久化对象共享引用。
  */
-export function hydrateDirectorState(persisted: PersistedDirectorV1): DirectorState {
+export function hydrateDirectorState(persisted: PersistedDirectorV2): DirectorState {
   const base = createInitialDirectorState()
+  const { runtime, ...mission } = persisted.mission
   return {
     ...base,
-    screen: persisted.mission.status === 'idle' ? 'inbox' : 'mission',
+    screen: mission.status === 'idle' ? 'inbox' : 'mission',
     decisions: persisted.decisions.map((d) => ({ ...d })),
     stats: { ...persisted.stats },
     mission: {
-      ...persisted.mission,
-      feed: persisted.mission.feed.map((item) => ({ ...item })),
-      plan: persisted.mission.plan.map((task) => ({ ...task, ...(task.deps ? { deps: [...task.deps] } : {}) })),
-      doneTasks: [...persisted.mission.doneTasks],
+      ...mission,
+      feed: mission.feed.map((item) => ({ ...item })),
+      plan: mission.plan.map((task) => ({ ...task, ...(task.deps ? { deps: [...task.deps] } : {}) })),
+      doneTasks: [...mission.doneTasks],
     },
-    missionCursor: persisted.missionCursor,
+    missionCursor: runtime.cursor,
     autonomy: { ...persisted.autonomy },
-    planSource: persisted.planSource,
+    planSource: mission.planSource,
     facts: persisted.facts.map((fact) => ({ ...fact })),
-    ...(persisted.execution ? { execution: { ...persisted.execution } } : {}),
+    ...(executionMetaOf(runtime) ? { execution: executionMetaOf(runtime) } : {}),
   }
 }
 
 const GUIDE_SEEN_LEGACY_KEY = 'edustudio:director-guide'
 
-/** 恢复结果：guideSeen 不在 DirectorState 里，用模块变量承载（随 v1 payload 落盘） */
+/** 恢复结果：guideSeen 不在 DirectorState 里，用模块变量承载（随 v2 payload 落盘；仅迁移来源） */
 const restored = loadDirectorPersisted(
   toPersistedDirector(persistSourceOf(createInitialDirectorState()), false),
 )
-let guideSeenValue = restored.value.guideSeen
-/* v1.2 M3：恢复 optional 执行元数据（旧数据缺省 undefined，行为不变） */
-executionMetaValue = restored.value.execution
+let guideSeenValue = restored.value.guideSeen === true
+/** v1.2 M4：迁移记录（v1→v2 一次性；保留在 payload 供诊断） */
+migrationsValue = restored.value.migrations
+/* v1.2 M3/M4：恢复 optional 执行元数据（v2 已并入 mission.runtime；旧数据缺省 undefined，行为不变） */
+executionMetaValue = executionMetaOf(restored.value.mission.runtime)
 intakeValue = restored.value.intake
 artifactIdsValue = restored.value.artifactIds
 staleValue = restored.value.stale
@@ -250,13 +272,23 @@ export function hasSeenDirectorGuide(): boolean {
   return guideSeenValue
 }
 
+/** v1.2 M4：引导已读位只作迁移来源（新代码以 settings.studio.onboarded 为准） */
+export function getDirectorGuideSeen(): boolean {
+  return guideSeenValue
+}
+
+/** v1.2 M4：本次是否从 v1 迁移上来（诊断/测试） */
+export function wasDirectorMigrated(): boolean {
+  return restored.migrated
+}
+
 function markDirectorGuideSeen(): void {
   if (guideSeenValue) return
   guideSeenValue = true
   scheduleDirectorPersist(toPersistedDirector(persistSourceOf(useDirectorStore.getState()), guideSeenValue))
 }
 
-function persistSnapshot(): PersistedDirectorV1 {
+function persistSnapshot(): PersistedDirectorV2 {
   return toPersistedDirector(persistSourceOf(useDirectorStore.getState()), guideSeenValue)
 }
 

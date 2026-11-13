@@ -193,13 +193,15 @@ describe('SurfaceHost 注册表（视图级懒加载）', () => {
   })
 })
 
-describe('入口开关：?v2=1 影子期 / ?legacy=1 回滚', () => {
-  it('isStudioV2Enabled：v2 开关、legacy 强制回滚、无参数默认 off', () => {
+describe('入口开关：M4 默认期 / ?legacy=1 回滚', () => {
+  it('isStudioV2Enabled：v2 开关、legacy 强制回滚、M4 无参数 teacher 默认 on', () => {
     expect(isStudioV2Enabled('?v2=1', 'teacher')).toBe(true)
     expect(isStudioV2Enabled('?v2=0', 'teacher')).toBe(false)
     expect(isStudioV2Enabled('?v2=1&legacy=1', 'teacher')).toBe(false)
-    expect(isStudioV2Enabled('?v1=1', 'teacher')).toBe(false)
-    expect(isStudioV2Enabled('', 'teacher')).toBe(false)
+    /* M4：?v1=1 由入口计划重定向到新壳（isStudioV2Enabled 在 URL 规范化后为 true）；无参数 teacher 默认开 */
+    expect(isStudioV2Enabled('?v1=1', 'teacher')).toBe(true)
+    expect(isStudioV2Enabled('', 'teacher')).toBe(true)
+    expect(isStudioV2Enabled('', 'schoolAdmin')).toBe(false)
   })
 
   it('isLegacyRequested 只认 1/true', () => {

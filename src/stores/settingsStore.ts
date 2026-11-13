@@ -2,6 +2,13 @@ import { create } from 'zustand'
 import type { ProviderMode, RoleId } from '../harness/types'
 import type { StudioDigest, StudioSettings } from '../studio/contracts'
 import {
+  EMPTY_ONBOARDING,
+  isOnboarded,
+  migrateLegacyOnboarding,
+  mergeOnboarding,
+  type OnboardingProgress,
+} from '../lib/onboarding'
+import {
   ACTIVE_MODE,
   DEFAULT_LLM_BASEURL,
   DEFAULT_LLM_MODEL,
@@ -12,11 +19,24 @@ import { clearAll, loadJSON, saveJSON } from '../lib/storage'
 import { createDebouncedWriter } from '../lib/debouncedWrite'
 import { conceal, reveal } from '../lib/secretBox'
 
-/** v1.2 M2：工作区设置默认值（landing/execution 为 auto 时沿用角色默认；onboarded 为迁移期唯一引导已读位） */
-export const DEFAULT_STUDIO_SETTINGS: StudioSettings = {
+/**
+ * v1.2 M4：settings.studio 的本地扩展形状。
+ *
+ * 契约文件 `src/studio/contracts.ts` 的 `StudioSettings` 保持不变（M4-A 写入范围不含 contracts），
+ * 这里用「可选增量」扩展：`onboarding` 是新增可选字段，旧数据没有它 → 读回归一 / 首次迁移补齐；
+ * 其余字段与契约逐字一致，`StudioSettings` 的消费方（entryPlan / flags）无需改动。
+ */
+export interface StudioSettingsState extends StudioSettings {
+  /** 两段式引导进度（M4 唯一事实源；`onboarded` 由它派生） */
+  onboarding?: OnboardingProgress
+}
+
+/** v1.2 M2：工作区设置默认值（landing/execution 为 auto 时沿用角色默认；onboarded 为引导唯一已读位） */
+export const DEFAULT_STUDIO_SETTINGS: StudioSettingsState = {
   landing: 'auto',
   execution: 'auto',
   onboarded: false,
+  onboarding: { ...EMPTY_ONBOARDING },
   digest: {
     pendingDecisions: 0,
     runningMissions: 0,
@@ -27,9 +47,9 @@ export const DEFAULT_STUDIO_SETTINGS: StudioSettings = {
   },
 }
 
-/** 工作区设置读回归一（损坏/旧值不白屏；字段缺省回落默认） */
-export function normalizeStudioSettings(raw: unknown): StudioSettings {
-  const src = (raw && typeof raw === 'object' ? raw : {}) as Partial<StudioSettings>
+/** 工作区设置读回归一（损坏/旧值不白屏；字段缺省回落默认；onboarding 逐字段归一） */
+export function normalizeStudioSettings(raw: unknown): StudioSettingsState {
+  const src = (raw && typeof raw === 'object' ? raw : {}) as Partial<StudioSettingsState>
   const landing = src.landing
   const execution = src.execution
   const digest = (src.digest && typeof src.digest === 'object' ? src.digest : {}) as Partial<StudioDigest>
@@ -37,6 +57,8 @@ export function normalizeStudioSettings(raw: unknown): StudioSettings {
     landing: landing === 'inbox' || landing === 'briefing' || landing === 'workbench' ? landing : 'auto',
     execution: execution === 'real' || execution === 'mock' ? execution : 'auto',
     onboarded: src.onboarded === true,
+    /* 坏值/缺省一律按全 false 归一；显式传 onboarding: undefined 也回到空进度（清空工作区数据用） */
+    onboarding: mergeOnboarding(src.onboarding),
     digest: {
       pendingDecisions: Number.isFinite(digest.pendingDecisions) ? Number(digest.pendingDecisions) : 0,
       runningMissions: Number.isFinite(digest.runningMissions) ? Number(digest.runningMissions) : 0,
@@ -157,12 +179,56 @@ interface PersistedSettings extends LLMSettings {
   /** 显示技术细节（v0.9.2 P0-A）：开启后执行轨迹展示 JSON 返回数据入口（默认关，业务化文案不受影响） */
   showTechDetails?: boolean
   /** v1.2 M2：工作区设置（landing / execution / onboarded / digest；缺省 = 旧行为） */
-  studio?: StudioSettings
+  studio?: StudioSettingsState
 }
 
 const persisted = loadJSON<Partial<PersistedSettings>>('settings', {})
 /** apiKey 落盘为混淆串（v0.4 M5③），读回时还原；历史明文由 reveal 兼容 */
 persisted.apiKey = reveal(persisted.apiKey ?? '')
+
+/* ------------------------------------------------------------------ */
+/* v1.2 M4 · 首次加载的引导迁移（§5.2 / §5.3）                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 旧数据来源（只读原始键，**不 import directorStore**，避免把 Director 实现拉进主 chunk）：
+ * - `edustudio:director` 键（schemaVersion 任意）里的 guideSeen → directorSeen；
+ * - 旧 `settings.guideSeen` → classicSeen；
+ * - 两者都缺 → 空进度；已有 `studio.onboarding` → 以它为准（见 migrateLegacyOnboarding）。
+ */
+const legacyDirectorRaw = loadJSON<unknown>('director', null)
+const legacyDirectorGuideSeen =
+  !!legacyDirectorRaw &&
+  typeof legacyDirectorRaw === 'object' &&
+  (legacyDirectorRaw as { guideSeen?: unknown }).guideSeen === true
+
+/** 首次迁移前的归一结果（onboarding 缺省 = 尚未迁移，需要按旧 guideSeen 推导） */
+const BASE_STUDIO = normalizeStudioSettings(persisted.studio)
+const MIGRATED_ONBOARDING = migrateLegacyOnboarding({
+  current: (persisted.studio as StudioSettingsState | undefined)?.onboarding,
+  settingsGuideSeen: persisted.guideSeen,
+  directorGuideSeen: legacyDirectorGuideSeen,
+})
+/** 迁移后的唯一事实源布尔：onboarded = directorSeen && classicSeen（派生，不手写） */
+const MIGRATED_ONBOARDED = isOnboarded(MIGRATED_ONBOARDING)
+const INITIAL_STUDIO: StudioSettingsState = {
+  ...BASE_STUDIO,
+  onboarded: MIGRATED_ONBOARDED,
+  onboarding: MIGRATED_ONBOARDING,
+}
+
+/**
+ * 升级提示的「老用户」判定：M4 之前就有数据、且还没有 M4 的 onboarding 字段。
+ * 在模块加载时算一次（不持久化）：
+ * - 新用户首会话：没有 director 键、guideSeen=false → false；
+ * - 新用户第二会话：settings 里已有 onboarding（任何一次持久化都会带上）→ false（不会误弹升级提示）；
+ * - M1–M3 老用户：有 director 键或旧 guideSeen、且没有 onboarding → true（弹一次，关闭即 noticeSeen）。
+ * 只认「对象」：`onboarding: null` 等坏值视作未迁移（与 migrateLegacyOnboarding 的归一一致）。
+ */
+const HAS_PERSISTED_ONBOARDING =
+  !!persisted.studio && !!persisted.studio.onboarding && typeof persisted.studio.onboarding === 'object'
+const STUDIO_ONBOARDING_LEGACY_USER =
+  !HAS_PERSISTED_ONBOARDING && (legacyDirectorRaw != null || persisted.guideSeen === true)
 
 /** 偏好字段限长（防 prompt 超长，见 v0.3-03 风险对策） */
 export const PREF_MAX_LEN = 40
@@ -188,13 +254,25 @@ interface SettingsState extends LLMSettings {
   /** 显示技术细节（v0.9.2 P0-A）：默认关；开启后执行轨迹展示「查看返回数据」JSON 入口 */
   showTechDetails: boolean
   /** v1.2 M2：工作区设置（启动页 / 默认执行模式 / 唯一引导已读位 / 主 chunk 只读投影 digest） */
-  studio: StudioSettings
+  studio: StudioSettingsState
+  /**
+   * v1.2 M4：是否为「M4 之前就有数据」的老用户（模块加载时算一次，不持久化）。
+   * 只用于升级提示条（`!noticeSeen && 老用户` → 显示一次）；新用户第二会话不会误判。
+   */
+  onboardingLegacyUser: boolean
   update: (patch: Partial<LLMSettings> & { tokenBudget?: number }) => void
   /** 工作区设置局部更新（设置页「工作区」分组 / M4 默认切换用） */
-  updateStudio: (patch: Partial<StudioSettings>) => void
+  updateStudio: (patch: Partial<StudioSettingsState>) => void
+  /**
+   * v1.2 M4：更新两段式引导进度（局部；显式 false 可复位）。
+   * `studio.onboarded` 由 merge 结果派生（directorSeen && classicSeen），是唯一写入口。
+   */
+  updateOnboarding: (patch: Partial<OnboardingProgress>) => void
+  /** v1.2 M4：设置页「启动页」便捷 action（等价 updateStudio({ landing })） */
+  setStudioLanding: (landing: StudioSettings['landing']) => void
   /** 只读投影写回（studioDigestStore 300ms 合并调用；不触发额外的业务副作用） */
   updateStudioDigest: (digest: StudioDigest) => void
-  /** v1.2 M2：重看操作引导（清旧 guideSeen + 工作区 onboarded；Director 自身引导用 ?tour=1） */
+  /** v1.2 M2：重看操作引导（清旧 guideSeen + 工作区两段引导进度；Director 自身引导用 ?tour=1） */
   resetStudioGuide: () => void
   updatePreferences: (patch: Partial<UserPreferences>) => void
   setFontSize: (px: number) => void
@@ -259,7 +337,9 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   },
   focusMode: persisted.focusMode ?? true,
   showTechDetails: persisted.showTechDetails ?? false,
-  studio: normalizeStudioSettings(persisted.studio),
+  /* v1.2 M4：迁移结果（onboarded 由 onboarding 派生；旧 guideSeen 只作迁移来源） */
+  studio: INITIAL_STUDIO,
+  onboardingLegacyUser: STUDIO_ONBOARDING_LEGACY_USER,
   setFocusMode: (enabled) => {
     set({ focusMode: enabled })
     persistNow()
@@ -268,13 +348,37 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     set({ studio: normalizeStudioSettings({ ...useSettingsStore.getState().studio, ...patch }) })
     persistNow()
   },
+  updateOnboarding: (patch) => {
+    const current = useSettingsStore.getState().studio
+    const onboarding = mergeOnboarding(current.onboarding, patch)
+    set({
+      studio: {
+        ...current,
+        onboarding,
+        /* 唯一派生口径：两段都完成才算 onboarded（不手写、不从别处读） */
+        onboarded: isOnboarded(onboarding),
+      },
+    })
+    persistNow()
+  },
+  setStudioLanding: (landing) => {
+    set({ studio: normalizeStudioSettings({ ...useSettingsStore.getState().studio, landing }) })
+    persistNow()
+  },
   updateStudioDigest: (digest) => {
     /* digest 由 StudioBus 事件高频更新：合并写盘，随 settings 的 visibilitychange flush 落盘 */
     set({ studio: { ...useSettingsStore.getState().studio, digest } })
     persistSoon.schedule()
   },
   resetStudioGuide: () => {
-    set({ guideSeen: false, studio: { ...useSettingsStore.getState().studio, onboarded: false } })
+    /* 重看引导：复位两段引导进度（保留 noticeSeen —— 升级提示不是引导，不重复打扰），
+       guideSeen 同步清掉，兼容旧的 BriefingPage / AppShell 首次展示逻辑。 */
+    const current = useSettingsStore.getState().studio
+    const onboarding = mergeOnboarding(current.onboarding, { directorSeen: false, classicSeen: false })
+    set({
+      guideSeen: false,
+      studio: { ...current, onboarding, onboarded: isOnboarded(onboarding) },
+    })
     persistNow()
   },
   setShowTechDetails: (enabled) => {
@@ -331,6 +435,13 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     window.location.reload()
   },
 }))
+
+/**
+ * v1.2 M4 迁移收尾：只在 `onboarded` 事实位真正变化时补一次写盘。
+ * 目的是「旧用户升级后立刻落库」，同时避免每次启动都因为迁移推导而多写一次 settings
+ * （onboarding 的推导是纯函数、幂等；未变化时不写也不会丢信息）。
+ */
+if (MIGRATED_ONBOARDED !== BASE_STUDIO.onboarded) persistNow()
 
 /** key 脱敏显示：sk-****last4 */
 export function maskKey(key: string): string {

@@ -20,7 +20,10 @@
  *    事件，供主 chunk 的派生收件箱 / 只读投影消费（本文件不直接写收件箱 store）；
  * 6. **v1.2 M2 · 交付物发布桥 + 统一轻提示**：挂载时安装 `installMissionDeliverablesBridge()`
  *    （mission done → artifactStore，M2 任务 6 实现，卸载时清理）；Director 轻提示改为转发到
- *    `uiStore.pushToast` 统一层（本文件不再自绘 toast，legacy DirectorApp 不动）。
+ *    `uiStore.pushToast` 统一层（本文件不再自绘 toast，legacy DirectorApp 不动）；
+ * 7. **v1.2 M4 · 引导合并**：自动开引导只看 `settings.studio.onboarded`（由两段式
+ *    `studio.onboarding` 派生），GuideBar 完成/跳过后记 `directorSeen`；`?tour=0/1` 语义不变，
+ *    `?demo=1` 由入口跳过；旧 legacy DirectorApp 的 guideSeen 逻辑一字不改。
  *
  * 边界：本文件只在 Director lazy chunk 内；可 import `apps/director/**`（不是主 chunk）；
  * 零新依赖；不修改任何既有文件。
@@ -29,12 +32,14 @@ import { useEffect, useRef } from 'react'
 import type { DirectorScreen, DirectorState, MissionState, Tone } from '../../harness/director/types'
 import type { ApprovalGate } from '../../studio/contracts'
 import { GATE_OWNER } from '../../harness/director/data'
-import { hasSeenDirectorGuide, useDirectorStore } from '../../stores/directorStore'
+import { useDirectorStore } from '../../stores/directorStore'
+import { useSettingsStore } from '../../stores/settingsStore'
 import { useRouteStore } from '../../stores/routeStore'
 import { useUiStore } from '../../stores/uiStore'
 import { studioBus } from '../../studio/bus'
 import { consumePendingIntent } from '../../studio/intent'
 import { navigateTo, studioRouter } from '../../studio/router'
+import { EMPTY_ONBOARDING, demoAtLoad, nextStep, tourModeAtLoad } from '../../lib/onboarding'
 import { registerSurface, SurfaceHost } from '../../shell/SurfaceHost'
 import { installMissionDeliverablesBridge } from '../../integrations/director/deliverables'
 import { installMissionExecution, resolveExecutionMode } from '../../integrations/director/execution'
@@ -235,12 +240,6 @@ let tourBooted = false
 /** 引导自动开：与 DirectorApp 一致 —— 进入 1100ms 后，未看过就播一段 */
 const TOUR_DELAY_MS = 1100
 
-/**
- * `?tour` 在 chunk **首次加载时**锁定一次：切到经典工作区会把 URL 规范成 `/`（丢掉查询参数），
- * 再切回来时若重新读 URL，`?tour=0`（截图 / 回归）会退化成「默认自动开引导」。锁定后语义稳定。
- */
-const INITIAL_TOUR = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('tour')
-
 /* ------------------------------------------------------------------ */
 /* 5. 容器                                                            */
 /* ------------------------------------------------------------------ */
@@ -371,19 +370,44 @@ export default function CommandCenter(): JSX.Element {
     })
   }, [])
 
-  /* ---------------- ⑦ 引导：?tour=0 关 / ?tour=1 强制 / 否则首次自动 ---------------- */
+  /* ---------------- ⑦ 引导（v1.2 M4：settings.studio.onboarded 为唯一事实源） ----------------
+     - `?tour=0` 关闭；`?tour=1` 强制重看（手动重看不占打扰预算，仍走同一进度记账）；
+     - 缺省：只有「下一站仍是总指挥」且未 onboarded 时自动开一次（全新用户）；
+       directorSeen 但未 classicSeen 的用户由 ShellLayout 的「下一站：经典工作区」CTA 接力，
+       不在这里重复播总指挥引导；
+     - `?demo=1` 由入口跳过（演示脚本仍从简报开始，不插播引导）。
+     `?tour` / `?demo` 都取「进入页面时」锁存的 URL（工作区切换会规范化 URL 丢参数，见 lib/onboarding）。 */
   useEffect(() => {
     if (tourBooted) return
-    if (INITIAL_TOUR === '0') return
-    const force = INITIAL_TOUR === '1'
+    const mode = tourModeAtLoad()
+    if (mode === 'off' || demoAtLoad()) return
     const timer = window.setTimeout(() => {
       tourBooted = true
-      if (force || !hasSeenDirectorGuide()) useDirectorStore.getState().startGuide(force)
+      const studio = useSettingsStore.getState().studio
+      const progress = studio.onboarding ?? EMPTY_ONBOARDING
+      const needDirectorGuide = nextStep(progress) === 'director' && studio.onboarded !== true
+      if (mode === 'force' || needDirectorGuide) {
+        useDirectorStore.getState().startGuide(mode === 'force')
+      }
     }, TOUR_DELAY_MS)
     return () => window.clearTimeout(timer)
   }, [])
 
-  /* ---------------- ⑧ ?mission=exam_loop 演示兜底：只种一次并摘掉参数 ---------------- */
+  /* ---------------- ⑧ 引导收尾记账：GuideBar 完成/跳过 → directorSeen（幂等） ---------------- */
+  useEffect(() => {
+    return useDirectorStore.subscribe((state, prev) => {
+      if (state.guideActive === prev.guideActive) return
+      /* 只在「引导从开着变成关闭」时记账：nextGuide 走完最后一步 / closeGuide 都会关掉 active */
+      if (!prev.guideActive || state.guideActive) return
+      try {
+        useSettingsStore.getState().updateOnboarding({ directorSeen: true })
+      } catch (error) {
+        console.error('[CommandCenter] 引导进度写入失败:', error)
+      }
+    })
+  }, [])
+
+  /* ---------------- ⑨ ?mission=exam_loop 演示兜底：只种一次并摘掉参数 ---------------- */
   const missionBootRef = useRef(false)
   useEffect(() => {
     if (missionBootRef.current) return
