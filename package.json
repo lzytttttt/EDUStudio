@@ -12,6 +12,8 @@
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui",
     "check:budget": "node scripts/budget.mjs",
+    "check:boundaries": "node scripts/check-boundaries.mjs",
+    "check:release": "node scripts/budget.mjs && node scripts/check-boundaries.mjs",
     "video:smoke": "node video/shoot.cjs smoke",
     "video:frames": "node video/shoot.cjs full",
     "video:bgm": "python video/compose_bgm.py",

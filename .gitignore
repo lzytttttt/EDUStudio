@@ -37,6 +37,8 @@ playwright-report
 .tmp-e2e*
 .tmp-pw-out*
 .tmp-v1/
+# v1.2 融合设计的研究/评审笔记（本地留存，不入库；结论已收进 doc/v1.2-roadmap.md）
+.tmp-v12/
 blob-report
 
 # Loom LLM eval harness output (local runs; sources are versioned)

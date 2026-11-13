@@ -8,7 +8,7 @@
 
 [![license](https://img.shields.io/badge/license-CC%20BY--NC%204.0-blue.svg)](./LICENSE)
 [![stack](https://img.shields.io/badge/Vite-React%2018-646CFF.svg)](./package.json)
-[![tests](https://img.shields.io/badge/Vitest-662%20%E4%BE%8B-success.svg)](#-质量保障)
+[![tests](https://img.shields.io/badge/Vitest-811%20%E4%BE%8B-success.svg)](#-质量保障)
 [![e2e](https://img.shields.io/badge/Playwright-35%20%E4%BE%8B-brightgreen.svg)](#-质量保障)
 [![lighthouse](https://img.shields.io/badge/Lighthouse-%E2%89%A5%200.85-yellow.svg)](#-质量保障)
 [![budget](https://img.shields.io/badge/gzip-342KB%20%E9%97%A8%E7%A6%81-orange.svg)](#-质量保障)
@@ -470,11 +470,11 @@ Docker 路径：前端设置页 → 模式选「代理」，地址填 `http://<�
 
 | 闸门 | 说明 |
 | --- | --- |
-| **Vitest 单测** | `npm test` 运行 Vitest 单测（**662 例 / 55 文件**），覆盖 SSE 解析 / 增量归一化 / Markdown 渲染 / 工具注册 / 剧本与模板匹配 / 存储往返 / 偏好注入 / 导出工具 / CSV 成绩解析 / 数据源降级 / 上下文压缩 / 技能提炼与检索 / 简报卡校验与个性化排序 / 简报交互覆盖层与决策撤回 / 后台任务泵 / 数据上下文聚合与截断 / LLM 技能提炼校验与去重进化 / 简报重新生成选项注入与种类过滤 / 记忆环形裁剪与语义合并 / 偏好提炼与注入组装 / 文档规则评分 / 相对时间与工具 display 文案 / 决策键守卫矩阵 / 日期与新鲜度 / 文档流可见性 / Loom 图算法与画布几何（非执行节点 / 上游穿透）/ 空间任务台 store 与幂等墓碑（文档节点接线）/ Loom runner 拓扑执行与上游注入（文档收口）/ Trace 投影（含 artifact）/ function-calling 计划口径与任务型执行约束 / 美术资源注册表映射完整性与 PWA 稳定 URL 物理存在 / 总指挥模式状态机（决策卡 / 审批门 / 授权 / 引导 / 重置）/ **v1.1：planner JSON 提取与降级重试矩阵 / validatePlan 8 条矩阵 / 事实快照与数字溯源分型 / 剧本模板注册表与意图路由 / 持久化迁移与暂停续跑 / 备份往返 / dataContext 百分比口径与 CSV 归一** |
+| **Vitest 单测** | `npm test` 运行 Vitest 单测（**811 例 / 65 文件**），覆盖 SSE 解析 / 增量归一化 / Markdown 渲染 / 工具注册 / 剧本与模板匹配 / 存储往返 / 偏好注入 / 导出工具 / CSV 成绩解析 / 数据源降级 / 上下文压缩 / 技能提炼与检索 / 简报卡校验与个性化排序 / 简报交互覆盖层与决策撤回 / 后台任务泵 / 数据上下文聚合与截断 / LLM 技能提炼校验与去重进化 / 简报重新生成选项注入与种类过滤 / 记忆环形裁剪与语义合并 / 偏好提炼与注入组装 / 文档规则评分 / 相对时间与工具 display 文案 / 决策键守卫矩阵 / 日期与新鲜度 / 文档流可见性 / Loom 图算法与画布几何（非执行节点 / 上游穿透）/ 空间任务台 store 与幂等墓碑（文档节点接线）/ Loom runner 拓扑执行与上游注入（文档收口）/ Trace 投影（含 artifact）/ function-calling 计划口径与任务型执行约束 / 美术资源注册表映射完整性与 PWA 稳定 URL 物理存在 / 总指挥模式状态机（决策卡 / 审批门 / 授权 / 引导 / 重置）/ v1.1：planner JSON 提取与降级重试矩阵 / validatePlan 8 条矩阵 / 事实快照与数字溯源分型 / 剧本模板注册表与意图路由 / 持久化迁移与暂停续跑 / 备份往返 / dataContext 百分比口径与 CSV 归一 / **v1.2 M0：入口 P0 修复（`?v1=1` 不粘默认入口 / 不污染旧引导 / 不覆盖校局身份）/ studio 契约与 URL 路由矩阵（深链·返回栈·v2/v1/legacy·非法参数）/ StudioBus 同步派发与异常隔离 / 功能开关四层优先级 / 交付物中英映射全表 / 派生收件箱去重与 snooze / StudioDigest 投影 ≤1KB / ConcurrencyGovernor 前后台优先级 / 端口契约 fake 8 端口 / 源码层 chunk 边界** |
 | **构建闸门** | `npm run build` 前置执行单测 + tsc 类型检查，**双闸门**保障交付质量 |
 | **Playwright E2E** | **35 条**：8 条关键路径（含稳定 URL 美术资产可直达）+ 2 条自进化演示 + 9 条空间任务台（含依赖链真实执行、连线预览与体验打磨）+ 9 条总指挥模式（战情台 / 委托到作战包 / 引导 / 授权 / 旧入口回归 / **真 LLM 成功 + 失败回退 / 刷新续跑 / 第二剧本**）+ 3 条 director 视觉基线 + 4 条旧视觉回归 |
 | **视觉回归** | 4 张旧基线（阈值 5%）+ **3 张总指挥三屏基线 `director-visual.spec.ts`（阈值 2%，固定 clock + reducedMotion + mask 动态文本）** |
-| **包体预算门禁** | 主 chunk 120KB / 全部 JS 342KB gzip（`scripts/budget.mjs`），超限按 v0.6 / v0.8 / v0.8.4 / v0.9.3 / v0.9.4-03 / v0.9.4-04 / v0.9.5 / v1.0 / v1.1 先例重校；**v1.1 实测主 chunk 119.5KB / 全 JS 340.04KB**，总指挥模式整体独立 lazy chunk（DirectorApp 17.4 → 33.9KB gzip，含真 LLM 拆解 + 持久化 + 双剧本 + 视觉收口）；**美术资源不在本预算口径内**（v0.9.4-04：图片经 Vite 哈希化进 `dist/assets`，门禁只 gzip 统计 `*.js`） |
+| **包体预算门禁** | 主 chunk 120KB / 全部 JS 348KB / Director chunk 50KB gzip（`scripts/budget.mjs`），超限按 v0.6 / v0.8 / v0.8.4 / v0.9.3 / v0.9.4-03 / v0.9.4-04 / v0.9.5 / v1.0 / v1.1 先例重校；**v1.2 M0 实测主 chunk 102.1KB / 全 JS 343.2KB / DirectorApp 33.9KB**：BriefingPage（17.2KB）与 ShareView（3.8KB）改为 lazy chunk 后主 chunk 由 119.5KB 回落 17.4KB，全部 JS 因 chunk 边界净 +2.9KB 重校门禁 342 → 348KB；另有**产物层 chunk 边界检查**（`scripts/check-boundaries.mjs`：主 chunk 不含 Director 代码、懒 chunk 产物存在、index.html 不预加载）；**美术资源不在本预算口径内**（v0.9.4-04：图片经 Vite 哈希化进 `dist/assets`，门禁只 gzip 统计 `*.js`） |
 | **Lighthouse CI** | 性能 ≥ 0.85（`lighthouserc.yml`） |
 
 ---
@@ -483,6 +483,7 @@ Docker 路径：前端设置页 → 模式选「代理」，地址填 `http://<�
 
 | 版本 | 主题 | 一句话 |
 | --- | --- | --- |
+| **v1.2 M0**（实施中） | 双核一体 · 影子期基座 | 总指挥模式并入主产品的第一步：入口 P0 修复（`?v1=1` 不粘默认入口 / 不污染旧简报引导 / 不覆盖校局身份，command 阶段永不落盘）+ `src/studio/` 前端接口契约骨架（Route/Navigator 深链矩阵、同步 StudioBus、功能开关四层优先级、实体映射、派生收件箱、StudioDigest 只读投影、并发治理、DirectorPorts fake）+ `BriefingPage`/`ShareView` 懒加载（主 chunk 119.5 → 102.1KB）+ 源码/产物双层 chunk 边界门禁 + Director chunk 50KB 新门槛；811 单测 / 35 E2E / 7 视觉 / 全 JS 343.2KB（门禁 348），零新依赖，旧三屏与 `?v1=1` 默认行为不变；见 [doc/v1.2-roadmap.md](./doc/v1.2-roadmap.md) §11.4 |
 | **v1.1** | 原型加固（拆解真 · 执行假） | 真 LLM 拆解（planner + validatePlan 8 条矩阵 + 事实快照 citations + 模板兜底可见）+ 状态持久化（`edustudio:director` v1 / schema 迁移 / 刷新 `paused` 续跑 / 备份白名单）+ 第二剧本「单元考闭环」（模板注册表 + 意图路由 + d-drill 联动）+ 视觉 P0 清零与三屏 2% 视觉基线；P0 前置修复 dataContext ×100 与 t8 口径；662 单测 / 35 E2E / 主 chunk 119.5KB / 全 JS 340.04KB（342 门禁），零新依赖，旧三屏与 `?demo=1` 全保留；见 [doc/v1.1-roadmap.md](./doc/v1.1-roadmap.md) |
 | **v1.0 预览** | 总指挥模式原型 | 事找人 + 异步托管：战情台（决策卡）/ 作战室（作战计划 → Mock 异步执行 → 两次拍板 → 作战包）/ 战队（成员 / 授权 / 周报）；`?v1=1` 直达、独立 lazy chunk、零新依赖；旧三屏与 `?demo=1` 全保留；产品计划见 `doc/v1.0-roadmap.md` |
 | **v0.9.4** | Loom 空间任务台 | 简报任务平铺进画布（一卡一节点 + 幂等墓碑）+ 拖拽 / 连线编排（成环拒绝 + 撤销重做）+ 单飞串行拓扑真实执行（上游输出注入下游 + 人工确认暂停）+ Agent Trace 空间投影与文档节点联动；零新依赖，画布懒加载；增量 v0.9.4-03 修复真实接入 LLM 六项接线缺口（便签不执行 / 文档节点自动出现 / artifact 入 Trace / 上游穿透与注入 / plan 口径一致 / 降级可见）；增量 v0.9.4-04 接入 png-art 美术资源（6 张卡片类型插画 / 3 角色形象 / 4 处空态插画 / 品牌标与 favicon-PWA 图标 / README 横幅；图片经注册表按需渲染、不进包体门禁，主 chunk 118KB） |
@@ -508,8 +509,8 @@ Docker 路径：前端设置页 → 模式选「代理」，地址填 `http://<�
 
 ## 下一步
 
-- **v1.1 已交付**：原型加固（真 LLM 拆解 / 状态持久化 + 刷新续跑 / 第二剧本「单元考闭环」/ 视觉 P0 清零 + 三屏视觉基线），计划与验收见 [doc/v1.1-roadmap.md](./doc/v1.1-roadmap.md) 与配套研究 [doc/v1.1-research/](./doc/v1.1-research/)；当前 **662 单测 / 35 E2E / 主 chunk 119.5KB / 全 JS 340.04KB**，旧三屏与 `?demo=1` 全保留；
-- **v1.2 候选（下一版方向）**：真 Agent 执行（MissionRunner + AgentSpec 真实跑模型/工具、真实生成产物，替换通用 Mock 时间线）、真实外发渠道（合规确认后）、云同步与多端、自定义剧本库；拆解侧升级为 function-calling 工具计划（v1.1 已留 `tool` 白名单防线）；
+- **v1.1 已交付**：原型加固（真 LLM 拆解 / 状态持久化 + 刷新续跑 / 第二剧本「单元考闭环」/ 视觉 P0 清零 + 三屏视觉基线），计划与验收见 [doc/v1.1-roadmap.md](./doc/v1.1-roadmap.md) 与配套研究 [doc/v1.1-research/](./doc/v1.1-research/)；v1.1.0 实测 **662 单测 / 35 E2E / 主 chunk 119.5KB / 全 JS 340.04KB**，旧三屏与 `?demo=1` 全保留；
+- **v1.2 实施中（M0 已完成）**：双核一体——总指挥模式并入主产品。M0 已交付入口 P0 修复、`src/studio/` 前端接口契约骨架（Route/Navigator、StudioBus、功能开关、实体映射、派生收件箱、StudioDigest 投影、并发治理、DirectorPorts）、简报/分享懒加载腾预算（主 chunk 119.5 → 102.1KB）、源码+产物双层 chunk 边界门禁；当前 **811 单测 / 35 E2E / 7 视觉 / 全 JS 343.2KB（门禁 348）**，零新依赖，默认入口与旧三屏行为不变。M1 起：统一外壳（ShellLayout/SurfaceHost/WorkspaceSwitcher/IntentBar）+ `?v2=1` 影子发布 + 深链/history/移动端一套导航；后续 M2 实体融合、M3 真执行、M4 默认切换与迁移、M5 收口。计划与 M0 实测见 [doc/v1.2-roadmap.md](./doc/v1.2-roadmap.md)；真实外发、云同步、自定义剧本库仍为更后候选；
 - **更远期候选**：Loom 真正并行 DAG scheduler（需同步改造 `chatStore` 单飞门控）、多人协作 / Minimap / 100+ 节点大图、LLM 版偏好提炼与自评（`getMemoryProvider` / `getEvaluator` 已预留 mode 分流）、云端记忆同步。
 
 全部迭代文档见 [doc/README.md](./doc/README.md)。

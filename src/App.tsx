@@ -1,9 +1,7 @@
 import { useEffect, useRef, useState, lazy, Suspense } from 'react'
 import { useAuthStore } from './stores/authStore'
 import LoginScreen from './shell/LoginScreen'
-import BriefingPage from './apps/briefing/BriefingPage'
 import AppShell from './shell/AppShell'
-import ShareView from './apps/share/ShareView'
 import { cn } from './lib/cn'
 import type { Stage } from './harness/types'
 
@@ -11,6 +9,11 @@ const STAGE_EXIT_MS = 200
 
 /** v1.0 总指挥模式：独立 lazy chunk，旧三屏与主 chunk 不受影响 */
 const DirectorApp = lazy(() => import('./apps/director/DirectorApp'))
+
+/** v1.2 M0 腾预算：简报（34KB 源码）与分享（18.6KB 源码）移出主 chunk。
+ *  简报是教师登录默认落点，用一次异步 chunk 加载换主 chunk 预算（§3.10）；分享只在 #share= 出现，纯收益。 */
+const BriefingPage = lazy(() => import('./apps/briefing/BriefingPage'))
+const ShareView = lazy(() => import('./apps/share/ShareView'))
 
 /** 分享路由：hash 以 #share= 开头时渲染只读分享视图（独立于登录状态机，v0.4 M2①） */
 function useShareRoute(): boolean {
@@ -53,8 +56,8 @@ function useHistorySync(): void {
   }, [stage])
 }
 
-/** 懒加载占位：与品牌一致的柔和呼吸点，避免白闪 */
-function DirectorFallback() {
+/** 懒加载占位：与品牌一致的柔和呼吸点，避免白闪（v1.2 M0 起简报/分享/总指挥共用） */
+function LazyFallback() {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-4 bg-bg">
       <div className="flex items-center gap-2" aria-hidden>
@@ -66,6 +69,9 @@ function DirectorFallback() {
           />
         ))}
       </div>
+      <span className="sr-only" role="status">
+        加载中
+      </span>
     </div>
   )
 }
@@ -90,17 +96,25 @@ export default function App() {
     return () => window.clearTimeout(timer.current)
   }, [stage, rendered])
 
-  /* 分享视图优先：不参与阶段动画，直接整页渲染 */
-  if (isShare) return <ShareView />
+  /* 分享视图优先：不参与阶段动画，直接整页渲染（v1.2 M0：独立 lazy chunk） */
+  if (isShare) {
+    return (
+      <Suspense fallback={<LazyFallback />}>
+        <ShareView />
+      </Suspense>
+    )
+  }
 
   return (
     <div key={rendered} className={cn('h-full', leaving ? 'animate-stage-out' : 'animate-stage-in')}>
       {rendered === 'login' ? (
         <LoginScreen />
       ) : rendered === 'briefing' ? (
-        <BriefingPage />
+        <Suspense fallback={<LazyFallback />}>
+          <BriefingPage />
+        </Suspense>
       ) : rendered === 'command' ? (
-        <Suspense fallback={<DirectorFallback />}>
+        <Suspense fallback={<LazyFallback />}>
           <DirectorApp />
         </Suspense>
       ) : (

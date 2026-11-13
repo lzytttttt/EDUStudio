@@ -22,8 +22,10 @@ jobs:
         run: npx tsc -b
       - name: 构建
         run: npx vite build
-      - name: 包体预算门禁（主 chunk ≤120KB / 总 JS ≤295KB gzip）
+      - name: 包体预算门禁（主 chunk ≤120KB / 总 JS ≤348KB / Director ≤50KB gzip）
         run: npm run check:budget
+      - name: Chunk 边界检查（主 chunk 不静态包含 Director / 懒加载产物存在）
+        run: npm run check:boundaries
 
   e2e:
     name: E2E 关键路径（Playwright）
