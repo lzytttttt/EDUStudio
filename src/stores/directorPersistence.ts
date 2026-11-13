@@ -27,6 +27,8 @@ import type {
   MissionPlanTask,
   MissionState,
   MissionStatus,
+  PersistedDirectorExecution,
+  PersistedDirectorIntake,
   PersistedDirectorV1,
   PlanSource,
 } from '../harness/director/types'
@@ -114,6 +116,51 @@ export interface DirectorPersistSource {
   planSource: PlanSource
   autonomy: Record<DirectorAgentId, AutonomyLevel>
   facts: Fact[]
+  /* v1.2 M3 过渡期 optional 增量（store 侧模块变量提供；缺省 = 旧 v1 形状） */
+  execution?: PersistedDirectorExecution
+  intake?: PersistedDirectorIntake
+  artifactIds?: string[]
+  stale?: boolean
+}
+
+/** v1.2 M3：执行元数据校验（坏字段逐个回落，绝不抛） */
+function sanitizeExecution(raw: unknown): PersistedDirectorExecution | undefined {
+  if (!isRecord(raw)) return undefined
+  const mode = raw.mode === 'real' ? 'real' : raw.mode === 'mock' ? 'mock' : null
+  if (!mode) return undefined
+  const execution: PersistedDirectorExecution = { mode }
+  if (typeof raw.missionId === 'string' && raw.missionId) execution.missionId = raw.missionId
+  if (raw.outcome === 'done' || raw.outcome === 'partial' || raw.outcome === 'failed' || raw.outcome === 'cancelled') {
+    execution.outcome = raw.outcome
+  }
+  if (typeof raw.startedAt === 'number' && Number.isFinite(raw.startedAt)) execution.startedAt = raw.startedAt
+  if (typeof raw.finishedAt === 'number' && Number.isFinite(raw.finishedAt)) execution.finishedAt = raw.finishedAt
+  if (Array.isArray(raw.completedTasks)) {
+    execution.completedTasks = raw.completedTasks.filter((id): id is string => typeof id === 'string').slice(0, 20)
+  }
+  if (Array.isArray(raw.failedTasks)) {
+    const failed: { taskId: string; reason: string }[] = []
+    for (const item of raw.failedTasks) {
+      if (!isRecord(item) || typeof item.taskId !== 'string') continue
+      failed.push({ taskId: item.taskId, reason: asString(item.reason, '') })
+    }
+    execution.failedTasks = failed.slice(0, 20)
+  }
+  if (typeof raw.attempts === 'number' && Number.isFinite(raw.attempts) && raw.attempts >= 0) {
+    execution.attempts = Math.floor(raw.attempts)
+  }
+  return execution
+}
+
+/** v1.2 M3：mission 来源校验 */
+function sanitizeIntake(raw: unknown): PersistedDirectorIntake | undefined {
+  if (!isRecord(raw)) return undefined
+  const source = raw.source === 'inbox' || raw.source === 'briefing' || raw.source === 'chat' ? raw.source : null
+  if (!source) return undefined
+  const intake: PersistedDirectorIntake = { source }
+  if (typeof raw.cardId === 'string' && raw.cardId) intake.cardId = raw.cardId
+  if (typeof raw.sessionId === 'string' && raw.sessionId) intake.sessionId = raw.sessionId
+  return intake
 }
 
 /**
@@ -135,7 +182,7 @@ export function toPersistedDirector(
     plan: Array.isArray(source.mission?.plan) ? source.mission.plan : [],
     doneTasks: Array.isArray(source.mission?.doneTasks) ? source.mission.doneTasks : [],
   }
-  return {
+  const persisted: PersistedDirectorV1 = {
     schemaVersion: DIRECTOR_SCHEMA_VERSION,
     updatedAt: now,
     decisions: (Array.isArray(source.decisions) ? source.decisions : []).slice(0, DIRECTOR_DECISIONS_MAX),
@@ -148,6 +195,14 @@ export function toPersistedDirector(
     guideSeen,
     facts: (Array.isArray(source.facts) ? source.facts : []).slice(0, DIRECTOR_FACTS_MAX),
   }
+  /* v1.2 M3 optional 增量：显式写出（缺省不出现，旧读取器仍只认它认识的字段） */
+  const execution = sanitizeExecution(source.execution)
+  if (execution) persisted.execution = execution
+  const intake = sanitizeIntake(source.intake)
+  if (intake) persisted.intake = intake
+  if (Array.isArray(source.artifactIds)) persisted.artifactIds = source.artifactIds.filter((id): id is string => typeof id === 'string').slice(0, 30)
+  if (source.stale === true) persisted.stale = true
+  return persisted
 }
 
 /* ------------------------------------------------------------------ */
@@ -343,7 +398,7 @@ export function migrateDirectorPersisted(raw: unknown, initial: PersistedDirecto
     ? (raw.planSource as PlanSource)
     : baseMission.planSource
   baseMission.planSource = planSource
-  return {
+  const migrated: PersistedDirectorV1 = {
     schemaVersion: DIRECTOR_SCHEMA_VERSION,
     updatedAt: asFinite(raw.updatedAt, Date.now()),
     decisions: sanitizeDecisions(raw.decisions, initial.decisions),
@@ -356,6 +411,16 @@ export function migrateDirectorPersisted(raw: unknown, initial: PersistedDirecto
     guideSeen: asBoolean(raw.guideSeen, initial.guideSeen),
     facts: sanitizeFacts(raw.facts),
   }
+  /* v1.2 M3 optional 增量：读回时保留（旧 v1 数据没有这些字段 → 不出现，行为不变） */
+  const execution = sanitizeExecution(raw.execution)
+  if (execution) migrated.execution = execution
+  const intake = sanitizeIntake(raw.intake)
+  if (intake) migrated.intake = intake
+  if (Array.isArray(raw.artifactIds)) {
+    migrated.artifactIds = raw.artifactIds.filter((id): id is string => typeof id === 'string').slice(0, 30)
+  }
+  if (raw.stale === true) migrated.stale = true
+  return migrated
 }
 
 /* ------------------------------------------------------------------ */

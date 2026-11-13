@@ -21,6 +21,20 @@ import type {
 } from '../harness/director/types'
 import type { ExportFormat } from '../lib/exporters'
 
+/* v1.2 M3：契约层对既存领域类型的便捷再导出（type-only，编译后 0 字节；实施方无需再猜路径） */
+export type {
+  AgentProfile,
+  ArtifactKindCn,
+  AutonomyLevel,
+  DirectorAgentId,
+  Fact,
+  GateId,
+  MissionKind,
+  MissionPlanTask,
+  MissionStatus,
+  PlanSource,
+} from '../harness/director/types'
+
 /* ------------------------------------------------------------------ */
 /* 1. 路由与导航（附录 A · §3.2）                                        */
 /* ------------------------------------------------------------------ */
@@ -246,6 +260,9 @@ export interface ExecutionPlan {
   tasks: MissionPlanTask[]
   facts: FactSnapshot
   agentSpecs: Record<DirectorAgentId, AgentSpec>
+  /** v1.2 M3：mission 标题 / 教师原话（可选；供 runner 拼 Agent 任务目标与上下文） */
+  title?: string
+  utterance?: string
 }
 
 export interface ExecutionResult {
@@ -263,6 +280,12 @@ export interface MissionRunEvent {
   agentId?: DirectorAgentId
   kind: 'task.start' | 'task.done' | 'feed' | 'gate' | 'artifact' | 'error' | 'partial'
   text?: string
+  /** v1.2 M3：gate 事件携带统一审批门（mission gate / Loom checkpoint 同一形状） */
+  gate?: ApprovalGate
+  /** v1.2 M3：artifact 事件携带可发布的交付物草稿（Markdown + 中文类型） */
+  artifact?: { title: string; markdown: string; kindCn?: ArtifactKindCn }
+  /** v1.2 M3：失败/部分完成原因（error / partial 事件） */
+  error?: string
 }
 
 export type AgentMemoryEntry = MemoryEntry & { agentId: DirectorAgentId }

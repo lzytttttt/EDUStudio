@@ -206,6 +206,53 @@ export interface AgentTaskInput {
   signal?: AbortSignal
   /** v0.9.4 Loom 上游结果注入（缺省 = 既有行为） */
   context?: ToolContext
+  /**
+   * v1.2 M3：mission 内的 Agent 身份与上下文。缺省 = 旧行为（字节级不变）：
+   * 存在时 Orchestrator/MockOrchestrator 改用 AgentSpec（baseRole 语气 + 岗位职责 + notDo +
+   * 记忆/技能命名空间 + handoffs + facts）组装 system prompt，并把工具白名单收窄到 spec.tools。
+   */
+  agent?: AgentTaskContext
+}
+
+/** v1.2 M3：mission 内 Agent 运行上下文（结构最小定义，避免 core harness 依赖 studio 契约） */
+export interface AgentTaskContext {
+  /** DirectorAgentId 的字符串形态（chief/analyst/...） */
+  id: string
+  /** 展示名（如「学情分析」） */
+  name?: string
+  /** 借用的角色语气与工具域；'inherit' = 跟随输入 role */
+  baseRole: RoleId | 'inherit'
+  /** 工具白名单（工具名；与 baseRole 工具域取交集） */
+  tools: string[]
+  /** 记忆命名空间，如 `agent.chief` */
+  memoryNs?: string
+  /** 技能命名空间，如 `agent.chief` */
+  skillNs?: string
+  /** 岗位「不做什么」一行边界 */
+  notDo?: string
+  missionId: string
+  taskId: string
+  /** 上游声明的交接产物（只传 typed 产物摘要 + citations，不传全局会话） */
+  handoffs?: AgentHandoff[]
+  /** 本轮冻结的事实快照（数字只能引用这些值） */
+  facts?: AgentFactRef[]
+}
+
+export interface AgentHandoff {
+  from: string
+  to: string
+  taskId: string
+  summary: string
+  citations?: { value: string; source: string; factId?: string }[]
+}
+
+export interface AgentFactRef {
+  factId?: string
+  key: string
+  value: number
+  unit: string
+  label?: string
+  source?: string
 }
 
 export interface AgentProvider {
@@ -230,6 +277,8 @@ export interface ArtifactProvenanceInfo {
   citations?: { value: string; source: string; factId?: string }[]
   /** 关联的任务引用（chat/loom/flow/mission，字符串化 id 集合） */
   refs?: { kind: string; id: string; subId?: string }[]
+  /** v1.2 M3：发布前证据校验汇总（缺省 = 未校验/旧文档） */
+  verification?: { total: number; verified: number; derived: number; conflict: number; unverified: number; structural: number }
   createdAt: number
 }
 

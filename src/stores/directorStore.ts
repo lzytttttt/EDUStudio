@@ -48,6 +48,8 @@ import type {
   MissionKind,
   MissionPlanTask,
   MissionScriptEvent,
+  PersistedDirectorExecution,
+  PersistedDirectorIntake,
   PersistedDirectorV1,
   ToastItem,
   Tone,
@@ -62,6 +64,71 @@ let toastSeq = 0
 /** 真 LLM 拆解：中止控制器 + 请求序号（防连点 / 丢弃过期响应） */
 let planAbort: AbortController | null = null
 let planSeq = 0
+
+/* ---------- v1.2 M3 真执行控制器注入点（缺省 null = 旧 Mock 时间线，字节级不变） ---------- */
+
+/**
+ * 统一壳（?v2=1）下由 `integrations/director/execution.ts` 注入：
+ * - start：任务确认后由 MissionRunner 驱动（不再走剧本定时器）；
+ * - resolveGate：runner 等待审批门时，由 store 的 approveGate/rejectGate 转发决策；
+ * - cancel：取消计划 / 重置演示时中断 runner。
+ * 未注入时（旧 ?v1=1 整屏 / 无 controller 的演示路径）所有分支保持 v1.1 既有行为。
+ */
+export interface DirectorExecutionController {
+  start: () => void
+  resolveGate: (gateId: string, action: 'continue' | 'cancel') => void
+  cancel: () => void
+  resume?: () => void
+}
+
+let executionController: DirectorExecutionController | null = null
+/** 最近一次门决策（runner 模式供 UI/测试读取；legacy 模式不使用） */
+let lastGateResolution: 'continue' | 'cancel' | null = null
+/** v1.2 M3 过渡期持久化增量（模块变量承载，随 v1 payload 的 optional 字段落盘） */
+let executionMetaValue: PersistedDirectorExecution | undefined
+let intakeValue: PersistedDirectorIntake | undefined
+let artifactIdsValue: string[] | undefined
+let staleValue: boolean | undefined
+
+export function setDirectorExecutionController(controller: DirectorExecutionController | null): void {
+  executionController = controller
+}
+
+export function getDirectorLastGateResolution(): 'continue' | 'cancel' | null {
+  return lastGateResolution
+}
+
+export function setDirectorExecutionMeta(meta: PersistedDirectorExecution | undefined): void {
+  executionMetaValue = meta
+  /* 同步进运行态（UI 角标 / MissionSurface 读 state.execution 才是响应式） */
+  useDirectorStore.setState({ execution: meta })
+  persistNow()
+}
+
+export function getDirectorExecutionMeta(): PersistedDirectorExecution | undefined {
+  return executionMetaValue
+}
+
+export function setDirectorIntake(intake: PersistedDirectorIntake | undefined): void {
+  intakeValue = intake
+}
+
+export function setDirectorArtifactIds(ids: string[] | undefined): void {
+  artifactIdsValue = ids
+  persistNow()
+}
+
+export function setDirectorStale(stale: boolean): void {
+  staleValue = stale
+}
+
+function clearExecutionMeta(): void {
+  executionMetaValue = undefined
+  intakeValue = undefined
+  artifactIdsValue = undefined
+  staleValue = undefined
+  useDirectorStore.setState({ execution: undefined })
+}
 
 function clearRunTimers(): void {
   timers.forEach((t) => clearTimeout(t))
@@ -130,6 +197,11 @@ function persistSourceOf(state: DirectorState): DirectorPersistSource {
     planSource: state.planSource,
     autonomy: state.autonomy,
     facts: state.facts,
+    /* v1.2 M3：optional 增量（缺省不写，旧读取器仍只认 v1 字段） */
+    ...(executionMetaValue ? { execution: executionMetaValue } : {}),
+    ...(intakeValue ? { intake: intakeValue } : {}),
+    ...(artifactIdsValue ? { artifactIds: artifactIdsValue } : {}),
+    ...(staleValue ? { stale: true } : {}),
   }
 }
 
@@ -155,6 +227,7 @@ export function hydrateDirectorState(persisted: PersistedDirectorV1): DirectorSt
     autonomy: { ...persisted.autonomy },
     planSource: persisted.planSource,
     facts: persisted.facts.map((fact) => ({ ...fact })),
+    ...(persisted.execution ? { execution: { ...persisted.execution } } : {}),
   }
 }
 
@@ -165,6 +238,11 @@ const restored = loadDirectorPersisted(
   toPersistedDirector(persistSourceOf(createInitialDirectorState()), false),
 )
 let guideSeenValue = restored.value.guideSeen
+/* v1.2 M3：恢复 optional 执行元数据（旧数据缺省 undefined，行为不变） */
+executionMetaValue = restored.value.execution
+intakeValue = restored.value.intake
+artifactIdsValue = restored.value.artifactIds
+staleValue = restored.value.stale
 /** 首次访问（无持久化数据）维持 v1.0 开场：战情台；有数据才按恢复矩阵落作战室 */
 const initialState: DirectorState = restored.hasPersisted ? hydrateDirectorState(restored.value) : createInitialDirectorState()
 
@@ -456,6 +534,8 @@ export const useDirectorStore = create<DirectorStore>((set, get) => {
       planAbort = null
       clearRunTimers()
       runId += 1
+      /* v1.2 M3：新计划覆盖旧执行元数据（旧 mission 的 outcome 不串到新 mission） */
+      clearExecutionMeta()
       set({
         planLoading: false,
         planSource: 'template',
@@ -489,6 +569,11 @@ export const useDirectorStore = create<DirectorStore>((set, get) => {
       })
       toast('已继续 · 从断点接着跑', 'primary')
       persistNow()
+      /* v1.2 M3：真执行 / Mock runner 由控制器重跑未完成节点；缺省走剧本续跑 */
+      if (executionController) {
+        executionController.resume?.()
+        return
+      }
       later(() => runFrom(cursor, rid), 500)
     },
 
@@ -498,11 +583,15 @@ export const useDirectorStore = create<DirectorStore>((set, get) => {
       planSeq += 1
       planAbort?.abort()
       planAbort = null
+      /* v1.2 M3：取消真执行（已产出保留为草稿） */
+      executionController?.cancel()
+      clearExecutionMeta()
       set({
         screen: 'inbox',
         planLoading: false,
         mission: { ...get().mission, status: 'idle', progress: 0, feed: [], gate: null },
       })
+      persistNow()
     },
 
     confirmPlan: () => {
@@ -510,6 +599,7 @@ export const useDirectorStore = create<DirectorStore>((set, get) => {
       runId += 1
       const rid = runId
       const mission = get().mission
+      const startedAt = Date.now()
       set({
         screen: 'mission',
         stats: { ...get().stats, running: 1 },
@@ -521,17 +611,43 @@ export const useDirectorStore = create<DirectorStore>((set, get) => {
           feed: [feedItem('chief', '已接管 · 你先去忙', 'system')],
           doneTasks: [],
           gate: null,
-          startedAt: Date.now(),
+          startedAt,
           finishedAt: undefined,
         },
       })
       toast('已开战 · 你可以离开', 'primary')
+      const ctrl = executionController
+      if (ctrl) {
+        /* v1.2 M3：确认即进入真执行 / Mock runner（不再走剧本定时器）；mode/outcome 由控制器回写 */
+        setDirectorExecutionMeta({
+          ...(executionMetaValue ?? { mode: 'mock' as const }),
+          missionId: `m-${startedAt}`,
+          startedAt,
+          completedTasks: [],
+          failedTasks: [],
+          attempts: 0,
+        })
+        persistNow()
+        ctrl.start()
+        return
+      }
       persistNow()
       later(() => runFrom(0, rid), 500)
     },
 
     approveGate: () => {
-      if (get().mission.status !== 'waiting') return
+      const mission = get().mission
+      if (mission.status !== 'waiting') return
+      const gate = mission.gate
+      /* v1.2 M3：runner 等待门 → 统一出口（一次只回执一次由 gateRegistry 保证） */
+      if (executionController && gate) {
+        lastGateResolution = 'continue'
+        set({ mission: { ...mission, status: 'running', gate: null } })
+        toast('已放行 · 战队继续', 'primary')
+        persistNow()
+        executionController.resolveGate(gate, 'continue')
+        return
+      }
       const rid = runId
       const cursor = get().missionCursor
       set({
@@ -545,6 +661,23 @@ export const useDirectorStore = create<DirectorStore>((set, get) => {
     rejectGate: () => {
       const mission = get().mission
       if (mission.status !== 'waiting' || !mission.gate) return
+      /* v1.2 M3：runner 等待门 → 退回（该任务失败/重跑由 controller 决定，一次只回执一次） */
+      if (executionController) {
+        const gate = mission.gate
+        lastGateResolution = 'cancel'
+        set({
+          mission: {
+            ...mission,
+            status: 'running',
+            gate: null,
+            feed: [...mission.feed, feedItem(GATE_OWNER[gate] ?? 'chief', '按你的意见重写中', 'step')],
+          },
+        })
+        toast('已退回重写 · 只重跑这一段', 'amber')
+        persistNow()
+        executionController.resolveGate(gate, 'cancel')
+        return
+      }
       const rid = runId
       const cursor = get().missionCursor
       const gateOwner: DirectorAgentId = GATE_OWNER[mission.gate] ?? 'chief'
@@ -611,6 +744,10 @@ export const useDirectorStore = create<DirectorStore>((set, get) => {
       planAbort = null
       clearRunTimers()
       runId += 1
+      /* v1.2 M3：中断在跑的真执行并清空过渡期元数据 */
+      executionController?.cancel()
+      clearExecutionMeta()
+      lastGateResolution = null
       // D3：重置保留 guideSeen（重看引导走 ?tour=1），其余回初始态
       set({ ...createInitialDirectorState(), guideActive: false })
       persistNow()

@@ -20,13 +20,11 @@ import {
   ClipboardList,
   Eye,
   FileCheck,
-  FileText,
   ListTree,
   Mail,
   Megaphone,
   Moon,
   Play,
-  Presentation,
   RotateCcw,
   ShieldCheck,
 } from 'lucide-react'
@@ -45,6 +43,8 @@ import type {
   Tone,
 } from '../../harness/director/types'
 import { useDirectorStore } from '../../stores/directorStore'
+import type { ApprovalGate } from '../../studio/contracts'
+import ApprovalGateCard from '../../components/ApprovalGateCard'
 import { AgentAvatar, Chip, IconButton, SoftButton, StatCell, TONE } from './shared'
 
 type IconType = ComponentType<{ size?: number | string; className?: string; strokeWidth?: number | string }>
@@ -64,37 +64,55 @@ const ARTIFACT_ICON: Record<ArtifactTile['kind'], IconType> = {
   摘要: FileCheck,
 }
 
-const GATE_META: Record<
-  GateId,
-  { agentId: DirectorAgentId; title: string; primary: string; rows: { id: string; label: string; icon: IconType }[] }
-> = {
+/**
+ * 审批门展示元数据（标题 / 主按钮文案 / 负责人）。
+ * v1.2 M3b：渲染统一决策卡（ApprovalGateCard），门 → ApprovalGate 的映射见 missionApprovalGate。
+ */
+const GATE_META: Record<GateId, { agentId: DirectorAgentId; title: string; primary: string }> = {
   speech: {
     agentId: 'curriculum',
     title: '发言稿 + PPT 待过目',
     primary: '放行',
-    rows: [
-      { id: 'a-speech', label: '发言稿', icon: FileText },
-      { id: 'a-ppt', label: 'PPT 大纲', icon: Presentation },
-    ],
   },
   letters: {
     agentId: 'communicator',
     title: '3 封信待发送',
     primary: '发送',
-    rows: [{ id: 'a-letters', label: '收件人 3 · 语气已校准', icon: Mail }],
   },
   worksheet: {
     agentId: 'assessor',
     title: '分层练习待过目',
     primary: '放行',
-    rows: [{ id: 'a-drill', label: '分层练习单 · 12 题', icon: ClipboardList }],
   },
   lesson: {
     agentId: 'curriculum',
     title: '习题课教案待过目',
     primary: '放行',
-    rows: [{ id: 'a-lesson', label: '习题课教案 · 45 分钟', icon: BookOpenCheck }],
   },
+}
+
+/**
+ * mission gate → 统一 ApprovalGate（roadmap §4.4）：
+ * gateId 直接用 GateId（与 M3 runner `harness/team/gate.ts::createMissionGate` 的注册口径一致），
+ * 这样决策卡点击时 `resolveGate(gateId)` 能命中 runner 注册的 resolver，走唯一一次出口；
+ * 未注册（legacy ?v1=1 旧剧本时间线）时 ApprovalGateCard 自动回退旧 approveGate/rejectGate。
+ * （StudioBus 层的 mission gate 事件仍用 `m-<startedAt>:<gate>` 做跨 mission 收件箱去重。）
+ */
+function missionApprovalGate(mission: MissionState, gate: GateId): ApprovalGate {
+  const meta = GATE_META[gate]
+  const task = mission.plan.find((item) => item.gate === gate)
+  const missionId = `m-${mission.startedAt ?? 0}`
+  return {
+    gateId: gate,
+    missionId,
+    ...(task ? { taskId: task.id } : {}),
+    source: 'mission',
+    title: meta.title,
+    ownerAgentId: meta.agentId,
+    requiredAction: 'approve',
+    /* 对外发送类门不可逆：标 sensitive 硬门（与 CommandCenter §3.4 投影口径一致） */
+    sensitive: gate === 'letters',
+  }
 }
 
 /** 计划来源角标（roadmap §4.5）：模板兜底必须可见；reason 文案复用 planner 的映射表 */
@@ -155,25 +173,6 @@ function FeedRow({ item }: { item: FeedItem }) {
         className={cn('h-1.5 w-1.5 shrink-0 rounded-full', isGate ? 'bg-amber animate-pulse' : dotTone)}
       />
     </div>
-  )
-}
-
-/** 审批卡里的产物缩略行（点击打开 Artifact 预览，由 DirectorApp 统一接管） */
-function GateRow({ icon: Icon, label, onClick }: { icon: IconType; label: string; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      title="预览"
-      className="group flex min-h-[40px] w-full items-center gap-2.5 rounded-xl border border-line/70 bg-surface/60 px-3 py-2 text-left transition-colors duration-300 hover:border-primary/25 hover:bg-surface-2/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-    >
-      <Icon size={14} strokeWidth={1.7} className="shrink-0 text-ink-soft" />
-      <span className="min-w-0 flex-1 truncate text-[0.75rem] font-medium text-ink">{label}</span>
-      <ArrowUpRight
-        size={14}
-        className="shrink-0 text-ink-soft transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-primary"
-      />
-    </button>
   )
 }
 
@@ -280,7 +279,6 @@ function LiveRoom({
   onResume,
   onApprove,
   onReject,
-  onOpenArtifact,
 }: {
   mission: MissionState
   plan: MissionPlanTask[]
@@ -289,7 +287,6 @@ function LiveRoom({
   onResume: () => void
   onApprove: () => void
   onReject: () => void
-  onOpenArtifact: (id: string) => void
 }) {
   const waiting = mission.status === 'waiting'
   const paused = mission.status === 'paused'
@@ -411,11 +408,11 @@ function LiveRoom({
         </div>
       )}
 
-      {/* 审批门：内联卡 + 呼吸光圈，只有这一件在等你；卡宽与右列 640 对齐 */}
+      {/* 审批门：统一决策卡（v1.2 M3b）；只有这一件在等你 */}
       {waiting && mission.gate && (
         <div className="mt-3 grid gap-3 lg:mt-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,640px)]">
           <div className="d-guide-ring rounded-3xl lg:col-start-2">
-            <GateCard gate={mission.gate} onApprove={onApprove} onReject={onReject} onOpenArtifact={onOpenArtifact} />
+            <GateCard mission={mission} gate={mission.gate} onApprove={onApprove} onReject={onReject} />
           </div>
         </div>
       )}
@@ -429,19 +426,24 @@ function LiveRoom({
   )
 }
 
+/**
+ * 审批门卡（v1.2 M3b 统一）：外层保留旧 E2E 依赖的 `mission-gate` + `data-gate`，
+ * 内部渲染与画布 checkpoint 同一张 `ApprovalGateCard`（按钮文案保持旧口径：
+ * letters → 「发送」其余 → 「放行」，次按钮「退回重写」）。
+ * 点击优先走统一出口 resolveGate（M3 runner 注册过 resolver 时），否则回落旧 store 动作。
+ */
 function GateCard({
+  mission,
   gate,
   onApprove,
   onReject,
-  onOpenArtifact,
 }: {
+  mission: MissionState
   gate: GateId
   onApprove: () => void
   onReject: () => void
-  onOpenArtifact: (id: string) => void
 }) {
   const meta = GATE_META[gate]
-  const agent = AGENT_MAP[meta.agentId]
 
   return (
     <section
@@ -449,42 +451,15 @@ function GateCard({
       data-gate={gate}
       role="group"
       aria-label={meta.title}
-      className="d-sheet relative overflow-hidden rounded-3xl border border-amber/35 bg-surface/95 p-4 shadow-card backdrop-blur-xl sm:p-5"
+      className="d-sheet relative overflow-hidden rounded-3xl"
     >
-      <span aria-hidden="true" className="pointer-events-none absolute -right-12 -top-16 h-36 w-36 rounded-full bg-amber/15 blur-2xl" />
-
-      <div className="relative">
-        <div className="flex items-start gap-3">
-          <AgentAvatar agentId={meta.agentId} size="md" status="waiting" breathing />
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <Chip tone="amber" dot>
-                仅此一件
-              </Chip>
-              <span className="truncate text-[0.6875rem] text-ink-soft">{agent.name}</span>
-            </div>
-            <h2 className="mt-1.5 truncate text-[1.0625rem] font-semibold tracking-tight text-ink sm:text-lg">{meta.title}</h2>
-          </div>
-        </div>
-
-        <div className="mt-3 space-y-1.5">
-          {meta.rows.map((row) => (
-            <GateRow key={row.id} icon={row.icon} label={row.label} onClick={() => onOpenArtifact(row.id)} />
-          ))}
-        </div>
-
-        <div className="mt-3.5 flex flex-wrap items-center gap-2 border-t border-line/70 pt-3.5">
-          <SoftButton variant="primary" size="md" onClick={onApprove}>
-            {meta.primary}
-          </SoftButton>
-          <SoftButton variant="soft" size="md" onClick={onReject} title="退回重写这一段">
-            改一改
-          </SoftButton>
-          <span className="ml-auto text-[0.6875rem] text-ink-soft" title="演示不会真实外发">
-            {gate === 'letters' ? '仅登记' : '改完自动继续'}
-          </span>
-        </div>
-      </div>
+      <ApprovalGateCard
+        gate={missionApprovalGate(mission, gate)}
+        onApprove={onApprove}
+        onReject={onReject}
+        approveLabel={meta.primary}
+        rejectLabel="退回重写"
+      />
     </section>
   )
 }
@@ -675,7 +650,6 @@ export default function MissionSurface() {
             onResume={resumeMission}
             onApprove={approveGate}
             onReject={rejectGate}
-            onOpenArtifact={openArtifact}
           />
         )}
 

@@ -190,6 +190,27 @@ export default function ShellLayout(): JSX.Element {
     })
   }, [])
 
+  /* v1.2 M3b：画布 checkpoint → 统一审批门桥（动态加载；不在主 chunk 静态拉起 loom 桥）。
+     安装后 Loom checkpoint 的 waiting/resolved 会进同一个收件箱与角标口径。 */
+  useEffect(() => {
+    let stop: (() => void) | undefined
+    let cancelled = false
+    void import('../integrations/studio/loomGates')
+      .then((mod) => {
+        if (cancelled) return
+        stop = mod.installLoomGateBridge()
+      })
+      .catch((error) => console.error('[ShellLayout] 画布审批门桥安装失败:', error))
+    return () => {
+      cancelled = true
+      try {
+        stop?.()
+      } catch {
+        /* 卸载失败不影响壳 */
+      }
+    }
+  }, [])
+
   return (
     <div data-testid="studio-shell" className="flex h-full flex-col overflow-hidden bg-bg">
       <ShellChrome />

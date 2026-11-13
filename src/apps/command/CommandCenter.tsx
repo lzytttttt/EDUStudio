@@ -37,6 +37,7 @@ import { consumePendingIntent } from '../../studio/intent'
 import { navigateTo, studioRouter } from '../../studio/router'
 import { registerSurface, SurfaceHost } from '../../shell/SurfaceHost'
 import { installMissionDeliverablesBridge } from '../../integrations/director/deliverables'
+import { installMissionExecution, resolveExecutionMode } from '../../integrations/director/execution'
 import ArtifactSheet from '../director/ArtifactSheet'
 import GuideBar from '../director/GuideBar'
 import CommandFallback from './CommandFallback'
@@ -156,12 +157,16 @@ function projectDirectorState(prev: DirectorState | null): void {
   }
   if (mission.plan.length > 0) projection.planned = true
 
-  /* ④ mission.started：本轮第一次进入 running（旧 store 是 Mock 执行器 → execution='mock'） */
+  /* ④ mission.started：本轮第一次进入 running（v1.2 M3：execution 取真实执行模式） */
   if (!catchUp && !projection.started && mission.status === 'running') {
     projection.started = true
-    studioBus.emit({ type: 'mission.started', missionId, execution: 'mock' })
+    studioBus.emit({
+      type: 'mission.started',
+      missionId,
+      execution: useDirectorStore.getState().execution?.mode ?? 'mock',
+    })
   }
-  /* 挂载对齐：已经在跑 / 在等门 / 已交付的 mission 视为「本轮已开始」，不补发 started */
+  /* ④ 挂载对齐：已经在跑 / 在等门 / 已交付的 mission 视为「本轮已开始」，不补发 started */
   if (catchUp && mission.status !== 'idle' && mission.status !== 'planning') projection.started = true
 
   /* ⑤ mission.task.done：doneTasks 新增项（agentId 从 plan 反查；查不到不发，保证事件必带成员） */
@@ -243,6 +248,8 @@ const INITIAL_TOUR = typeof window === 'undefined' ? null : new URLSearchParams(
 export default function CommandCenter(): JSX.Element {
   const route = useRouteStore((s) => s.route)
   const setScreen = useDirectorStore((s) => s.setScreen)
+  /** v1.2 M3：执行模式/结果角标（真执行 / Mock 执行 / 部分完成），数据来自 store.execution */
+  const execution = useDirectorStore((s) => s.execution)
 
   /** 本容器刚从 store.screen 推向路由的视图：路由回流时跳过，避免回环（§3.2 幂等纪律） */
   const pushedViewRef = useRef<DirectorScreen | null>(null)
@@ -304,11 +311,14 @@ export default function CommandCenter(): JSX.Element {
     return studioBus.on('intent.submitted', runPendingIntent)
   }, [])
 
-  /* ---------------- ④ 交付物发布桥（M2）：mission done → artifactStore；卸载时清理 ---------------- */
+  /* ④ 交付物发布桥（M2）：mission done → artifactStore；卸载时清理。
+     v1.2 M3：真执行模式下模板件由 runner 产物替代（includeTemplates=false），
+     Mock 模式仍沿用模板交付物（M2 行为，验收可导出）。 */
   useEffect(() => {
     let stop: (() => void) | undefined
     try {
-      stop = installMissionDeliverablesBridge()
+      const mode = resolveExecutionMode().mode
+      stop = installMissionDeliverablesBridge({ includeTemplates: mode !== 'real' })
     } catch (error) {
       console.error('[CommandCenter] 交付物发布桥安装失败:', error)
     }
@@ -317,6 +327,24 @@ export default function CommandCenter(): JSX.Element {
         stop?.()
       } catch (error) {
         console.error('[CommandCenter] 交付物发布桥卸载失败:', error)
+      }
+    }
+  }, [])
+
+  /* ④b 执行控制器（M3）：确认计划后由 MissionRunner 驱动真执行 / Mock runner；
+     刷新恢复时把丢失 runner 的 running/waiting 降级为 paused，等用户「继续」续跑。 */
+  useEffect(() => {
+    let stop: (() => void) | undefined
+    try {
+      stop = installMissionExecution()
+    } catch (error) {
+      console.error('[CommandCenter] 执行控制器安装失败:', error)
+    }
+    return () => {
+      try {
+        stop?.()
+      } catch (error) {
+        console.error('[CommandCenter] 执行控制器卸载失败:', error)
       }
     }
   }, [])
@@ -391,6 +419,28 @@ export default function CommandCenter(): JSX.Element {
           />
         </div>
       </main>
+
+      {/* 执行模式角标（M3 §4.6）：真执行 / Mock 执行 / 部分完成，永远可见，绝不假装真执行 */}
+      {execution && (
+        <div
+          data-testid="command-execution-badge"
+          aria-live="polite"
+          className="pointer-events-none absolute right-4 top-3 z-20 flex items-center gap-1.5 rounded-full border border-line bg-surface/90 px-2.5 py-1 text-[0.6875rem] font-medium text-ink-soft shadow-soft backdrop-blur"
+        >
+          <span
+            aria-hidden
+            className={`h-1.5 w-1.5 rounded-full ${execution.mode === 'real' ? 'bg-mint' : 'bg-amber'}`}
+          />
+          {execution.mode === 'real' ? '真执行' : 'Mock 执行'}
+          {execution.outcome === 'partial'
+            ? ' · 部分完成'
+            : execution.outcome === 'failed'
+              ? ' · 执行失败'
+              : execution.outcome === 'cancelled'
+                ? ' · 已取消'
+                : ''}
+        </div>
+      )}
 
       {/* 引导条 / 交付物预览：复用旧组件，位置由组件自身 fixed 定位 */}
       <GuideBar />

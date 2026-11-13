@@ -49,10 +49,19 @@ const BUDGET = {
   // 全 JS 355.8 → 364.9KB（+9.1：交付物发布桥 + 收件箱/团队/作战包 UI + 记忆/toast 逻辑），
   // 按实测 + 余量校准 360 → 370KB。主 chunk 仅剩 6.6KB 余量：M3 真执行内核必须留在 Director chunk，
   // 主 chunk 只允许「契约 + 薄运行时」，否则 M3 收口时需先懒加载腾挪再抬阈值（阈值仍不直接抬 120）。
-  totalJsKB: 370, // 全部 JS gzip 上限
+  // v1.2 M3 校准：真执行内核（MissionRunner + AgentSpec + 审批门统一 + 执行控制器 + 交付物证据校验
+  // + 统一决策卡），主 chunk 113.4 → 114.8KB（+1.4：gateRegistry 等共享运行时）；
+  // Director 主体因 runner 拆独立 chunk 由 52.1 → 48.1KB（守 50 门槛）；runner/agents 独立懒加载
+  // chunk 合计 5.7KB（新增 runnerChunkKB 门槛 12KB）；全 JS 364.9 → 377.8KB（+12.9：内核/校验/卡片 +
+  // 拆分开销），按实测 + 余量校准 370 → 386KB。
+  // 警告：主 chunk 仅余 5.2KB——M4 迁移/引导切换必须以「懒加载 + 复用」实现，不得再把重代码塞回主包。
+  totalJsKB: 386, // 全部 JS gzip 上限
   directorChunkKB: 50, // Director 相关 chunk 合计 gzip 上限（v1.2 真执行/bridge 预算；超限拆 runner）
   /** Director chunk 归组（M1 起：DirectorApp 整块被拆分为容器/三视图/共享模块，gate 按合计口径） */
   directorChunkPattern: /^(DirectorApp|director|CommandCenter|InboxView|MissionView|TeamView|InboxSurface|MissionSurface|TeamSurface|GuideBar|ArtifactSheet)-.*\.js$/,
+  /** v1.2 M3：真执行内核独立懒加载 chunk（runner 拆出后单独设门槛，防止内核膨胀悄悄挤占 Director 主体） */
+  runnerChunkKB: 12,
+  runnerChunkPattern: /^(runner|agents)-.*\.js$/,
 }
 
 const dist = 'dist/assets'
@@ -69,6 +78,8 @@ try {
   let main = 0
   let director = 0
   let directorChunks = 0
+  let runner = 0
+  let runnerChunks = 0
   const rows = []
   for (const f of files) {
     const gz = gzipSync(readFileSync(join(dist, f))).length
@@ -77,6 +88,10 @@ try {
     if (BUDGET.directorChunkPattern.test(f)) {
       director += gz
       directorChunks += 1
+    }
+    if (BUDGET.runnerChunkPattern.test(f)) {
+      runner += gz
+      runnerChunks += 1
     }
     rows.push({ f, gz })
   }
@@ -87,6 +102,7 @@ try {
   const mainOk = main <= BUDGET.mainChunkKB * 1024
   const totalOk = total <= BUDGET.totalJsKB * 1024
   const directorOk = directorChunks > 0 && director <= BUDGET.directorChunkKB * 1024
+  const runnerOk = runnerChunks > 0 && runner <= BUDGET.runnerChunkKB * 1024
   console.log('')
   console.log(`主 chunk gzip: ${kb(main)} KB / 预算 ${BUDGET.mainChunkKB} KB  ${mainOk ? 'PASS' : 'FAIL'}`)
   console.log(`全部 JS  gzip: ${kb(total)} KB / 预算 ${BUDGET.totalJsKB} KB  ${totalOk ? 'PASS' : 'FAIL'}`)
@@ -95,8 +111,13 @@ try {
       directorOk ? 'PASS' : 'FAIL'
     }`,
   )
+  console.log(
+    `真执行内核 chunk gzip: ${kb(runner)} KB（${runnerChunks} 个，懒加载）/ 预算 ${BUDGET.runnerChunkKB} KB  ${
+      runnerOk ? 'PASS' : 'FAIL'
+    }`,
+  )
 
-  if (!mainOk || !totalOk || !directorOk) process.exit(1)
+  if (!mainOk || !totalOk || !directorOk || !runnerOk) process.exit(1)
 } catch (err) {
   console.error(`[budget] 执行失败：${err.message}`)
   process.exit(1)

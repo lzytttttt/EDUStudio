@@ -252,11 +252,38 @@ export interface DirectorState {
   planLoading: boolean
   /** 本次计划冻结的事实快照（随 mission 持久化，约 0.8KB） */
   facts: Fact[]
+  /** v1.2 M3：执行元数据（真执行/Mock、outcome、任务账本；随 v1 payload optional 字段持久化） */
+  execution?: PersistedDirectorExecution
 }
 
 /* ------------------------------------------------------------------ */
 /* 持久化契约（v1，roadmap §5 / 研究 01 §4.1）                          */
 /* ------------------------------------------------------------------ */
+
+/**
+ * v1.2 M3 过渡期执行元数据（optional；schemaVersion 仍为 1，M4 升 v2 时并入正式字段）。
+ * 真执行结果放这里而不是 `MissionState.status`（6 值白名单不动，D11）。
+ */
+export interface PersistedDirectorExecution {
+  mode: 'real' | 'mock'
+  /** 本轮 mission 的稳定 id（`m-<startedAt>`；发布桥 provenance 用） */
+  missionId?: string
+  /** 真执行结果：done / partial / failed / cancelled */
+  outcome?: 'done' | 'partial' | 'failed' | 'cancelled'
+  startedAt?: number
+  finishedAt?: number
+  completedTasks?: string[]
+  failedTasks?: { taskId: string; reason: string }[]
+  /** 累计 attempt 数（含重试） */
+  attempts?: number
+}
+
+/** v1.2 M3 过渡期：mission 来源引用（optional，缺省 = 旧行为） */
+export interface PersistedDirectorIntake {
+  source: 'inbox' | 'briefing' | 'chat'
+  cardId?: string
+  sessionId?: string
+}
 
 export interface PersistedDirectorV1 {
   schemaVersion: 1
@@ -275,6 +302,15 @@ export interface PersistedDirectorV1 {
   guideSeen: boolean
   /** 随计划冻结的事实快照 */
   facts: Fact[]
+  /* ---------- v1.2 M3 过渡期 optional 增量（只增字段，不改 v1 形状/枚举） ---------- */
+  /** 真执行元数据（缺省 = 旧 Mock 时间线） */
+  execution?: PersistedDirectorExecution
+  /** mission 来源（简报采纳 / 收件箱 / 对话） */
+  intake?: PersistedDirectorIntake
+  /** 本次 mission 已发布到 artifactStore 的文档 id（引用，不含正文） */
+  artifactIds?: string[]
+  /** 数据源换源导致事实快照过期 */
+  stale?: boolean
 }
 
 /** store 行为契约（UI 只依赖本接口，便于单测与后续替换实现） */

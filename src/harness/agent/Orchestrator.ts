@@ -2,12 +2,18 @@ import {
   LLMError,
   type AgentProvider,
   type AgentTaskInput,
+  type AgentTaskContext,
   type AgentTraceEvent,
   type ChatMessage,
   type RoleId,
+  type ToolDef,
 } from '../types'
 import { DeepSeekAdapter, type DeepSeekConfig } from '../llm/adapter'
 import { toolRegistry } from './ToolRegistry'
+/* v1.2 M3a：mission 内 Agent 身份（岗位/边界/交接/事实）与工具白名单收敛 */
+import { agentRoleOf, buildAgentSystemPrompt, filterToolsForAgent } from './agentPrompt'
+/* v1.2 M3b：Plan-JSON 步骤工具硬隔离（与 Mock 共用同一过滤，agent 缺省时不走该函数） */
+import { filterAgentSteps } from './MockOrchestrator'
 import { runScript, runScriptStep, nextId, type StepContext } from './stepRunner'
 import { ArtifactApiAdapter } from '../artifacts/adapter'
 import { getRolePreset, buildSystemPrompt } from '../roles'
@@ -84,7 +90,13 @@ export class Orchestrator implements AgentProvider {
   }
 
   async runTask(input: AgentTaskInput, emit: (e: AgentTraceEvent) => void): Promise<void> {
-    const { role, goal, history, signal } = input
+    const { goal, history, signal } = input
+    /**
+     * v1.2 M3a：mission 内 Agent 身份。agent 缺省时 `role` 就是 input.role、
+     * 后续所有拼接/分支与旧路径逐字节一致；存在时按 baseRole 解析角色语气与工具域。
+     */
+    const agent = input.agent
+    const role = agentRoleOf(agent, input.role)
     const preset = getRolePreset(role)
     /** 收集事件供任务完成后 LLM 提炼（v0.6 骨架预留） */
     const collected: AgentTraceEvent[] = []
@@ -134,14 +146,17 @@ export class Orchestrator implements AgentProvider {
       // v0.9.4 M5：Loom 上游结果拼进 user 消息（「上游任务结果：… 当前目标：…」），无上游时退化为原 goal
       const upstream = input.context?.upstream
       const userContent = upstream && upstream.length > 0 ? formatUpstreamContext(upstream, goal) : goal
+      const baseSystem =
+        buildSystemPrompt(preset, useSettingsStore.getState().preferences, memoryContext) +
+        skillPrompt +
+        /* v0.9.4-03：任务型目标追加执行约束（减少「只给文字不调工具」白跑一次） */
+        taskExecutionHint(goal)
+      /* v1.2 M3a：agent 存在时在角色 prompt 之后追加固定段落；缺省时与旧版逐字节一致 */
+      const systemContent = agent ? buildAgentSystemPrompt(baseSystem, agent) : baseSystem
       const messages: ChatMessage[] = [
         {
           role: 'system',
-          content:
-            buildSystemPrompt(preset, useSettingsStore.getState().preferences, memoryContext) +
-            skillPrompt +
-            /* v0.9.4-03：任务型目标追加执行约束（减少「只给文字不调工具」白跑一次） */
-            taskExecutionHint(goal),
+          content: systemContent,
         },
         ...history,
         {
@@ -199,8 +214,11 @@ export class Orchestrator implements AgentProvider {
     input: AgentTaskInput,
     ctx: StepContext,
   ): Promise<void> {
-    const { role, signal } = input
-    const tools = this.toolsForRole(role)
+    const { signal } = input
+    const agent = input.agent
+    const role = agentRoleOf(agent, input.role)
+    /* v1.2 M3a：agent 存在时 function-calling tools 收窄为白名单；缺省 = 旧角色工具集 */
+    const tools = agent ? this.toolsForAgent(role, agent) : this.toolsForRole(role)
     let consecutiveToolFails = 0
     // v0.5 M3③：单任务 token 预算护栏（0 = 不限制）
     const budgetTokens = useSettingsStore.getState().tokenBudget
@@ -374,12 +392,14 @@ export class Orchestrator implements AgentProvider {
     ctx: StepContext,
     reason: string,
   ): Promise<void> {
-    const { role, goal, history, signal } = input
+    const { goal, history, signal } = input
+    const agent = input.agent
+    const role = agentRoleOf(agent, input.role)
     ctx.emit({ kind: 'reflect', text: `${reason}，已切换 Plan-JSON 降级模式继续执行。` })
 
     const preset = getRolePreset(role)
-    const toolMenu = toolRegistry
-      .listForRole(role)
+    /* v1.2 M3a：Plan-JSON 降级 toolMenu 同样收窄为 agent 白名单；缺省 = 旧角色工具集 */
+    const toolMenu = (agent ? filterToolsForAgent(role, agent) : toolRegistry.listForRole(role))
       .map((t) => `- ${t.name}：${t.description}`)
       .join('\n')
     const instruction =
@@ -396,10 +416,14 @@ export class Orchestrator implements AgentProvider {
     const upstreamResults = formatUpstreamResults(input.context?.upstream)
     const taskPrompt = upstreamResults ? `${upstreamResults}\n\n任务目标：${goal}` : `任务目标：${goal}`
 
+    const fallbackBaseSystem = buildSystemPrompt(preset, useSettingsStore.getState().preferences)
+    /* v1.2 M3a 收口：降级路径在 agent 存在时同样追加岗位/边界/交接/事实段；缺省时与旧实现逐字节一致 */
+    const fallbackSystem = agent ? buildAgentSystemPrompt(fallbackBaseSystem, agent) : fallbackBaseSystem
+
     let full = ''
     for await (const delta of this.llm.streamChat(
       [
-        { role: 'system', content: buildSystemPrompt(preset, useSettingsStore.getState().preferences) },
+        { role: 'system', content: fallbackSystem },
         ...history,
         { role: 'user', content: `${taskPrompt}\n\n${instruction}` },
       ],
@@ -408,11 +432,16 @@ export class Orchestrator implements AgentProvider {
       full += delta
     }
 
-    const steps = parsePlanJson(full)
+    const parsed = parsePlanJson(full)
+    /* v1.2 M3b 硬隔离：agent 存在时模型幻觉出的白名单外工具一律降级为说明（缺省不改变旧路径） */
+    const steps = parsed && input.agent ? filterAgentSteps(parsed, input.agent) : parsed
     if (!steps || steps.length === 0) {
       // Plan 解析失败 → 角色降级剧本，保证任何输入都有响应
       ctx.emit({ kind: 'reflect', text: 'Plan 解析失败，已切换内置降级剧本。' })
-      await runScript(FALLBACK_SCRIPTS[role].steps, ctx)
+      const fallbackSteps = input.agent
+        ? filterAgentSteps(FALLBACK_SCRIPTS[role].steps, input.agent)
+        : FALLBACK_SCRIPTS[role].steps
+      await runScript(fallbackSteps, ctx)
       return
     }
 
@@ -437,14 +466,23 @@ export class Orchestrator implements AgentProvider {
   }
 
   private toolsForRole(role: RoleId) {
-    return toolRegistry.listForRole(role).map((t) => ({
+    return toolRegistry.listForRole(role).map((tool) => this.toToolSchema(tool))
+  }
+
+  /** v1.2 M3a：agent 白名单 ∩ 角色域（缺省路径不调用，旧输出逐字节不变） */
+  private toolsForAgent(role: RoleId, agent: AgentTaskContext) {
+    return filterToolsForAgent(role, agent).map((tool) => this.toToolSchema(tool))
+  }
+
+  private toToolSchema(tool: ToolDef) {
+    return {
       type: 'function' as const,
       function: {
-        name: t.name,
-        description: t.description,
-        parameters: t.parameters ?? { type: 'object', properties: {} },
+        name: tool.name,
+        description: tool.description,
+        parameters: tool.parameters ?? { type: 'object', properties: {} },
       },
-    }))
+    }
   }
 }
 
