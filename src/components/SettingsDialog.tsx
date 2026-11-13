@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { X, Eye, EyeOff, RotateCcw, Trash2, User, Type, Database, ShieldCheck, Stamp, Focus, HardDrive, Download, Upload, Code2 } from 'lucide-react'
+import { X, Eye, EyeOff, RotateCcw, Trash2, User, Type, Database, ShieldCheck, Stamp, Focus, HardDrive, Download, Upload, Code2, LayoutGrid } from 'lucide-react'
 import {
   useSettingsStore, maskKey, clampPref, PREF_MAX_LEN,
   FONT_SIZE_MIN, FONT_SIZE_MAX, FONT_SIZE_DEFAULT,
@@ -521,6 +521,62 @@ export default function SettingsDialog({ onClose }: { onClose: () => void }) {
             />
             显示技术细节（默认关闭）
           </label>
+        </section>
+
+        {/* ── 工作区（v1.2 M2）：启动页 / 默认执行模式 / 引导重看 ── */}
+        <section className="mb-6" data-testid="studio-settings-group">
+          <div className="mb-3 flex items-center gap-2">
+            <LayoutGrid size={14} className="text-primary" />
+            <h3 className="text-sm font-semibold text-ink">工作区</h3>
+          </div>
+          <p className="mb-3 text-xs leading-relaxed text-ink-mute">
+            统一工作区（总指挥 ⇄ 经典）仍是影子期预览：地址加 <code className="rounded bg-surface-2 px-1">?v2=1</code> 打开。
+            下面的偏好会被持久化；「自动」保持旧入口不变，默认切换在 M4 生效。
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="flex flex-col gap-1 text-xs text-ink-soft">
+              启动页
+              <select
+                data-testid="studio-landing-select"
+                value={s.studio.landing}
+                onChange={(e) =>
+                  s.updateStudio({ landing: e.target.value as 'auto' | 'inbox' | 'briefing' | 'workbench' })
+                }
+                className="rounded-xl border border-line bg-surface-2 px-2 py-1.5 text-xs text-ink outline-none focus:border-primary"
+              >
+                <option value="auto">自动（跟随版本默认）</option>
+                <option value="inbox">战情台</option>
+                <option value="briefing">今日简报</option>
+                <option value="workbench">工作台</option>
+              </select>
+            </label>
+            <label className="flex flex-col gap-1 text-xs text-ink-soft">
+              默认执行模式
+              <select
+                data-testid="studio-execution-select"
+                value={s.studio.execution}
+                onChange={(e) => s.updateStudio({ execution: e.target.value as 'auto' | 'real' | 'mock' })}
+                className="rounded-xl border border-line bg-surface-2 px-2 py-1.5 text-xs text-ink outline-none focus:border-primary"
+              >
+                <option value="auto">自动（跟随模型配置）</option>
+                <option value="real">真执行</option>
+                <option value="mock">Mock 演示</option>
+              </select>
+            </label>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => s.resetStudioGuide()}
+              data-testid="studio-guide-reset"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-surface-2 px-3 py-2 text-xs text-ink-soft transition-colors hover:border-primary/40 hover:text-primary"
+            >
+              <RotateCcw size={12} />
+              重看操作引导
+            </button>
+            <span className="text-[0.6875rem] leading-relaxed text-ink-mute">
+              总指挥工作区专属引导用 <code className="rounded bg-surface-2 px-1">?tour=1</code> 重看
+            </span>
+          </div>
         </section>
 
         {/* ── 数据备份（v0.9 M2）：全量导出 / 恢复 + 本机存储明示 ── */}

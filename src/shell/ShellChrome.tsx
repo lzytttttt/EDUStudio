@@ -12,11 +12,13 @@ import { useState } from 'react'
 import { Bell, LogOut, Settings } from 'lucide-react'
 import { BRAND_ART } from '../theme/art'
 import { useAuthStore } from '../stores/authStore'
-import { useNotificationStore, unreadCount } from '../stores/notificationStore'
+import { useNotificationStore } from '../stores/notificationStore'
+import { inboxCounts, useStudioInbox } from '../stores/studioInboxStore'
 import { useRouteStore } from '../stores/routeStore'
 import { getRolePreset } from '../harness/roles'
 import SettingsDialog from '../components/SettingsDialog'
 import NotificationPanel from './NotificationPanel'
+import StudioToasts from './StudioToasts'
 import WorkspaceSwitcher from './WorkspaceSwitcher'
 import IntentBar from './IntentBar'
 import { cn } from '../lib/cn'
@@ -31,7 +33,9 @@ export default function ShellChrome(): JSX.Element {
   const role = useAuthStore((s) => s.role)
   const logout = useAuthStore((s) => s.logout)
   const route = useRouteStore((s) => s.route)
-  const unread = useNotificationStore((s) => unreadCount(s.items))
+  /* v1.2 M2 角标统一（roadmap §2.3 F6）：顶栏收件箱 = 派生收件箱待办 + 未读通知，
+     与侧栏红点 / 战情台导航角标同口径，不再单独读通知未读数（避免两处计数不一致）。 */
+  const inboxTotal = inboxCounts(useStudioInbox()).total
   const panelOpen = useNotificationStore((s) => s.panelOpen)
   const openPanel = useNotificationStore((s) => s.openPanel)
   const closePanel = useNotificationStore((s) => s.closePanel)
@@ -71,15 +75,18 @@ export default function ShellChrome(): JSX.Element {
             className={ICON_BTN}
           >
             <Bell size={18} aria-hidden />
-            {unread > 0 && (
-              <span
-                aria-hidden
-                className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-coral px-1 text-[0.5625rem] font-bold text-white"
-              >
-                {unread > 9 ? '9+' : unread}
-              </span>
-            )}
-            {unread > 0 && <span className="sr-only">，{unread} 条未读</span>}
+            {/* 统一角标：待办（需动作）+ 未读通知（只读）一个数；0 时隐藏但保留节点（E2E 可见性口径） */}
+            <span
+              data-testid="studio-inbox-bell-badge"
+              aria-hidden
+              className={cn(
+                'absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-coral px-1 text-[0.5625rem] font-bold text-white',
+                inboxTotal === 0 && 'hidden',
+              )}
+            >
+              {inboxTotal > 9 ? '9+' : inboxTotal}
+            </span>
+            {inboxTotal > 0 && <span className="sr-only">，{inboxTotal} 件待处理</span>}
           </button>
 
           <button
@@ -121,6 +128,9 @@ export default function ShellChrome(): JSX.Element {
 
       {/* 设置（复用旧弹窗） */}
       {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
+
+      {/* v1.2 M2 统一轻提示层（固定顶部居中；数据源 uiStore.toasts） */}
+      <StudioToasts />
     </>
   )
 }

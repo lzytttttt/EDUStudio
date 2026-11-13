@@ -24,6 +24,8 @@ import { CLASSIC_ROUTE } from './WorkspaceSwitcher'
 import { useRouteStore } from '../stores/routeStore'
 import { useAuthStore } from '../stores/authStore'
 import { useUiStore } from '../stores/uiStore'
+import { useChatStore } from '../stores/chatStore'
+import { inboxCounts, useStudioInbox } from '../stores/studioInboxStore'
 import { goRoute, navigateTo } from '../studio/router'
 import type { DirectorView, RightTab, WorkspaceId } from '../studio/contracts'
 import { cn } from '../lib/cn'
@@ -69,6 +71,9 @@ function ShellSkeleton({ label }: { label: string }): JSX.Element {
  */
 function DirectorNav(): JSX.Element {
   const view = useRouteStore((s) => s.route.directorView)
+  /* v1.2 M2（roadmap §2.3 F6）：战情台派生待办角标 = 收件箱 decisions 数（不含只读 notices），
+     与战情台派生列表同口径；0 时不渲染。桌面/移动同一套 DOM，只出现一份。 */
+  const pendingDecisions = inboxCounts(useStudioInbox()).decisions
 
   return (
     <nav
@@ -91,7 +96,7 @@ function DirectorNav(): JSX.Element {
             aria-pressed={active}
             onClick={() => navigateTo({ kind: item.id })}
             className={cn(
-              'flex min-h-[44px] flex-1 flex-col items-center justify-center gap-0.5 py-1.5 text-[0.6875rem] font-medium transition-colors',
+              'relative flex min-h-[44px] flex-1 flex-col items-center justify-center gap-0.5 py-1.5 text-[0.6875rem] font-medium transition-colors',
               'md:flex-none md:flex-row md:justify-start md:gap-2.5 md:rounded-xl md:px-3 md:py-2.5 md:text-sm',
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 focus-visible:ring-offset-2 focus-visible:ring-offset-bg',
               active ? 'text-primary md:bg-primary-soft' : 'text-ink-soft hover:text-ink md:hover:bg-surface-2',
@@ -99,6 +104,19 @@ function DirectorNav(): JSX.Element {
           >
             <Icon size={18} strokeWidth={1.8} aria-hidden />
             <span>{item.label}</span>
+            {item.id === 'inbox' && pendingDecisions > 0 && (
+              <>
+                <span
+                  data-testid="studio-nav-inbox-badge"
+                  aria-hidden
+                  title={`${pendingDecisions} 件待决策`}
+                  className="absolute right-2 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-coral px-1 text-[0.5625rem] font-bold leading-none text-white md:static md:ml-auto md:right-auto md:top-auto"
+                >
+                  {pendingDecisions}
+                </span>
+                <span className="sr-only">，{pendingDecisions} 件待决策</span>
+              </>
+            )}
           </button>
         )
       })}
@@ -149,6 +167,17 @@ export default function ShellLayout(): JSX.Element {
     const { rightTab: current, setRightTab } = useUiStore.getState()
     if (current !== rightTab) setRightTab(rightTab)
   }, [workspace, rightTab])
+
+  /* v1.2 M2：「点开看会话」——派生收件箱 / 深链跳到 `{kind:'chat', id}` 后，把经典工作区的
+     当前会话定位到该会话（旧三栏仍读 chatStore.activeId）。只在路由目标变化时写一次，
+     且与当前会话比较后再写（幂等：同一目标重复渲染不产生多余 setState / 回写循环）。 */
+  const targetChatId = route.target?.kind === 'chat' ? route.target.id ?? null : null
+  useEffect(() => {
+    if (workspace !== 'classic' || !targetChatId) return
+    const { activeId, setActive } = useChatStore.getState()
+    if (activeId === targetChatId) return
+    setActive(targetChatId)
+  }, [workspace, targetChatId])
 
   /* uiStore.centerView → route：中栏内点「对话/空间任务台」反写路由（仅经典工作区且不一致时写，防循环） */
   useEffect(() => {

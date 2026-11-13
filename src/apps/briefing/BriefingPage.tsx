@@ -11,6 +11,7 @@ import { useFocusStore, type BackgroundTask } from '../../stores/focusStore'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { useUiStore } from '../../stores/uiStore'
 import { useLoomStore } from '../../stores/loomStore'
+import { studioBus } from '../../studio/bus'
 import { getRolePreset } from '../../harness/roles'
 import { formatAge, isStale } from '../../harness/sources'
 import type { BriefingGenOptions, CardLink } from '../../harness/types'
@@ -254,6 +255,18 @@ export default function BriefingPage() {
               cardId: decided.id,
               title: decided.title,
               description: decided.tag || '来自今日简报',
+              sessionId: adoptSessionId,
+            })
+            /* v1.2 M2（roadmap §2.3 F1、§3.4）：采纳后发 `card.accepted`，收件箱据此派生
+               「已代办」同源待办（带会话 id，战情台可「点开看会话」）。
+               专注模式与普通模式共用本分支，一次采纳只 emit 一次；事件只带 id 与事实，
+               不改动上面的旧跳转 / 后台执行行为。 */
+            studioBus.emit({
+              type: 'card.accepted',
+              cardId: decided.id,
+              role: adoptRole,
+              goal,
+              title: decided.title,
               sessionId: adoptSessionId,
             })
           }

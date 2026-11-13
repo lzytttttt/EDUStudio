@@ -12,6 +12,8 @@ import { useBriefingStore } from '../stores/briefingStore'
 import { useArtifactStore } from '../stores/artifactStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useNotificationStore, unreadCount } from '../stores/notificationStore'
+import { inboxCounts, useStudioInbox } from '../stores/studioInboxStore'
+import { isStudioV2Enabled } from '../lib/studioEntry'
 import { useSkillStore } from '../stores/skillStore'
 import { useUiStore, type SidebarTab } from '../stores/uiStore'
 import { getRolePreset } from '../harness/roles'
@@ -76,7 +78,12 @@ export default function Sidebar({
   const setActiveDoc = useArtifactStore((s) => s.setActive)
   const mode = useSettingsStore((s) => s.mode)
   const learnedCount = useSkillStore((s) => s.learned.length)
-  const unread = useNotificationStore((s) => unreadCount(s.items))
+  /* v1.2 M2 角标统一（roadmap §2.3 F6）：
+     - 统一壳（`?v2=1`，经 isStudioV2Enabled 判定）与顶栏 ShellChrome 同口径 = 派生收件箱 total（待办 + 未读通知）；
+     - 非统一壳（默认 / `?v1=1` 旧整屏）回落旧通知未读数，保证旧 E2E / 视觉零回归。 */
+  const legacyUnread = useNotificationStore((s) => unreadCount(s.items))
+  const studioUnread = inboxCounts(useStudioInbox()).total
+  const unread = isStudioV2Enabled(window.location.search, role) ? studioUnread : legacyUnread
   const openNotifPanel = useNotificationStore((s) => s.openPanel)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [guideOpen, setGuideOpen] = useState(false)

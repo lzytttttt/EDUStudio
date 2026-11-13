@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { ProviderMode, RoleId } from '../harness/types'
+import type { StudioDigest, StudioSettings } from '../studio/contracts'
 import {
   ACTIVE_MODE,
   DEFAULT_LLM_BASEURL,
@@ -10,6 +11,45 @@ import {
 import { clearAll, loadJSON, saveJSON } from '../lib/storage'
 import { createDebouncedWriter } from '../lib/debouncedWrite'
 import { conceal, reveal } from '../lib/secretBox'
+
+/** v1.2 M2：工作区设置默认值（landing/execution 为 auto 时沿用角色默认；onboarded 为迁移期唯一引导已读位） */
+export const DEFAULT_STUDIO_SETTINGS: StudioSettings = {
+  landing: 'auto',
+  execution: 'auto',
+  onboarded: false,
+  digest: {
+    pendingDecisions: 0,
+    runningMissions: 0,
+    runningTasks: 0,
+    unreadDocs: 0,
+    unreadNotices: 0,
+    updatedAt: 0,
+  },
+}
+
+/** 工作区设置读回归一（损坏/旧值不白屏；字段缺省回落默认） */
+export function normalizeStudioSettings(raw: unknown): StudioSettings {
+  const src = (raw && typeof raw === 'object' ? raw : {}) as Partial<StudioSettings>
+  const landing = src.landing
+  const execution = src.execution
+  const digest = (src.digest && typeof src.digest === 'object' ? src.digest : {}) as Partial<StudioDigest>
+  return {
+    landing: landing === 'inbox' || landing === 'briefing' || landing === 'workbench' ? landing : 'auto',
+    execution: execution === 'real' || execution === 'mock' ? execution : 'auto',
+    onboarded: src.onboarded === true,
+    digest: {
+      pendingDecisions: Number.isFinite(digest.pendingDecisions) ? Number(digest.pendingDecisions) : 0,
+      runningMissions: Number.isFinite(digest.runningMissions) ? Number(digest.runningMissions) : 0,
+      runningTasks: Number.isFinite(digest.runningTasks) ? Number(digest.runningTasks) : 0,
+      unreadDocs: Number.isFinite(digest.unreadDocs) ? Number(digest.unreadDocs) : 0,
+      unreadNotices: Number.isFinite(digest.unreadNotices) ? Number(digest.unreadNotices) : 0,
+      ...(digest.activeMission ? { activeMission: digest.activeMission } : {}),
+      ...(digest.team ? { team: digest.team } : {}),
+      updatedAt: Number.isFinite(digest.updatedAt) ? Number(digest.updatedAt) : 0,
+    },
+    ...(src.flags && typeof src.flags === 'object' ? { flags: src.flags } : {}),
+  }
+}
 
 /** 数据源模式（v0.5 M1①）：seed 内置演示数据 / remote 远端数据平台 */
 export type DataSourceMode = 'seed' | 'remote'
@@ -116,6 +156,8 @@ interface PersistedSettings extends LLMSettings {
   focusMode?: boolean
   /** 显示技术细节（v0.9.2 P0-A）：开启后执行轨迹展示 JSON 返回数据入口（默认关，业务化文案不受影响） */
   showTechDetails?: boolean
+  /** v1.2 M2：工作区设置（landing / execution / onboarded / digest；缺省 = 旧行为） */
+  studio?: StudioSettings
 }
 
 const persisted = loadJSON<Partial<PersistedSettings>>('settings', {})
@@ -145,7 +187,15 @@ interface SettingsState extends LLMSettings {
   focusMode: boolean
   /** 显示技术细节（v0.9.2 P0-A）：默认关；开启后执行轨迹展示「查看返回数据」JSON 入口 */
   showTechDetails: boolean
+  /** v1.2 M2：工作区设置（启动页 / 默认执行模式 / 唯一引导已读位 / 主 chunk 只读投影 digest） */
+  studio: StudioSettings
   update: (patch: Partial<LLMSettings> & { tokenBudget?: number }) => void
+  /** 工作区设置局部更新（设置页「工作区」分组 / M4 默认切换用） */
+  updateStudio: (patch: Partial<StudioSettings>) => void
+  /** 只读投影写回（studioDigestStore 300ms 合并调用；不触发额外的业务副作用） */
+  updateStudioDigest: (digest: StudioDigest) => void
+  /** v1.2 M2：重看操作引导（清旧 guideSeen + 工作区 onboarded；Director 自身引导用 ?tour=1） */
+  resetStudioGuide: () => void
   updatePreferences: (patch: Partial<UserPreferences>) => void
   setFontSize: (px: number) => void
   setWatermark: (patch: Partial<WatermarkSettings>) => void
@@ -174,6 +224,7 @@ function persist(s: SettingsState): void {
     columnWidths: s.columnWidths,
     focusMode: s.focusMode,
     showTechDetails: s.showTechDetails,
+    studio: s.studio,
   })
 }
 
@@ -208,8 +259,22 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   },
   focusMode: persisted.focusMode ?? true,
   showTechDetails: persisted.showTechDetails ?? false,
+  studio: normalizeStudioSettings(persisted.studio),
   setFocusMode: (enabled) => {
     set({ focusMode: enabled })
+    persistNow()
+  },
+  updateStudio: (patch) => {
+    set({ studio: normalizeStudioSettings({ ...useSettingsStore.getState().studio, ...patch }) })
+    persistNow()
+  },
+  updateStudioDigest: (digest) => {
+    /* digest 由 StudioBus 事件高频更新：合并写盘，随 settings 的 visibilitychange flush 落盘 */
+    set({ studio: { ...useSettingsStore.getState().studio, digest } })
+    persistSoon.schedule()
+  },
+  resetStudioGuide: () => {
+    set({ guideSeen: false, studio: { ...useSettingsStore.getState().studio, onboarded: false } })
     persistNow()
   },
   setShowTechDetails: (enabled) => {
@@ -261,6 +326,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       columnWidths: { ...DEFAULT_COLUMN_WIDTHS },
       focusMode: true,
       showTechDetails: false,
+      studio: normalizeStudioSettings(DEFAULT_STUDIO_SETTINGS),
     })
     window.location.reload()
   },

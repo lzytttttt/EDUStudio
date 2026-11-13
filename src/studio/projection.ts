@@ -57,6 +57,17 @@ function withLedger(digest: StudioDigest, ledger: DigestLedger): StudioDigest {
   return digest
 }
 
+/**
+ * v1.2 M2：不可变更新（如再叠加 unreadNotices/team 字段）后，把 from 的派生账本继承给 to。
+ * 否则 gate.waiting 的 gateId 去重与 mission 进度账本会在「再包一层新对象」后丢失，
+ * 导致同一审批门重复计数。返回 to（便于链式）。
+ */
+export function inheritDigestLedger(from: StudioDigest, to: StudioDigest): StudioDigest {
+  const ledger = ledgers.get(from)
+  if (ledger) ledgers.set(to, ledger)
+  return to
+}
+
 /** 压成一行（摘要只允许一行，超长截断） */
 function oneLine(text: string, fallback: string): string {
   const normalized = text.replace(/\s+/g, ' ').trim()

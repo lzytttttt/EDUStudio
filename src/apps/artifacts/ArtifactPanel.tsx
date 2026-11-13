@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Eye, Pencil, Copy, Trash2, FileText, Check, X, Download, History, Save, Plus, RotateCcw, Share2, Link2,
   MessageSquare, RefreshCw, Crosshair, ChevronLeft, ChevronRight, ChevronDown, Gauge, ThumbsUp, ThumbsDown, ArrowLeft,
+  Package,
 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { packRow, unpackRow } from '../../lib/storeRows'
@@ -21,6 +22,7 @@ import { listTemplates } from '../../harness/scripts/artifacts'
 import { getEvaluator } from '../../harness/eval'
 import { getMemoryProvider } from '../../harness/memory'
 import type { ArtifactKind, EvalResult } from '../../harness/types'
+import { DIRECTOR_AGENT_LABELS } from '../../studio/contracts'
 import { cn } from '../../lib/cn'
 
 const KIND_LABEL: Record<string, string> = {
@@ -29,6 +31,33 @@ const KIND_LABEL: Record<string, string> = {
   notice: '通知',
   analysis: '分析',
   generic: '文档',
+}
+
+/**
+ * 文档清单行（P0-D③ 稳定投影还原后的渲染字段；v1.2 M2 增加 provenance 展示字段）。
+ * `missionId` 非空 = 总指挥 mission 交付物（归入「作战包」分组）；旧文档为空串，渲染不变。
+ */
+interface ArtifactDocRow {
+  id: string
+  title: string
+  kind: ArtifactKind
+  createdAt: number
+  empty: boolean
+  docKindCn: string
+  missionId: string
+  agentId: string
+  citationCount: number
+}
+
+/** 执行成员展示名（provenance.agentId 是字符串形态，未知 id 原样回落） */
+function agentLabelOf(agentId: string): string {
+  if (!agentId) return '战队'
+  return DIRECTOR_AGENT_LABELS[agentId as keyof typeof DIRECTOR_AGENT_LABELS] ?? agentId
+}
+
+/** 交付物类型展示名：docKindCn 优先（如「讲稿」），旧文档回落到英文 kind 映射 */
+function kindLabelOf(kind: ArtifactKind, docKindCn?: string): string {
+  return docKindCn || KIND_LABEL[kind] || '文档'
 }
 
 const EXPORT_ITEMS: { format: ExportFormat; label: string; hint: string }[] = [
@@ -60,15 +89,41 @@ export default function ArtifactPanel() {
      其余文档 / 分享登记 / 版本表的改动不再连带整块面板重渲染 */
   const doc = useArtifactStore((s) => s.docs.find((d) => d.id === s.activeId))
   /* 文档清单只订阅渲染所需字段（P0-D③）：压成稳定字符串键，正文流式不改变键 ⇒
-     清单与「上一份 / 下一份」不随 chunk 重渲染（原文档对象数组每次都是新引用，浅比较不成立） */
+     清单与「上一份 / 下一份」不随 chunk 重渲染（原文档对象数组每次都是新引用，浅比较不成立）。
+     v1.2 M2：把 provenance 展示字段（docKindCn / missionId / agentId / citations 数）一并压入，
+     静态字段不增加重渲染；旧文档这些字段为空，行为与旧版一致。 */
   const docKeys = useArtifactStore(
-    useShallow((s) => s.docs.map((d) => packRow([d.id, d.title, d.kind, d.createdAt, d.content ? 1 : 0]))),
+    useShallow((s) =>
+      s.docs.map((d) =>
+        packRow([
+          d.id,
+          d.title,
+          d.kind,
+          d.createdAt,
+          d.content ? 1 : 0,
+          d.docKindCn ?? '',
+          d.provenance?.missionId ?? '',
+          d.provenance?.agentId ?? '',
+          d.provenance?.citations?.length ?? 0,
+        ]),
+      ),
+    ),
   )
-  const docs = useMemo(
+  const docs = useMemo<ArtifactDocRow[]>(
     () =>
       docKeys.map((key) => {
-        const [id, title, kind, createdAt, hasContent] = unpackRow(key)
-        return { id, title, kind: kind as ArtifactKind, createdAt: Number(createdAt), empty: hasContent === '0' }
+        const [id, title, kind, createdAt, hasContent, docKindCn, missionId, agentId, citationCount] = unpackRow(key)
+        return {
+          id,
+          title,
+          kind: kind as ArtifactKind,
+          createdAt: Number(createdAt),
+          empty: hasContent === '0',
+          docKindCn,
+          missionId,
+          agentId,
+          citationCount: Number(citationCount),
+        }
       }),
     [docKeys],
   )
@@ -105,6 +160,10 @@ export default function ArtifactPanel() {
   const [feedback, setFeedback] = useState<Record<string, 'accepted' | 'rejected'>>({})
   const editorRef = useRef<HTMLTextAreaElement>(null)
   const docRevisions = doc ? revisions[doc.id] ?? [] : []
+  /* v1.2 M2「作战包」分组（roadmap §2.3 F3）：只有带 mission provenance 的交付物进入分组；
+     无 provenance 的旧文档不进分组、旧渲染零变化 */
+  const packageDocs = useMemo(() => docs.filter((d) => !!d.missionId), [docs])
+  const docProvenance = doc?.provenance
   const templates = role ? listTemplates(role) : []
   const docId = doc?.id
   const docKind = doc?.kind
@@ -160,7 +219,7 @@ export default function ArtifactPanel() {
       <h2 className="truncate text-sm font-semibold">{doc?.title ?? '文档工作区'}</h2>
       {doc && (
         <span className="shrink-0 rounded-full bg-primary-soft px-2 py-0.5 text-[0.625rem] font-medium text-primary">
-          {KIND_LABEL[doc.kind] ?? '文档'}
+          {kindLabelOf(doc.kind, doc.docKindCn)}
         </span>
       )}
     </>
@@ -482,7 +541,7 @@ export default function ArtifactPanel() {
                     <div className="min-w-0 flex-1">
                       <p className={cn('truncate text-xs font-medium', active && 'text-primary')}>{d.title}</p>
                       <p className="minor-info mt-0.5 text-[0.625rem] text-ink-mute">
-                        {KIND_LABEL[d.kind] ?? '文档'} · {fmtTime(d.createdAt)}
+                        {kindLabelOf(d.kind, d.docKindCn)} · {fmtTime(d.createdAt)}
                         {d.empty && ' · 生成中'}
                       </p>
                     </div>
@@ -494,6 +553,87 @@ export default function ArtifactPanel() {
           </>
         )}
       </header>
+
+      {/* v1.2 M2「作战包」（roadmap §2.3 F3/F8）：只由带 mission provenance 的交付物渲染；
+          无 provenance 的旧文档不渲染本区 ⇒ 旧渲染零变化。固定在头部下方，切到文档 tab 即可见。 */}
+      {packageDocs.length > 0 && (
+        <section
+          data-testid="artifact-package-group"
+          aria-label="作战包"
+          className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-line bg-surface-2 px-4 py-1.5"
+        >
+          <span className="inline-flex shrink-0 items-center gap-1 text-[0.625rem] font-semibold text-primary">
+            <Package size={11} />
+            作战包（{packageDocs.length}）
+          </span>
+          {packageDocs.map((d) => {
+            const active = d.id === activeId
+            return (
+              <button
+                key={d.id}
+                onClick={() => setActive(d.id)}
+                data-testid={`doc-package-item-${d.id}`}
+                title={`${d.title} · ${kindLabelOf(d.kind, d.docKindCn)}`}
+                className={cn(
+                  'inline-flex min-w-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[0.625rem] transition-colors',
+                  active
+                    ? 'border-primary bg-primary-soft text-primary'
+                    : 'border-line bg-surface text-ink-soft hover:bg-primary-soft',
+                )}
+              >
+                <span className="max-w-[7.5rem] truncate font-medium">{d.title}</span>
+                <span data-testid={`doc-provenance-agent-${d.id}`} className="shrink-0 text-ink-mute">
+                  {agentLabelOf(d.agentId)}
+                </span>
+                <span data-testid={`doc-provenance-citations-${d.id}`} className="shrink-0 tabular-nums text-ink-mute">
+                  {d.citationCount} 依据
+                </span>
+                <span data-testid={`doc-provenance-version-${d.id}`} className="shrink-0 tabular-nums text-ink-mute">
+                  v{revisions[d.id]?.length ?? 0}
+                </span>
+              </button>
+            )
+          })}
+        </section>
+      )}
+
+      {/* 当前交付物溯源 chips（roadmap §2.3 F3：谁做的 / 依据 / 版本 / 中文类型）；旧文档不渲染 */}
+      {docProvenance && (
+        <div
+          data-testid="doc-provenance"
+          className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-line px-4 py-1.5"
+        >
+          <span className="inline-flex items-center gap-1 rounded-full bg-primary-soft px-2 py-0.5 text-[0.625rem] font-medium text-primary">
+            <Package size={10} />
+            作战包交付
+          </span>
+          <span data-testid="doc-provenance-agent" className="rounded-full bg-surface-2 px-2 py-0.5 text-[0.625rem] text-ink-soft">
+            {agentLabelOf(docProvenance.agentId ?? '')} 产出
+          </span>
+          <span
+            data-testid="doc-provenance-citations"
+            className="rounded-full bg-surface-2 px-2 py-0.5 text-[0.625rem] text-ink-soft"
+          >
+            {docProvenance.citations?.length ?? 0} 条依据
+          </span>
+          <span
+            data-testid="doc-provenance-version"
+            className="rounded-full bg-surface-2 px-2 py-0.5 text-[0.625rem] text-ink-soft"
+          >
+            {docRevisions.length} 个版本
+          </span>
+          {doc?.docKindCn && (
+            <span data-testid="doc-provenance-kind" className="rounded-full bg-surface-2 px-2 py-0.5 text-[0.625rem] text-ink-soft">
+              {doc.docKindCn}
+            </span>
+          )}
+          {docProvenance.missionId && (
+            <span data-testid="doc-provenance-mission" className="minor-info text-[0.625rem] text-ink-mute">
+              {docProvenance.missionId}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* 生成可见性（v0.9.3 P0-A②③）：流式期间面板内可见进度，并提供回主工作台轻入口 */}
       {docGenerating && (
@@ -653,7 +793,15 @@ export default function ArtifactPanel() {
       {/* 底部元信息（超大字号档隐藏） */}
       {doc && (
         <footer className="minor-info flex items-center justify-between border-t border-line px-4 py-2 text-[0.625rem] text-ink-mute">
-          <span>{doc.source === 'agent' ? 'Agent 生成' : doc.source === 'manual' ? '手动创建' : '简报采纳'}</span>
+          <span>
+            {doc.source === 'mission'
+              ? '总指挥交付'
+              : doc.source === 'agent'
+                ? 'Agent 生成'
+                : doc.source === 'manual'
+                  ? '手动创建'
+                  : '简报采纳'}
+          </span>
           <span>{doc.content.length} 字 · 可编辑 / 导出</span>
         </footer>
       )}

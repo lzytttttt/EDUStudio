@@ -33,6 +33,8 @@ export interface InboxSourceItem {
   at: number
   /** 展示分类覆盖：'notice' = 只读通知；缺省按 source 判定 */
   kind?: 'decision' | 'notice'
+  /** v1.2 M2：点开时跳转动作（如简报采纳回对应会话；缺省只做只读展示） */
+  action?: { kind: 'chat'; sessionId: string }
 }
 
 /** 收件箱覆盖态：只存用户处理结果，不存任务本体（roadmap §2.4「决策」行） */

@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { ArtifactDoc, ArtifactKind, RoleId } from '../harness/types'
+import type { ArtifactDoc, ArtifactKind, ArtifactProvenanceInfo, RoleId } from '../harness/types'
 import { loadJSON, saveJSON } from '../lib/storage'
 import { createDebouncedWriter } from '../lib/debouncedWrite'
 import { getTemplateById } from '../harness/scripts/artifacts'
@@ -23,6 +23,41 @@ export interface ShareRef {
   seenAnnotations?: number
 }
 
+/**
+ * v1.2 M2 交付物发布入参（roadmap §3.5 deliverables 端口 / §4.5 发布链路）。
+ *
+ * 只新增这一个入口：正文仍以 `docs` 为唯一事实源，Director 侧只存 docId 引用，
+ * 发布后复用旧的版本 / 导出 / 分享 / 自评能力（不复制第二套文档实体）。
+ */
+export interface PublishDeliverableInput {
+  /** 稳定文档 id（可选；缺省按 provenance.missionId + 标题派生，保证重放幂等） */
+  id?: string
+  title: string
+  kind: ArtifactKind
+  role: RoleId
+  /** 定稿正文（Markdown，可含 `{{值~来源}}` 溯源标记，渲染沿用旧渲染器） */
+  markdown: string
+  /** 交付物溯源（missionId / agentId / citations / createdAt 等） */
+  provenance: ArtifactProvenanceInfo
+  /** 中文交付物类型（展示用，如「讲稿」；缺省按 kind 映射） */
+  docKindCn?: string
+  /** 产出方（缺省 'mission'；旧文档的 source 语义不变） */
+  source?: ArtifactDoc['source']
+}
+
+/** 稳定短 hash（派生交付物 docId 用；同一 mission 同一标题重放不新增文档） */
+function stableTitleHash(title: string): string {
+  let hash = 5381
+  for (let i = 0; i < title.length; i += 1) hash = ((hash << 5) + hash + title.charCodeAt(i)) >>> 0
+  return hash.toString(36)
+}
+
+/** 缺省 docId：有 missionId 时派生稳定值（重放幂等），否则一次性 id */
+function deriveDeliverableId(provenance: ArtifactProvenanceInfo, title: string): string {
+  if (provenance.missionId) return `doc-${provenance.missionId}-${stableTitleHash(title)}`
+  return `doc-deliverable-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`
+}
+
 export interface ArtifactState {
   docs: ArtifactDoc[]
   /** 每个文档的版本历史（新版本在后，上限 20 条） */
@@ -37,6 +72,11 @@ export interface ArtifactState {
   /** 批量追加（v0.9.3 P0-D②）：同帧多个 chunk 合并为一次 set，减少订阅者重渲染 */
   appendChunks: (items: { id: string; chunk: string }[]) => void
   finalize: (id: string, title: string, kind: ArtifactKind) => void
+  /**
+   * v1.2 M2：发布 mission 交付物（占位→内容→定稿的观感，但**不抢右栏焦点**、不进 generatingIds）。
+   * 幂等：同一 id 重复发布只更新内容/标题，不新增重复文档；返回 docId。
+   */
+  publishDeliverable: (input: PublishDeliverableInput) => string
   updateContent: (id: string, content: string) => void
   rename: (id: string, title: string) => void
   setActive: (id: string | null) => void
@@ -187,6 +227,82 @@ export const useArtifactStore = create<ArtifactState>((set, get) => ({
       unreadDocIds,
     })
     persistNow()
+  },
+
+  /**
+   * v1.2 M2 交付物发布（roadmap §4.5）：直接把定稿正文写入 docs（占位→内容→定稿一次完成）。
+   * 纪律（§3.5 deliverables 端口）：
+   * - **不 requestDocFocus / 不切右栏 tab**（不抢焦点；仅无有效选中文档时才落 activeId）；
+   * - 不进 generatingIds（交付物是一次性定稿，不是流式生成）；
+   * - 完成后 unreadDocIds 置位（与旧「生成完成」未读口径一致）；
+   * - 幂等：同 id 重复发布只更新内容/标题，不新增重复文档；
+   * - 写「生成完成」revision 并立即持久化。
+   */
+  publishDeliverable: (input) => {
+    const { title, kind, role, markdown, provenance, docKindCn } = input
+    const source = input.source ?? 'mission'
+    const id = input.id ?? deriveDeliverableId(provenance, title)
+    const createdAt = provenance.createdAt || Date.now()
+    const prev = get().docs.find((d) => d.id === id)
+    const revisions = { ...get().revisions }
+
+    if (!prev) {
+      revisions[id] = pushRevision(revisions[id] ?? [], {
+        id: genRevId(),
+        label: '生成完成',
+        content: markdown,
+        createdAt,
+      })
+      const doc: ArtifactDoc = {
+        id,
+        title,
+        kind,
+        role,
+        content: markdown,
+        createdAt,
+        source,
+        provenance,
+        docKindCn,
+      }
+      /* 视角纪律：只有当前没有可展示的选中文档时才落到新交付物，已有选中不打断 */
+      const currentActive = get().activeId
+      const keepActive = currentActive !== null && get().docs.some((d) => d.id === currentActive)
+      set({
+        docs: [doc, ...get().docs],
+        revisions,
+        activeId: keepActive ? currentActive : id,
+        unreadDocIds: markdown ? [...without(get().unreadDocIds, id), id] : get().unreadDocIds,
+      })
+      persistNow()
+      return id
+    }
+
+    /* 幂等更新：同一 id 不新增重复文档；内容有变才追加版本（旧内容按旧 store 先例自动快照） */
+    if (prev.content !== markdown) {
+      if (prev.content) {
+        revisions[id] = pushRevision(revisions[id] ?? [], {
+          id: genRevId(),
+          label: '重新生成前自动保存',
+          content: prev.content,
+          createdAt,
+        })
+      }
+      revisions[id] = pushRevision(revisions[id] ?? [], {
+        id: genRevId(),
+        label: '生成完成',
+        content: markdown,
+        createdAt,
+      })
+    }
+    set({
+      docs: get().docs.map((d) =>
+        d.id === id ? { ...d, title, kind, role, content: markdown, source, provenance, docKindCn } : d,
+      ),
+      revisions,
+      unreadDocIds: markdown ? [...without(get().unreadDocIds, id), id] : get().unreadDocIds,
+    })
+    persistNow()
+    return id
   },
 
   updateContent: (id, content) => {

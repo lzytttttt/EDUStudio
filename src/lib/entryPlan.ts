@@ -4,6 +4,7 @@
  * 优先级：分享路由（#share=）> `?v2=1`（统一壳，影子期）> `?v1=1`（总指挥预览）> `?demo=1`（旧简报演示）> 无。
  */
 import type { RoleId, Stage } from '../harness/types'
+import type { StudioSettings } from '../studio/contracts'
 import { isDemoEntry } from './demoEntry'
 import { isDirectorEntry } from './directorEntry'
 import { isStudioV2Enabled } from './studioEntry'
@@ -33,13 +34,19 @@ export const DIRECTOR_DENIED_NOTICE: EntryNotice = {
   body: '总指挥工作区仅对教师开放，已返回当前工作区。',
 }
 
-export function planEntry(search: string, hash: string, role: RoleId | null): EntryPlan {
+export function planEntry(
+  search: string,
+  hash: string,
+  role: RoleId | null,
+  studio?: Partial<StudioSettings>,
+): EntryPlan {
   /* 分享路由优先：不登录、不改阶段、不写引导位（v0.4 M2①） */
   if (hash.startsWith('#share=')) return { kind: 'none', loginRole: null, markGuideSeen: false }
 
   /* v1.2 M1：`?v2=1` 统一工作区（影子期）；`?legacy=1` 已在 isStudioV2Enabled 内强制回滚。
-     未登录补教师以支持深链演示；校/局保留身份，由外壳强制经典工作区（D14）。 */
-  if (isStudioV2Enabled(search, role)) {
+     M2：settings.studio 也参与判定（启动页/内部灰度），未登录补教师以支持深链演示；
+     校/局保留身份，由外壳强制经典工作区（D14）。 */
+  if (isStudioV2Enabled(search, role, studio)) {
     return {
       kind: 'studio',
       loginRole: role ? null : 'teacher',

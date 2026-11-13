@@ -20,7 +20,8 @@ import {
 } from 'lucide-react'
 import { cn } from '../../lib/cn'
 import { AGENT_MAP, COMPOSE_HINTS } from '../../harness/director/data'
-import type { DecisionItem, MissionStatus } from '../../harness/director/types'
+import type { DecisionItem, MissionStatus, Tone } from '../../harness/director/types'
+import type { InboxSource, InboxSourceItem } from '../../studio/inbox'
 import { useDirectorStore } from '../../stores/directorStore'
 import {
   AgentAvatar,
@@ -410,16 +411,153 @@ function EmptyDecisions() {
 }
 
 /* ------------------------------------------------------------------ */
+/* v1.2 M2 · 派生收件箱（同源待办，roadmap §2.3 F1/F6、§3.8）            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 派生列表契约（由总指挥工作区的 `InboxView` 注入）：
+ * - 数据来自主 chunk 的派生收件箱（gate / briefing / taskFlow / notice 四类来源），
+ *   本文件只负责展示与转发动作，不持有任务/文档/通知本体；
+ * - **不传 `derived` 时走原整屏逻辑**，旧 `?v1=1` 战情台与视觉基线零回归（M2 隔离纪律）。
+ */
+export interface InboxDerivedSource {
+  /** 同源待办（已按覆盖态过滤、排序；notice 只读项不在 decisions 里） */
+  decisions: InboxSourceItem[]
+  /** 待决策数（与 `decisions.length` 同口径；stats「待决策」只读它，不与旧 decisions 双计数） */
+  pendingCount: number
+  onOpen: (item: InboxSourceItem) => void
+  onResolve: (id: string) => void
+  onSnooze: (id: string) => void
+}
+
+/** 来源 chip：任务 / 简报 / 下发 / 通知（四类派生源，§2.4 决策表） */
+const SOURCE_META: Record<InboxSource, { label: string; tone: Tone }> = {
+  mission: { label: '任务', tone: 'amber' },
+  briefing: { label: '简报', tone: 'primary' },
+  taskFlow: { label: '下发', tone: 'graphite' },
+  notice: { label: '通知', tone: 'mint' },
+}
+
+/** 派生条目的时间：今天只显示时分，更早显示月/日（不引入新日期依赖） */
+function timeLabel(at: number): string {
+  const date = new Date(at)
+  const sameDay = date.toDateString() === new Date().toDateString()
+  if (sameDay) return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
+  return date.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' })
+}
+
+/** 动作钮基类：键盘可达 + 焦点环 + ≥44px 触控（§3.8 可访问性约定） */
+const DERIVED_BTN =
+  'inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-full px-3.5 text-[0.8125rem] font-medium transition-all duration-300 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 focus-visible:ring-offset-2 focus-visible:ring-offset-bg'
+const DERIVED_BTN_TONE = {
+  primary: 'bg-primary text-white shadow-soft hover:bg-primary-deep hover:shadow-pop',
+  soft: 'border border-line bg-surface text-ink hover:border-ink-mute/40 hover:shadow-soft',
+  ghost: 'text-ink-soft hover:bg-surface-2',
+} as const
+
+/** 一条派生待办：标题 / 来源 chip / 正文一行 / 时间 + 打开/完成/稍后 */
+function DerivedDecisionItem({
+  item,
+  index,
+  derived,
+}: {
+  item: InboxSourceItem
+  index: number
+  derived: InboxDerivedSource
+}) {
+  const meta = SOURCE_META[item.source]
+  return (
+    <article
+      data-testid="command-inbox-item"
+      data-id={item.id}
+      data-source={item.source}
+      data-guide={index === 0 ? 'decision-first' : undefined}
+      className={cn(
+        'd-rise flex flex-col gap-3 rounded-[20px] border border-line bg-surface/80 p-3.5 shadow-card-next backdrop-blur-sm sm:flex-row sm:items-center sm:gap-4 sm:p-4',
+        CARD_DELAY[index % CARD_DELAY.length],
+      )}
+    >
+      <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 items-center gap-2">
+          <Chip tone={meta.tone} dot className="shrink-0 whitespace-nowrap">
+            {meta.label}
+          </Chip>
+          <h3 className="min-w-0 truncate text-[0.9375rem] font-semibold leading-snug tracking-tight">{item.title}</h3>
+          <span className="ml-auto shrink-0 text-[0.6875rem] tabular-nums text-ink-soft">{timeLabel(item.at)}</span>
+        </div>
+        {item.body && <p className="mt-1 line-clamp-1 text-xs leading-relaxed text-ink-soft">{item.body}</p>}
+      </div>
+
+      <div className="flex shrink-0 items-center justify-end gap-2">
+        <button
+          type="button"
+          aria-label={`稍后处理 ${item.title}`}
+          onClick={() => derived.onSnooze(item.id)}
+          className={cn(DERIVED_BTN, DERIVED_BTN_TONE.ghost)}
+        >
+          <Clock size={15} strokeWidth={2} aria-hidden />
+          稍后
+        </button>
+        <button
+          type="button"
+          aria-label={`标记完成 ${item.title}`}
+          onClick={() => derived.onResolve(item.id)}
+          className={cn(DERIVED_BTN, DERIVED_BTN_TONE.soft)}
+        >
+          <Check size={15} strokeWidth={2.2} aria-hidden />
+          完成
+        </button>
+        <button
+          type="button"
+          data-testid="command-inbox-open"
+          aria-label={`打开 ${item.title}`}
+          onClick={() => derived.onOpen(item)}
+          className={cn(DERIVED_BTN, DERIVED_BTN_TONE.primary)}
+        >
+          <ArrowUpRight size={15} strokeWidth={2.2} aria-hidden />
+          打开
+        </button>
+      </div>
+    </article>
+  )
+}
+
+/** 派生待办列表容器（空态沿用旧「今日已清」） */
+function DerivedDecisionList({ derived }: { derived: InboxDerivedSource }) {
+  return (
+    <div
+      data-testid="command-inbox-derived"
+      data-guide="decisions"
+      role="list"
+      aria-live="polite"
+      className="flex flex-col gap-2.5"
+    >
+      {derived.decisions.length === 0 ? (
+        <EmptyDecisions />
+      ) : (
+        derived.decisions.map((item, index) => (
+          <div role="listitem" key={item.id}>
+            <DerivedDecisionItem item={item} index={index} derived={derived} />
+          </div>
+        ))
+      )}
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
 /* 战情台                                                              */
 /* ------------------------------------------------------------------ */
 
-export default function InboxSurface() {
+export default function InboxSurface({ derived }: { derived?: InboxDerivedSource }) {
   const decisions = useDirectorStore((s) => s.decisions)
   const stats = useDirectorStore((s) => s.stats)
   const planMission = useDirectorStore((s) => s.planMission)
   const cancelPlanning = useDirectorStore((s) => s.cancelPlanning)
   const planLoading = useDirectorStore((s) => s.planLoading)
   const snoozeDecision = useDirectorStore((s) => s.snoozeDecision)
+  /** 待决策口径：派生模式只认派生列表，旧整屏仍读旧 stats（绝不双计数） */
+  const pending = derived ? derived.pendingCount : stats.pending
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
@@ -481,7 +619,7 @@ export default function InboxSurface() {
           </div>
 
           <div className="d-rise d-delay-1 flex items-center justify-between gap-4 rounded-[22px] border border-line bg-surface/70 px-4 py-3 shadow-card-next backdrop-blur-md sm:gap-6 sm:px-5">
-            <StatCell value={stats.pending} label="待决策" tone="primary" />
+            <StatCell value={pending} label="待决策" tone="primary" />
             <span aria-hidden className="h-7 w-px shrink-0 bg-line/80" />
             <StatCell value={stats.running} label="在办" tone="mint" />
             <span aria-hidden className="h-7 w-px shrink-0 bg-line/80" />
@@ -496,30 +634,34 @@ export default function InboxSurface() {
               id="inbox-decisions-title"
               className="text-[0.6875rem] font-medium tracking-[0.16em] text-ink-soft"
             >
-              {stats.pending > 0 ? '待你拍板' : '今日已清'}
+              {pending > 0 ? '待你拍板' : '今日已清'}
             </h2>
             <span className="inline-flex items-center gap-1.5 text-[0.6875rem] tabular-nums text-ink-soft">
               <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-primary/50" />
-              {stats.pending} 件
+              {pending} 件
             </span>
           </div>
 
-          <div data-guide="decisions" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {visible.length === 0 ? (
-              <EmptyDecisions />
-            ) : (
-              visible.map((decision, index) => (
-                <DecisionCard
-                  key={decision.id}
-                  decision={decision}
-                  index={index}
-                  guideTarget={index === 0 ? 'decision-first' : undefined}
-                  onOpen={openPreview}
-                  onSnooze={snooze}
-                />
-              ))
-            )}
-          </div>
+          {derived ? (
+            <DerivedDecisionList derived={derived} />
+          ) : (
+            <div data-guide="decisions" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {visible.length === 0 ? (
+                <EmptyDecisions />
+              ) : (
+                visible.map((decision, index) => (
+                  <DecisionCard
+                    key={decision.id}
+                    decision={decision}
+                    index={index}
+                    guideTarget={index === 0 ? 'decision-first' : undefined}
+                    onOpen={openPreview}
+                    onSnooze={snooze}
+                  />
+                ))
+              )}
+            </div>
+          )}
         </section>
 
         {/* 3 · 一句话委托：占位符自己说明能做什么 */}

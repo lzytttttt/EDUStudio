@@ -216,6 +216,23 @@ export interface AgentProvider {
 
 export type ArtifactKind = 'lessonPlan' | 'report' | 'notice' | 'analysis' | 'generic'
 
+/**
+ * v1.2 M2：交付物溯源信息（可选，缺省 = 旧文档行为不变）。
+ * 结构上兼容 `studio/contracts.ts` 的 `ArtifactProvenance`；这里用结构化最小定义，
+ * 避免 core harness 反向依赖 studio 契约。
+ */
+export interface ArtifactProvenanceInfo {
+  missionId?: string
+  taskId?: string
+  /** 产出的执行成员 id（DirectorAgentId 的字符串形态，避免 core 层耦合） */
+  agentId?: string
+  /** 依据的数字（值 / 来源），交付物发布前由证据链校验 */
+  citations?: { value: string; source: string; factId?: string }[]
+  /** 关联的任务引用（chat/loom/flow/mission，字符串化 id 集合） */
+  refs?: { kind: string; id: string; subId?: string }[]
+  createdAt: number
+}
+
 export interface ArtifactDoc {
   id: string
   title: string
@@ -223,7 +240,12 @@ export interface ArtifactDoc {
   role: RoleId
   content: string
   createdAt: number
-  source: 'agent' | 'briefing' | 'manual'
+  /** v1.2 M2：`mission` = 总指挥交付物（统一壳产出）；旧值语义不变 */
+  source: 'agent' | 'briefing' | 'manual' | 'mission'
+  /** v1.2 M2：交付物溯源（仅 mission 产出等接入方填充；缺省旧文档不变） */
+  provenance?: ArtifactProvenanceInfo
+  /** v1.2 M2：中文交付物类型（展示用，如「讲稿」；缺省按 kind 映射） */
+  docKindCn?: string
 }
 
 export interface ArtifactProvider {
@@ -293,6 +315,12 @@ export interface MemoryEntry {
   ref?: string
   /** 置信度 0-1（semantic 用） */
   confidence?: number
+  /**
+   * v1.2 M2：Agent 经验命名空间（如 'chief' / 'communicator'）。
+   * 缺省 = 用户偏好层（旧行为，字节级不变）；存在时该条记忆归属某个执行成员，
+   * 语义键约定 `agent.<id>.*`，不污染 `teacher.*` 旧键。
+   */
+  agentId?: string
 }
 
 /**

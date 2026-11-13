@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
-import { FileText, Sparkles, Loader2, Send } from 'lucide-react'
+import { FileText, Sparkles, Loader2, Send, Users } from 'lucide-react'
 import ArtifactPanel from '../apps/artifacts/ArtifactPanel'
 import { useAuthStore } from '../stores/authStore'
 import { useQuizStore } from '../stores/quizStore'
@@ -8,6 +8,7 @@ import { useUiStore } from '../stores/uiStore'
 import { useTaskFlowStore, flowsForRole } from '../stores/taskFlowStore'
 import { BOARD_LABEL } from '../lib/rightPanel'
 import type { RoleId } from '../harness/types'
+import TeamSummaryPanel from './TeamSummaryPanel'
 import { cn } from '../lib/cn'
 
 /** 角色增强面板懒加载（v0.3 专项 ①：按需分包） */
@@ -163,11 +164,25 @@ export default function RightPanel({ variant = 'desktop' }: { variant?: 'desktop
             </span>
           )}
         </button>
+        {/* v1.2 M2:只读「团队」tab（roadmap §2.3 F9）：成员状态 + 待批准数，无授权编辑入口 */}
+        <button
+          onClick={() => setRightTab('team')}
+          data-testid="tab-team"
+          className={cn(
+            'flex items-center gap-1.5 rounded-t-lg px-3 py-2 text-xs font-medium transition-colors',
+            rightTab === 'team' ? 'border-b-2 border-primary text-primary' : 'text-ink-mute hover:text-ink-soft',
+          )}
+        >
+          <Users size={13} />
+          团队
+        </button>
       </div>
 
       {/* 内容 */}
       <div className="flex min-h-0 flex-1 flex-col">
-        {rightTab === 'doc' ? (
+        {rightTab === 'team' ? (
+          <TeamSummaryPanel />
+        ) : rightTab === 'doc' ? (
           <ArtifactPanel />
         ) : rightTab === 'flow' ? (
           <Suspense fallback={<BoardFallback />}>

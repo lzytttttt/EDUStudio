@@ -43,7 +43,13 @@ const BUDGET = {
   // director 共享 23.8 + Inbox/Mission/TeamSurface 4.9/5.4/3.0 + Commander 2.0 等 chunk），
   // 主 chunk 102.1 → 106.9KB（+4.8，契约/壳/路由进主包）；全 JS 343.2 → 355.8KB
   //（+12.6，M1 新增外壳与容器 + 二级拆分开销），按实测 + 余量校准 348 → 360KB。
-  totalJsKB: 360, // 全部 JS gzip 上限
+  // v1.2 M2 校准：实体融合（统一收件箱/digest 运行时、简报采纳同源待办、交付物入 artifactStore +
+  // 作战包分组、uiStore 统一 toast、Agent 记忆命名空间、右栏只读团队 tab、settings.studio），
+  // 主 chunk 106.9 → 113.4KB（+6.5：两个运行时 store + toast/团队摘要 + 设置分组进主包）；
+  // 全 JS 355.8 → 364.9KB（+9.1：交付物发布桥 + 收件箱/团队/作战包 UI + 记忆/toast 逻辑），
+  // 按实测 + 余量校准 360 → 370KB。主 chunk 仅剩 6.6KB 余量：M3 真执行内核必须留在 Director chunk，
+  // 主 chunk 只允许「契约 + 薄运行时」，否则 M3 收口时需先懒加载腾挪再抬阈值（阈值仍不直接抬 120）。
+  totalJsKB: 370, // 全部 JS gzip 上限
   directorChunkKB: 50, // Director 相关 chunk 合计 gzip 上限（v1.2 真执行/bridge 预算；超限拆 runner）
   /** Director chunk 归组（M1 起：DirectorApp 整块被拆分为容器/三视图/共享模块，gate 按合计口径） */
   directorChunkPattern: /^(DirectorApp|director|CommandCenter|InboxView|MissionView|TeamView|InboxSurface|MissionSurface|TeamSurface|GuideBar|ArtifactSheet)-.*\.js$/,

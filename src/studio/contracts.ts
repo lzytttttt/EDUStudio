@@ -87,6 +87,16 @@ export const DIRECTOR_AGENT_IDS: readonly DirectorAgentId[] = [
   'steward',
 ]
 
+/** 主 chunk 可用的成员展示名（右栏只读团队摘要等；不 import Director 实现） */
+export const DIRECTOR_AGENT_LABELS: Record<DirectorAgentId, string> = {
+  chief: '总指挥',
+  analyst: '学情分析',
+  assessor: '命题评估',
+  curriculum: '课程设计',
+  communicator: '家校沟通',
+  steward: '班务管家',
+}
+
 /* ------------------------------------------------------------------ */
 /* 2. 事件总线（附录 A · §3.4）                                          */
 /* ------------------------------------------------------------------ */
@@ -94,10 +104,12 @@ export const DIRECTOR_AGENT_IDS: readonly DirectorAgentId[] = [
 export type SurfaceId = 'inbox' | 'mission' | 'team' | 'chat' | 'loom' | 'briefing'
 
 export type StudioEvent =
-  | { type: 'card.accepted'; cardId: string; role: RoleId; goal: string }
+  /** v1.2 M2：补可选 title/sessionId（简报采纳 → 收件箱同源待办与「点开看会话」需要；缺省旧字段语义不变） */
+  | { type: 'card.accepted'; cardId: string; role: RoleId; goal: string; title?: string; sessionId?: string }
   | { type: 'card.favorited'; cardId: string; role: RoleId; tag: string }
   | { type: 'intent.submitted'; intent: string; source: 'briefing' | 'inbox' | 'chat'; cardId?: string; sessionId?: string }
-  | { type: 'mission.planned'; missionId: string; kind: MissionKind; planSource: PlanSource; tasks: number }
+  /** v1.2 M2：补可选 agentIds（投影成员状态用，缺省只记数量） */
+  | { type: 'mission.planned'; missionId: string; kind: MissionKind; planSource: PlanSource; tasks: number; agentIds?: DirectorAgentId[] }
   | { type: 'mission.started'; missionId: string; execution: 'real' | 'mock' }
   | { type: 'mission.task.done'; missionId: string; taskId: string; agentId: DirectorAgentId; artifactIds?: string[] }
   | { type: 'mission.partial'; missionId: string; failedTasks: string[]; reason: string }
@@ -123,12 +135,22 @@ export interface StudioBus {
 /* 3. 只读投影与事实（附录 A 2.5 · §3.4 / §3.6）                         */
 /* ------------------------------------------------------------------ */
 
+/** 右栏「团队」只读摘要（v1.2 M2）：成员状态 + 待批准数，只读派生，不含授权编辑 */
+export interface StudioTeamSummary {
+  agents: { id: DirectorAgentId; status: 'idle' | 'running' | 'waiting' }[]
+  pendingApprovals: number
+}
+
 /** 主 chunk 只读投影（≤1KB）：侧栏 / 角标 / 右栏摘要消费；只存计数与一行摘要，不存实体 */
 export interface StudioDigest {
   pendingDecisions: number
   runningMissions: number
   runningTasks: number
   unreadDocs: number
+  /** v1.2 M2：未读通知数（与「战情台待办」一起构成统一收件箱角标） */
+  unreadNotices?: number
+  /** v1.2 M2：右栏只读团队摘要（≤6 个成员，随 mission 事件更新） */
+  team?: StudioTeamSummary
   activeMission?: { id: string; title: string; progress: number; status: MissionStatus }
   updatedAt: number
 }
