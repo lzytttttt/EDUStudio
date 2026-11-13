@@ -32,7 +32,16 @@ function sessionSummary(entries: ChatEntry[]): string {
   return ''
 }
 
-export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
+/** 侧栏：任务 / 收藏 / 文档 / 技能 + 身份。
+ *  v1.2 M1：新增可选 `onOpenBriefing`（统一外壳接管「返回今日简报」→ 走路由跳转）；
+ *  缺省保持旧行为 `setStage('briefing')`，不传时渲染与行为不变。 */
+export default function Sidebar({
+  onNavigate,
+  onOpenBriefing,
+}: {
+  onNavigate?: () => void
+  onOpenBriefing?: () => void
+}) {
   const role = useAuthStore((s) => s.role)
   const setStage = useAuthStore((s) => s.setStage)
   const logout = useAuthStore((s) => s.logout)
@@ -82,7 +91,11 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       {/* 品牌 */}
       <div className="flex items-center justify-between px-4 pb-3 pt-4">
         <button
-          onClick={() => { setStage('briefing'); onNavigate?.() }}
+          onClick={() => {
+            if (onOpenBriefing) onOpenBriefing()
+            else setStage('briefing')
+            onNavigate?.()
+          }}
           className="flex items-center gap-2 rounded-xl px-1 py-1 text-left transition-colors hover:bg-surface-2"
           title="返回今日简报"
         >

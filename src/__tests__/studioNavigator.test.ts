@@ -193,15 +193,15 @@ describe('createNavigator · history 语义与目标映射', () => {
     expect(last(pushes(env)).url).toBe('/?v2=1&view=inbox&id=dec-1')
 
     nav.open({ kind: 'briefing' })
-    expect(last(pushes(env)).url).toBe('/?view=briefing')
+    expect(last(pushes(env)).url).toBe('/?v2=1&view=briefing')
 
     nav.open({ kind: 'chat' })
-    expect(last(pushes(env)).url).toBe('/?view=chat')
+    expect(last(pushes(env)).url).toBe('/?v2=1&view=chat')
     nav.open({ kind: 'loom', id: 'n-1' })
-    expect(last(pushes(env)).url).toBe('/?view=loom&id=n-1')
+    expect(last(pushes(env)).url).toBe('/?v2=1&view=loom&id=n-1')
 
     nav.open({ kind: 'board', role: 'teacher' })
-    expect(last(pushes(env)).url).toBe('/?tab=board')
+    expect(last(pushes(env)).url).toBe('/?v2=1&view=loom&tab=board')
   })
 
   it('默认 open（user）每次都 pushState；canBack 随栈增长', () => {

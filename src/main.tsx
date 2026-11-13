@@ -8,6 +8,7 @@ import { useSettingsStore, flushSettingsPersist } from './stores/settingsStore'
 import { useNotificationStore } from './stores/notificationStore'
 import { flushArtifactPersist } from './stores/artifactStore'
 import { planEntry } from './lib/entryPlan'
+import { startStudioRouting } from './studio/router'
 import { installTelemetry } from './lib/telemetry'
 
 // 界面外观同步（v0.6.1 评审修订）：字号全局生效——
@@ -42,13 +43,18 @@ window.addEventListener('pagehide', flushPersist)
 // 前端错误上报（v0.5 M4⑤）：全局 error / unhandledrejection 采样上报轻后端
 installTelemetry()
 
-// 入口直达（v1.2 M0 P0-1/P0-2/P0-3）：入口判定在 lib/entryPlan.ts（纯函数），这里只应用副作用。
+// 入口直达（v1.2 M0 P0-1/P0-2/P0-3 + M1 ?v2=1）：入口判定在 lib/entryPlan.ts（纯函数），这里只应用副作用。
 // 分享路由（#share=）优先且不参与；`?v1=1` 不再写旧引导已读位、不覆盖已有校/局身份，
 // command 阶段由 authStore 保证不落盘，之后无参数冷启动回到角色合法阶段。
+// `?v2=1`：统一工作区（影子期），启动路由运行时（URL → routeStore + popstate 回灌）。
 const entry = planEntry(window.location.search, window.location.hash, useAuthStore.getState().role)
 const auth = useAuthStore.getState()
 if (entry.loginRole) auth.login(entry.loginRole)
-if (entry.stage) auth.setStage(entry.stage)
+if (entry.kind === 'studio') {
+  startStudioRouting()
+} else if (entry.stage) {
+  auth.setStage(entry.stage)
+}
 /* `?demo=1` 保持旧行为：已登录时回简报 */
 else if (entry.kind === 'demo' && !entry.loginRole) auth.setStage('briefing')
 if (entry.markGuideSeen) useSettingsStore.getState().markGuideSeen()

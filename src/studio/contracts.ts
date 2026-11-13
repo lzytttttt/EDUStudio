@@ -54,6 +54,15 @@ export interface Navigator {
   go(route: Partial<RouteState>, opts?: { replace?: boolean }): void
   back(): void
   canBack(): boolean
+  /**
+   * v1.2 M1（可选增量）：浏览器返回 / 外部 URL 变化后，把 Navigator 的内部 current 与 URL 对齐。
+   * 由 `studio/router.ts` 在 popstate 时调用；不写 history、不改变返回栈深度以外的东西。
+   */
+  syncFromLocation?(): RouteState
+  /** v1.2 M1（可选增量）：当前内存栈深度（诊断/单测用；浏览器返回键行为由真实 history 决定） */
+  depth?(): number
+  /** v1.2 M1（可选增量）：最近一次 commit 的 RouteState（路由运行时写 routeStore 用，避免 URL 规范化造成的回读漂移） */
+  currentRoute?(): RouteState
 }
 
 /**

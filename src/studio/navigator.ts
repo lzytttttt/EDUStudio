@@ -26,6 +26,8 @@ const DIRECTOR_VIEWS: readonly DirectorView[] = ['inbox', 'mission', 'team']
 const CLASSIC_VIEWS: readonly ClassicView[] = ['chat', 'loom']
 const RIGHT_TABS: readonly RightTab[] = ['doc', 'board', 'flow', 'team']
 const VIEW_NAMES: readonly (DirectorView | ClassicView | 'briefing')[] = [...DIRECTOR_VIEWS, ...CLASSIC_VIEWS, 'briefing']
+/** v1.2 M1：跳转时需要保留的非路由查询参数（引导 / 彩排 / 演示），不参与 RouteState 编解码 */
+const PRESERVED_PARAMS: readonly string[] = ['tour', 'exec', 'llm', 'mission', 'demo']
 
 function parseUrl(url: string): URL {
   try {
@@ -254,10 +256,36 @@ function applyTarget(route: RouteState, target: WorkTarget): RouteState {
   }
 }
 
-/** 目标 URL：保留当前 path，清掉不参与路由的 hash */
+/** 目标 URL：保留当前 path，清掉不参与路由的 hash；并保留只读查询参数（M1 §3.2） */
 function buildUrl(location: string, route: RouteState): string {
-  const { pathname } = parseUrl(location)
-  return `${pathname}${encodeRoute(route)}`
+  const parsed = parseUrl(location)
+  const encoded = encodeRoute(route)
+  const params = new URLSearchParams(encoded.startsWith('?') ? encoded.slice(1) : encoded)
+  /* 统一工作区（`?v2=1` 影子期）：一旦进入新壳，跨工作区跳转必须保留 v2 开关——
+     否则「总指挥 → 经典」后 URL 退回无参、刷新会掉回旧壳。经典工作区额外补 view=chat|loom，
+     保证刷新后仍解析为经典工作区（`?v2=1` 单独出现默认是总指挥战情台）。 */
+  const studioShell = isSwitchOn(parsed.searchParams.get('v2')) || route.workspace === 'director'
+  if (studioShell) {
+    if (!params.has('v2')) params.set('v2', '1')
+    if (route.workspace === 'classic' && !params.has('view')) params.set('view', route.classicView)
+  }
+  /* 非路由参数在跳转后不能丢：`?tour=`（引导）、`?exec=` / `?llm=`（执行/拆解彩排）、
+     `?mission=`（演示兜底种计划）、`?demo=`（演示标识）。路由参数以 RouteState 为准。 */
+  for (const key of PRESERVED_PARAMS) {
+    if (params.has(key)) continue
+    const value = parsed.searchParams.get(key)
+    if (value !== null) params.set(key, value)
+  }
+  /* 固定输出顺序（v2 → view → id → task → agent → tab → 保留参数），避免 URL 噪音与断言漂移 */
+  const ordered = new URLSearchParams()
+  const put = (key: string): void => {
+    const value = params.get(key)
+    if (value !== null) ordered.set(key, value)
+  }
+  ;['v2', 'view', 'id', 'task', 'agent', 'tab'].forEach(put)
+  for (const key of PRESERVED_PARAMS) put(key)
+  const query = ordered.toString()
+  return `${parsed.pathname}${query ? `?${query}` : ''}`
 }
 
 /**
@@ -297,6 +325,18 @@ export function createNavigator(env: NavigatorEnv): Navigator {
     },
     canBack(): boolean {
       return depth > 0
+    },
+    /** v1.2 M1：popstate 后与 URL 对齐（浏览器返回栈已由真实 history 变化，depth 同步减一） */
+    syncFromLocation(): RouteState {
+      current = parseRoute(env.getLocation())
+      depth = Math.max(0, depth - 1)
+      return current
+    },
+    depth(): number {
+      return depth
+    },
+    currentRoute(): RouteState {
+      return current
     },
   }
 }

@@ -15,8 +15,19 @@ import { t } from '../lib/i18n'
 import { cn } from '../lib/cn'
 
 /** 三栏工作台外壳：<xl 右栏折叠为抽屉，<md 左栏折叠为抽屉 + 底部标签（v0.5 M4②）；
- *  桌面端左右栏宽度可拖拽调整（v0.6 M4②），分隔条承担边线视觉 */
-export default function AppShell() {
+ *  桌面端左右栏宽度可拖拽调整（v0.6 M4②），分隔条承担边线视觉
+ *
+ *  v1.2 M1（统一外壳）：新增可选 props，**不传时渲染结果与旧版完全一致**（旧 E2E 依赖）；
+ *  - `embedded`：由 ShellLayout 嵌入时隐藏自带移动端顶栏（统一顶栏已承担返回/导航）；
+ *  - `onOpenBriefing`：外壳接管「返回今日简报」（走 route 跳转），缺省仍走旧 `setStage('briefing')`。 */
+export interface AppShellProps {
+  /** 嵌入统一外壳（?v2=1）时为 true：隐藏移动端顶栏，保留底部 tabbar / 左右栏 / 抽屉 / 通知 / 引导 */
+  embedded?: boolean
+  /** 「返回今日简报」出口覆盖；缺省 = 旧行为 setStage('briefing') */
+  onOpenBriefing?: () => void
+}
+
+export default function AppShell({ embedded = false, onOpenBriefing }: AppShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [artifactOpen, setArtifactOpen] = useState(false)
   const setStage = useAuthStore((s) => s.setStage)
@@ -60,7 +71,7 @@ export default function AppShell() {
         style={{ width: columnWidths.left }}
         className="hidden md:flex shrink-0 bg-surface"
       >
-        <Sidebar onNavigate={() => setSidebarOpen(false)} />
+        <Sidebar onNavigate={() => setSidebarOpen(false)} onOpenBriefing={onOpenBriefing} />
       </aside>
       <Resizer
         at="md"
@@ -73,24 +84,30 @@ export default function AppShell() {
         <div className="fixed inset-0 z-40 md:hidden">
           <div className="absolute inset-0 bg-ink/30 backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
           <aside className="absolute inset-y-0 left-0 flex w-72 animate-slide-in-right border-r border-line bg-surface">
-            <Sidebar onNavigate={() => setSidebarOpen(false)} />
+            <Sidebar onNavigate={() => setSidebarOpen(false)} onOpenBriefing={onOpenBriefing} />
           </aside>
         </div>
       )}
 
       {/* 中栏：对话流（移动端为底部标签栏 + iOS 安全区让位，v0.6.1 修复输入框被遮挡） */}
       <main className="relative flex min-w-0 flex-1 flex-col pb-[calc(var(--tabbar-h)+env(safe-area-inset-bottom))] md:pb-0">
-        {/* 移动端顶栏：返回简报明确入口（v0.9 M5④，原品牌文字按钮可发现性弱） */}
-        <div className="flex items-center border-b border-line bg-surface px-3 py-2 md:hidden">
-          <button
-            onClick={() => setStage('briefing')}
-            className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-ink-soft transition-colors hover:bg-surface-2"
-            title="返回今日简报"
-          >
-            <ArrowLeft size={16} />
-            简报
-          </button>
-        </div>
+        {/* 移动端顶栏：返回简报明确入口（v0.9 M5④，原品牌文字按钮可发现性弱）
+            v1.2 M1：embedded（统一外壳内）时整行隐藏，避免与 ShellChrome 顶栏重复 */}
+        {!embedded && (
+          <div className="flex items-center border-b border-line bg-surface px-3 py-2 md:hidden">
+            <button
+              onClick={() => {
+                if (onOpenBriefing) onOpenBriefing()
+                else setStage('briefing')
+              }}
+              className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-ink-soft transition-colors hover:bg-surface-2"
+              title="返回今日简报"
+            >
+              <ArrowLeft size={16} />
+              简报
+            </button>
+          </div>
+        )}
         <ChatPanel />
       </main>
 

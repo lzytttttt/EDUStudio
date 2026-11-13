@@ -1,8 +1,8 @@
 /**
  * v0.4 M3③：包体预算门禁。
  * - 主 chunk（index-*.js）gzip ≤ 120KB（阈值不抬，逼近时走懒加载）
- * - 全部 JS gzip ≤ 348KB（v1.2 M0 实测重校；见下方校准注释）
- * - Director chunk（DirectorApp-*.js）gzip ≤ 50KB（v1.2 新增门槛，超限拆 runner）
+ * - 全部 JS gzip ≤ 360KB（v1.2 M1 实测重校；见下方校准注释）
+ * - Director 相关 chunk 合计 gzip ≤ 50KB（v1.2 门槛；M1 起按 chunk 拆分求和，超限拆 runner）
  * 超限 exit 1，CI 中作为 build 后门禁执行。
  */
 import { gzipSync } from 'node:zlib'
@@ -10,7 +10,7 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 const BUDGET = {
-  mainChunkKB: 120, // 主 chunk gzip 上限（v1.2 M0 实测 101.8KB，余量 ~18KB 留给 M1 外壳）
+  mainChunkKB: 120, // 主 chunk gzip 上限（v1.2 M1 实测 106.9KB，余量 ~13KB 留给 M2 收件箱/交付物接线）
   // v0.6 校准：v0.5.2 基线实测 238.6KB（recharts 懒加载 chunk 即占 105KB），230KB 阈值自 v0.4 沿袭未随
   // vendor 拆分与图表库引入重校，属存量潜伏超限；按基线 + v0.6 增量（约 7KB）+ 余量校准为 250KB
   // v0.8 校准：v0.7 简报交互/落章/专注模式 + v0.8 数据上下文层与 LLM 技能提炼（合计约 +9KB 业务代码，
@@ -36,10 +36,17 @@ const BUDGET = {
   //（DirectorApp 17.4 → 33.9KB gzip；主 chunk 119.5 / 120KB 不动，未抬阈值）；零新依赖。
   // 全 JS 实测 340.04KB，按实测 + 余量校准 330 → 342KB。
   // v1.2 M0 校准：BriefingPage（17.2KB gzip）/ ShareView（3.8KB gzip）改为 lazy chunk 腾主 chunk 预算，
-  // 主 chunk 119.5 → 101.8KB（腾出 17.7KB，M1 外壳/契约有地方放）；拆分本身带来 chunk 边界开销，
-  // 全 JS 340.0 → 342.9KB（净 +2.9KB，非业务增量），按实测 + 余量校准 342 → 348KB。
-  totalJsKB: 348, // 全部 JS gzip 上限
-  directorChunkKB: 50, // DirectorApp lazy chunk gzip 上限（v1.2 真执行/bridge 预算；超限拆 runner）
+  // 主 chunk 119.5 → 102.1KB（腾出 17.7KB，M1 外壳/契约有地方放）；拆分本身带来 chunk 边界开销，
+  // 全 JS 340.0 → 343.2KB（净 +2.9KB，非业务增量），按实测 + 余量校准 342 → 348KB。
+  // v1.2 M1 校准：统一外壳（ShellLayout/ShellChrome/WorkspaceSwitcher/IntentBar）+ 路由运行时 +
+  // CommandCenter（三视图经 SurfaceHost 再拆一级懒加载，DirectorApp 由整块 33.9KB 拆成
+  // director 共享 23.8 + Inbox/Mission/TeamSurface 4.9/5.4/3.0 + Commander 2.0 等 chunk），
+  // 主 chunk 102.1 → 106.9KB（+4.8，契约/壳/路由进主包）；全 JS 343.2 → 355.8KB
+  //（+12.6，M1 新增外壳与容器 + 二级拆分开销），按实测 + 余量校准 348 → 360KB。
+  totalJsKB: 360, // 全部 JS gzip 上限
+  directorChunkKB: 50, // Director 相关 chunk 合计 gzip 上限（v1.2 真执行/bridge 预算；超限拆 runner）
+  /** Director chunk 归组（M1 起：DirectorApp 整块被拆分为容器/三视图/共享模块，gate 按合计口径） */
+  directorChunkPattern: /^(DirectorApp|director|CommandCenter|InboxView|MissionView|TeamView|InboxSurface|MissionSurface|TeamSurface|GuideBar|ArtifactSheet)-.*\.js$/,
 }
 
 const dist = 'dist/assets'
@@ -55,12 +62,16 @@ try {
   let total = 0
   let main = 0
   let director = 0
+  let directorChunks = 0
   const rows = []
   for (const f of files) {
     const gz = gzipSync(readFileSync(join(dist, f))).length
     total += gz
     if (/^index-.*\.js$/.test(f)) main = Math.max(main, gz)
-    if (/^DirectorApp-.*\.js$/.test(f)) director = Math.max(director, gz)
+    if (BUDGET.directorChunkPattern.test(f)) {
+      director += gz
+      directorChunks += 1
+    }
     rows.push({ f, gz })
   }
 
@@ -69,12 +80,14 @@ try {
 
   const mainOk = main <= BUDGET.mainChunkKB * 1024
   const totalOk = total <= BUDGET.totalJsKB * 1024
-  const directorOk = director > 0 && director <= BUDGET.directorChunkKB * 1024
+  const directorOk = directorChunks > 0 && director <= BUDGET.directorChunkKB * 1024
   console.log('')
   console.log(`主 chunk gzip: ${kb(main)} KB / 预算 ${BUDGET.mainChunkKB} KB  ${mainOk ? 'PASS' : 'FAIL'}`)
   console.log(`全部 JS  gzip: ${kb(total)} KB / 预算 ${BUDGET.totalJsKB} KB  ${totalOk ? 'PASS' : 'FAIL'}`)
   console.log(
-    `Director chunk gzip: ${kb(director)} KB / 预算 ${BUDGET.directorChunkKB} KB  ${directorOk ? 'PASS' : 'FAIL'}`,
+    `Director 相关 chunk gzip: ${kb(director)} KB（${directorChunks} 个）/ 预算 ${BUDGET.directorChunkKB} KB  ${
+      directorOk ? 'PASS' : 'FAIL'
+    }`,
   )
 
   if (!mainOk || !totalOk || !directorOk) process.exit(1)

@@ -110,11 +110,17 @@ describe('chunk 边界（源码层）', () => {
   })
 
   it('src/studio/** 不静态 import 旧 store / Director 模块（契约层只放类型与极薄运行时）', () => {
+    /* v1.2 M1 登记例外：router.ts 是主 chunk 路由运行时，只允许读写新的 route 渲染缓存
+       （stores/routeStore 是 §7.1 明确归主 chunk 的新 store，不是旧业务事实源）。 */
+    const STUDIO_STORE_EXCEPTIONS: Record<string, string[]> = {
+      '/src/studio/router.ts': ['/src/stores/routeStore'],
+    }
     const violations: string[] = []
     for (const [path] of sourceEntries) {
       if (!path.startsWith('/src/studio/')) continue
       for (const ref of importsOf(path)) {
         if (ref.typeOnly) continue
+        if (STUDIO_STORE_EXCEPTIONS[path]?.includes(ref.resolved)) continue
         if (
           ref.resolved.startsWith('/src/stores/') ||
           ref.resolved.startsWith('/src/apps/') ||
