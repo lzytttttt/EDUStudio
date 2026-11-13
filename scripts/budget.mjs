@@ -43,6 +43,12 @@ const BUDGET = {
   // director 共享 23.8 + Inbox/Mission/TeamSurface 4.9/5.4/3.0 + Commander 2.0 等 chunk），
   // 主 chunk 102.1 → 106.9KB（+4.8，契约/壳/路由进主包）；全 JS 343.2 → 355.8KB
   //（+12.6，M1 新增外壳与容器 + 二级拆分开销），按实测 + 余量校准 348 → 360KB。
+  // v1.2 M4/M5 收口校准（最终）：schema v1→v2 迁移 + 默认期入口（App/main/entryPlan）+ 引导合并与
+  // 升级提示/经典 CTA + E2E/视觉迁移。主 chunk 113.4（M2）→ 115.0（M3）→ 116.6KB（M4，仍守 120KB，
+  // 余量 3.4KB：v1.3 前不得再向主包塞重代码）；全 JS 364.9 → 379.5（M3）→ 382.1KB（M4，按 M3 重校的
+  // 386KB 门禁）；runner 独立懒加载 chunk 7.0KB（M3 新增 12KB 门槛）；Director 相关 49.0KB（M4 返回
+  // 49.0/50KB，余量 1.0KB）。零新依赖。以下 mainChunkKB / directorChunkKB / runnerChunkKB 阈值不再放宽，
+  // 后续超限一律先懒加载/拆分再谈阈值。
   // v1.2 M2 校准：实体融合（统一收件箱/digest 运行时、简报采纳同源待办、交付物入 artifactStore +
   // 作战包分组、uiStore 统一 toast、Agent 记忆命名空间、右栏只读团队 tab、settings.studio），
   // 主 chunk 106.9 → 113.4KB（+6.5：两个运行时 store + toast/团队摘要 + 设置分组进主包）；
